@@ -316,7 +316,7 @@ function ScreenBody({ screen }: { screen: string }) {
             <b>{countIn ? '1 bar' : 'Off'}</b>
           </div>
           <div className="hintline">
-            Tap a pad to pick seq 1–16 (when stopped). SEQ RECORD arms + starts transport.
+            Stopped: tap a pad to select seq 1–16. Playing: tap to queue — switches at loop end.
           </div>
         </div>
       );

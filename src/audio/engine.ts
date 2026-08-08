@@ -1,7 +1,7 @@
 import { MAX_VOICES, NUM_PADS, PPQN } from './types';
 import type { Pad, Project, SeqEvent, Sequence } from './types';
 import { triggerVoice, voiceFrameAt, type Voice } from './voice';
-import { stretchFactorFromWarp, timeStretchBuffer } from './stretch';
+import { resolvePlayback as resolvePlaybackShared, reverseBuffer, warpRate as warpRateShared } from './playback';
 import { Scheduler, type TransportState, ticksPerBar } from './scheduler';
 import { KnobFX, type KnobFXId } from './fx/knobfx';
 import { PadFXRack, type PadFXId } from './fx/padfx';
@@ -42,6 +42,8 @@ export class Engine {
   songIndex = 0;
   onRecordHit: ((ev: SeqEvent) => void) | null = null;
   onSongStepChange: ((bank: number, slot: number) => void) | null = null;
+  /** Fired at each sequence loop boundary (not during song chain). */
+  onSeqLoopEnd: (() => void) | null = null;
 
   /** Pad Play modes. Set from the UI; consulted on every trigger. */
   chopMode = false;
@@ -214,19 +216,7 @@ export class Engine {
     if (cached) return cached;
     const src = this.buffers.get(id);
     if (!src || !this.ctx) return null;
-
-    const out = this.ctx.createBuffer(
-      src.numberOfChannels,
-      src.length,
-      src.sampleRate
-    );
-    for (let ch = 0; ch < src.numberOfChannels; ch++) {
-      const from = src.getChannelData(ch);
-      const to = out.getChannelData(ch);
-      for (let i = 0, j = from.length - 1; i < from.length; i++, j--) {
-        to[i] = from[j];
-      }
-    }
+    const out = reverseBuffer(this.ctx, src);
     this.reversed.set(id, out);
     return out;
   }
@@ -312,30 +302,9 @@ export class Engine {
     buffer: AudioBuffer,
     region?: { start: number; end: number },
   ): { buffer: AudioBuffer; rate: number; padOverride: Partial<Pad> | null } {
-    const start = region?.start ?? pad.start;
-    const end = region?.end ?? (pad.end || buffer.length);
-    const regionDur = (end - start) / buffer.sampleRate;
-
-    if (pad.warpMode === 'stretch' && pad.warpAmount !== 'off' && this.ctx) {
-      const bpm = this.project?.bpm ?? 120;
-      const factor = stretchFactorFromWarp(pad.warpAmount, pad.beats, bpm, regionDur);
-      if (Math.abs(factor - 1) > 0.02) {
-        const key = `${pad.sampleId}-${start}-${end}-${factor.toFixed(3)}-${pad.warpAmount}-${pad.beats}-${bpm}`;
-        let stretched = this.stretched.get(key);
-        if (!stretched) {
-          stretched = timeStretchBuffer(this.ctx, buffer, start, end, factor);
-          this.stretched.set(key, stretched);
-        }
-        return {
-          buffer: stretched,
-          rate: 1,
-          padOverride: { start: 0, end: stretched.length, loopStart: 0 },
-        };
-      }
-      return { buffer, rate: 1, padOverride: null };
-    }
-
-    return { buffer, rate: this.warpRate(pad, buffer), padOverride: null };
+    if (!this.ctx) return { buffer, rate: 1, padOverride: null };
+    const bpm = this.project?.bpm ?? 120;
+    return resolvePlaybackShared(this.ctx, pad, buffer, bpm, this.stretched, region);
   }
 
   /**
@@ -513,12 +482,15 @@ export class Engine {
   }
 
   private onSequenceLoopComplete() {
-    if (!this.songMode || !this.project?.song.length) return;
-    this.songIndex = (this.songIndex + 1) % this.project.song.length;
-    const step = this.project.song[this.songIndex];
-    this.currentBank = step.bank;
-    this.currentSeqSlot = step.slot;
-    this.onSongStepChange?.(step.bank, step.slot);
+    if (this.songMode && this.project?.song.length) {
+      this.songIndex = (this.songIndex + 1) % this.project.song.length;
+      const step = this.project.song[this.songIndex];
+      this.currentBank = step.bank;
+      this.currentSeqSlot = step.slot;
+      this.onSongStepChange?.(step.bank, step.slot);
+      return;
+    }
+    this.onSeqLoopEnd?.();
   }
 
   private click(when: number, accent: boolean) {
@@ -736,14 +708,7 @@ export class Engine {
   }
 
   private warpRate(pad: Pad, buffer: AudioBuffer): number {
-    if (pad.warpAmount === 'off') return 1;
-    if (pad.warpAmount === 'seq') {
-      const bpm = this.project?.bpm ?? 120;
-      const sampleSeconds = buffer.duration;
-      const targetSeconds = (pad.beats * 60) / bpm;
-      return sampleSeconds / targetSeconds;
-    }
-    return 100 / pad.warpAmount;
+    return warpRateShared(pad, buffer, this.project?.bpm ?? 120);
   }
 
   ticksToBars(ticks: number): string {

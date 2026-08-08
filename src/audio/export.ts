@@ -1,15 +1,16 @@
 import { PPQN } from './types';
 import type { Pad, Project, Sequence } from './types';
-import { triggerVoice } from './voice';
+import { triggerVoice, type Voice } from './voice';
 import { applySwing } from './scheduler';
+import { resolvePlayback, reverseBuffer, reverseRegion } from './playback';
 
 /**
  * Render a sequence (or a whole song) to a WAV blob.
  *
  * OfflineAudioContext renders faster than realtime and is sample-accurate, so
  * the export must sound identical to playback — that's the acceptance test for
- * this phase. Reusing triggerVoice rather than reimplementing playback is what
- * guarantees it.
+ * this phase. Reusing triggerVoice + resolvePlayback keeps export aligned with
+ * the live engine.
  */
 
 export interface ExportOptions {
@@ -20,6 +21,9 @@ export interface ExportOptions {
   /** Extra time for reverb/delay tails. */
   tailSeconds?: number;
   sampleRate?: number;
+  kitVolumeDb?: number;
+  masterVolume?: number;
+  compressor?: { attack: number; release: number; amount: number };
 }
 
 function ticksPerBar(project: Project): number {
@@ -33,6 +37,101 @@ function sequenceSeconds(project: Project, seq: Sequence): number {
   return seq.bars * ticksPerBar(project) * secPerTick;
 }
 
+function dbToGain(db: number): number {
+  return db === -Infinity ? 0 : Math.pow(10, db / 20);
+}
+
+interface ActiveVoice {
+  pad: number;
+  bank: number;
+  muteGroup: number | null;
+  voice: Voice;
+}
+
+function scheduleHit(
+  ctx: OfflineAudioContext,
+  project: Project,
+  pad: Pad,
+  padIndex: number,
+  bankIndex: number,
+  when: number,
+  velocity: number,
+  bpm: number,
+  destination: AudioNode,
+  copyBuffer: (id: string, reverse?: boolean) => AudioBuffer | null,
+  stretchCache: Map<string, AudioBuffer>,
+  active: ActiveVoice[],
+): void {
+  if (!pad.sampleId || pad.muted) return;
+
+  const raw = copyBuffer(pad.sampleId, false);
+  if (!raw) return;
+
+  const buffer = pad.reverse ? copyBuffer(pad.sampleId, true) : raw;
+  if (!buffer) return;
+
+  if (pad.muteGroup !== null) {
+    for (let i = active.length - 1; i >= 0; i--) {
+      const v = active[i];
+      if (v.muteGroup === pad.muteGroup) {
+        v.voice.kill(when);
+        active.splice(i, 1);
+      }
+    }
+  }
+
+  if (pad.polyphony === 'mono') {
+    for (let i = active.length - 1; i >= 0; i--) {
+      const v = active[i];
+      if (v.pad === padIndex && v.bank === bankIndex) {
+        v.voice.kill(when);
+        active.splice(i, 1);
+      }
+    }
+  }
+
+  const region = reverseRegion(buffer.length, undefined, pad);
+  const resolved = resolvePlayback(ctx, pad, buffer, bpm, stretchCache, region);
+  const playPad = resolved.padOverride ? { ...pad, ...resolved.padOverride } : pad;
+  const playRegion = resolved.padOverride ? undefined : region;
+  const offsetSec = (pad.offset / 100) * 0.25;
+
+  const voice = triggerVoice({
+    ctx: ctx as unknown as AudioContext,
+    buffer: resolved.buffer,
+    pad: playPad,
+    padIndex,
+    bankIndex,
+    destination,
+    when: when + offsetSec,
+    velocity,
+    slice: playRegion,
+    rate: resolved.rate,
+  });
+
+  active.push({ pad: padIndex, bank: bankIndex, muteGroup: pad.muteGroup, voice });
+
+  if (pad.padLink !== null && pad.padLink !== padIndex) {
+    const linked = project.banks[bankIndex]?.[pad.padLink];
+    if (linked && linked.padLink === null) {
+      scheduleHit(
+        ctx,
+        project,
+        linked,
+        pad.padLink,
+        bankIndex,
+        when,
+        velocity,
+        bpm,
+        destination,
+        copyBuffer,
+        stretchCache,
+        active,
+      );
+    }
+  }
+}
+
 export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
   const { project, order, getBuffer } = opts;
   if (order.length === 0) return null;
@@ -40,7 +139,6 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
   const sampleRate = opts.sampleRate ?? 44100;
   const tail = opts.tailSeconds ?? 2;
 
-  // Work out the total duration first — OfflineAudioContext needs it upfront.
   let total = 0;
   const starts: number[] = [];
   for (const { bank, slot } of order) {
@@ -57,37 +155,56 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
     sampleRate
   );
 
-  // Mirror the live master chain so the export matches what you heard.
   const master = ctx.createGain();
+  master.gain.value = opts.masterVolume ?? 1;
+
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -6;
-  comp.ratio.value = 2;
-  comp.attack.value = 0.012;
-  comp.release.value = 0.11;
+  const c = opts.compressor ?? { attack: 0, release: 0, amount: 0 };
+  const attackMs = 0.1 + c.attack * 150;
+  const releaseMs = 3 + c.release * 297;
+  comp.attack.value = attackMs / 1000;
+  comp.release.value = releaseMs / 1000;
+  const n = Math.max(0, Math.min(1, c.amount));
+  comp.threshold.value = -6 - n * 40;
+  comp.ratio.value = 1 + n * 19;
+
+  const kitGain = ctx.createGain();
+  kitGain.gain.value = dbToGain(opts.kitVolumeDb ?? 0);
+
+  kitGain.connect(comp);
   comp.connect(master);
   master.connect(ctx.destination);
 
   const padGains = Array.from({ length: 16 }, () => {
     const g = ctx.createGain();
-    g.connect(comp);
+    g.connect(kitGain);
     return g;
   });
 
-  // Buffers must be copied into the offline context — an AudioBuffer belongs
-  // to the context that created it.
   const copies = new Map<string, AudioBuffer>();
-  const copyBuffer = (id: string): AudioBuffer | null => {
-    const cached = copies.get(id);
+  const reversed = new Map<string, AudioBuffer>();
+  const stretchCache = new Map<string, AudioBuffer>();
+
+  const copyBuffer = (id: string, reverse = false): AudioBuffer | null => {
+    const cache = reverse ? reversed : copies;
+    const cached = cache.get(id);
     if (cached) return cached;
     const src = getBuffer(id);
     if (!src) return null;
-    const out = ctx.createBuffer(src.numberOfChannels, src.length, src.sampleRate);
-    for (let ch = 0; ch < src.numberOfChannels; ch++) {
-      out.getChannelData(ch).set(src.getChannelData(ch));
-    }
-    copies.set(id, out);
+    const out = reverse
+      ? reverseBuffer(ctx, src)
+      : (() => {
+          const buf = ctx.createBuffer(src.numberOfChannels, src.length, src.sampleRate);
+          for (let ch = 0; ch < src.numberOfChannels; ch++) {
+            buf.getChannelData(ch).set(src.getChannelData(ch));
+          }
+          return buf;
+        })();
+    cache.set(id, out);
     return out;
   };
+
+  const active: ActiveVoice[] = [];
 
   order.forEach(({ bank, slot }, i) => {
     const seq = project.sequences[bank]?.[slot];
@@ -97,24 +214,26 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
     const base = starts[i];
 
     for (const e of seq.events) {
-      const pad: Pad | undefined = project.banks[e.bank]?.[e.pad];
-      if (!pad?.sampleId || pad.muted) continue;
-      const buffer = copyBuffer(pad.sampleId);
-      if (!buffer) continue;
+      const pad = project.banks[e.bank]?.[e.pad];
+      if (!pad) continue;
 
       const swung = applySwing(e.tick, project.swing);
       const when = base + swung * secPerTick;
 
-      triggerVoice({
-        ctx: ctx as unknown as AudioContext,
-        buffer,
+      scheduleHit(
+        ctx,
+        project,
         pad,
-        padIndex: e.pad,
-        bankIndex: e.bank,
-        destination: padGains[e.pad],
+        e.pad,
+        e.bank,
         when,
-        velocity: e.velocity,
-      });
+        e.velocity,
+        bpm,
+        padGains[e.pad],
+        copyBuffer,
+        stretchCache,
+        active,
+      );
     }
   });
 
@@ -171,13 +290,15 @@ export async function resampleSequence(
   project: Project,
   bank: number,
   slot: number,
-  getBuffer: (id: string) => AudioBuffer | null
+  getBuffer: (id: string) => AudioBuffer | null,
+  mix?: Pick<ExportOptions, 'kitVolumeDb' | 'masterVolume' | 'compressor'>
 ): Promise<AudioBuffer | null> {
   const blob = await renderToWav({
     project,
     order: [{ bank, slot }],
     getBuffer,
     tailSeconds: 1,
+    ...mix,
   });
   if (!blob) return null;
   const ab = await blob.arrayBuffer();
