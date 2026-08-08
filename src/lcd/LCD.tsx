@@ -7,6 +7,7 @@ import { PAGE_GROUPS, type KParam } from './pages';
 import { chopPage } from './chopPage';
 import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
+import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -14,11 +15,7 @@ import { PAD_FX } from '../audio/fx/padfx';
  * labels and K1-K3 parameters in one place rather than scattering them through
  * components.
  */
-interface LCDProps {
-  onPickSample?: () => void;
-}
-
-export function LCD({ onPickSample }: LCDProps) {
+export function LCD() {
   const screen = useStore((s) => s.screen);
   const bGroup = useStore((s) => s.bGroup);
   const bPage = useStore((s) => s.bPage);
@@ -92,10 +89,9 @@ export function LCD({ onPickSample }: LCDProps) {
           </span>
         </div>
 
-        <button
-          type="button"
+        <label
+          htmlFor={SAMPLE_FILE_INPUT_ID}
           className="lanes lanes--pick"
-          onClick={onPickSample}
           aria-label={buffer ? 'Replace sample on selected pad' : 'Load audio onto selected pad'}
         >
           <Waveform
@@ -106,7 +102,12 @@ export function LCD({ onPickSample }: LCDProps) {
             slices={pad.slices}
             playhead={playhead}
           />
-        </button>
+          {!buffer && (
+            <span className="lcd-load-cta" aria-hidden>
+              TAP TO LOAD AUDIO
+            </span>
+          )}
+        </label>
 
         <KRow params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
       </div>
