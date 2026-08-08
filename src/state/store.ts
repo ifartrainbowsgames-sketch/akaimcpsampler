@@ -37,6 +37,8 @@ interface UIState {
   project: Project;
   bank: number;
   seqSlot: number;
+  /** Sequence slot queued to play at the next loop boundary. */
+  queuedSeqSlot: number | null;
   selectedPad: number;
   pausedAt: number;
   kitVolume: number;
@@ -62,6 +64,7 @@ interface UIState {
   togglePadMode(m: PadPlayMode): void;
   setBank(b: number): void;
   setSequenceSlot(i: number): void;
+  queueSequenceSlot(i: number): void;
   selectPad(i: number): void;
 
   hitPad(i: number, velocity?: number): void;
@@ -189,6 +192,7 @@ export const useStore = create<UIState>((set, get) => ({
   project: initial,
   bank: 0,
   seqSlot: 0,
+  queuedSeqSlot: null,
   selectedPad: 0,
   pausedAt: 0,
   kitVolume: 0,
@@ -252,7 +256,13 @@ export const useStore = create<UIState>((set, get) => ({
     engine.onSongStepChange = (b, slot) => {
       engine.setBank(b);
       engine.setSequenceSlot(slot);
-      set({ bank: b, seqSlot: slot });
+      set({ bank: b, seqSlot: slot, queuedSeqSlot: null });
+    };
+    engine.onSeqLoopEnd = () => {
+      const q = get().queuedSeqSlot;
+      if (q === null || !engine.telemetry.playing) return;
+      get().setSequenceSlot(q);
+      set({ queuedSeqSlot: null });
     };
     midi.setConfig(get().midiConfig);
     // Re-hydrate any samples referenced by the restored project.
@@ -334,6 +344,15 @@ export const useStore = create<UIState>((set, get) => ({
     set({ seqSlot: slot });
   },
 
+  queueSequenceSlot(i) {
+    const slot = Math.max(0, Math.min(15, i));
+    if (get().queuedSeqSlot === slot) {
+      set({ queuedSeqSlot: null });
+      return;
+    }
+    set({ queuedSeqSlot: slot });
+  },
+
   selectPad(i) {
     engine.selectedPad = i;
     set({ selectedPad: i, selectedSlice: 0 });
@@ -342,7 +361,13 @@ export const useStore = create<UIState>((set, get) => ({
   hitPad(i, velocity = 100) {
     const { padModes, project, bank, screen, eraseMode } = get();
 
+    if (screen === 'seq' && engine.telemetry.playing) {
+      get().queueSequenceSlot(i);
+      return;
+    }
+
     if (screen === 'seq' && !engine.telemetry.playing) {
+      set({ queuedSeqSlot: null });
       get().setSequenceSlot(i);
       return;
     }
@@ -491,7 +516,7 @@ export const useStore = create<UIState>((set, get) => ({
     const pos = engine.telemetry.positionTicks;
     engine.stop(hardReset);
     engine.setRecording(false);
-    set({ pausedAt: hardReset ? 0 : pos });
+    set({ pausedAt: hardReset ? 0 : pos, queuedSeqSlot: null });
   },
 
   playSong() {
@@ -920,10 +945,13 @@ export const useStore = create<UIState>((set, get) => ({
 
   async resampleToPad(padIndex) {
     const p = get().project;
+    const { kitVolume, compressor } = get();
     const blob = await renderToWav({
       project: p,
       order: [{ bank: get().bank, slot: get().seqSlot }],
       getBuffer: (id) => engine.getBuffer(id),
+      kitVolumeDb: kitVolume,
+      compressor,
     });
     if (!blob) return;
     const data = await blob.arrayBuffer();
@@ -1106,21 +1134,27 @@ export const useStore = create<UIState>((set, get) => ({
 
   async exportSong() {
     const p = get().project;
+    const { kitVolume, compressor } = get();
     const order = p.song.length ? p.song : [{ bank: get().bank, slot: get().seqSlot }];
     const blob = await renderToWav({
       project: p,
       order,
       getBuffer: (id) => engine.getBuffer(id),
+      kitVolumeDb: kitVolume,
+      compressor,
     });
     if (blob) downloadBlob(blob, `${p.name || 'song'}.wav`);
   },
 
   async exportSequence() {
     const p = get().project;
+    const { kitVolume, compressor, bank, seqSlot } = get();
     const blob = await renderToWav({
       project: p,
-      order: [{ bank: get().bank, slot: get().seqSlot }],
+      order: [{ bank, slot: seqSlot }],
       getBuffer: (id) => engine.getBuffer(id),
+      kitVolumeDb: kitVolume,
+      compressor,
     });
     if (blob) {
       const seq = p.sequences[get().bank][get().seqSlot];

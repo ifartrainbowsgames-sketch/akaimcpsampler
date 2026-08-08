@@ -41,6 +41,7 @@ export function Pads() {
   const bank = useStore((s) => s.bank);
   const selected = useStore((s) => s.selectedPad);
   const seqSlot = useStore((s) => s.seqSlot);
+  const queuedSeqSlot = useStore((s) => s.queuedSeqSlot);
   const noteRepeat = useStore((s) => s.noteRepeat);
   const noteRepeatTriplet = useStore((s) => s.noteRepeatTriplet);
   const fullLevel = useStore((s) => s.fullLevel);
@@ -155,6 +156,10 @@ export function Pads() {
             const loaded = !!pad.sampleId;
             const playing = !!seqLit[i];
             const isSeqSlot = screen === 'seq' && seqSlot === i;
+            const isSeqQueued = screen === 'seq' && queuedSeqSlot === i;
+            const seq = project.sequences[bank][i];
+            const seqHasEvents = seq.events.length > 0;
+            const inSeqMode = screen === 'seq';
             return (
               <div className="padcell" key={i}>
                 <button
@@ -165,7 +170,10 @@ export function Pads() {
                     pad.muted ? 'muted' : '',
                     loaded ? 'loaded' : 'empty',
                     playing ? 'seqlit' : '',
+                    inSeqMode && seqHasEvents ? 'seqfilled' : '',
+                    inSeqMode && !seqHasEvents ? 'seqempty' : '',
                     isSeqSlot ? 'seqslot' : '',
+                    isSeqQueued ? 'seqqueued' : '',
                     selected === i ? 'selected' : '',
                     dropTarget === i ? 'dropping' : '',
                   ].join(' ')}
