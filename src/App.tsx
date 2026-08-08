@@ -4,9 +4,12 @@ import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
 import { Pads } from './ui/Pads';
 import { Knob } from './ui/Knob';
+import { JogWheel } from './ui/JogWheel';
 import { Fader } from './ui/Fader';
 import { PanelButton } from './ui/PanelButton';
+import { ChopModeModal } from './ui/ChopModeModal';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
+import type { ChopLoadMode } from './storage/preferences';
 
 export default function App() {
   const booted = useStore((s) => s.booted);
@@ -16,18 +19,17 @@ export default function App() {
   return <Panel />;
 }
 
-/**
- * iOS requires the AudioContext to be created AND resumed inside a user
- * gesture. An explicit start screen is the reliable way to guarantee that —
- * trying to be clever about it fails on real devices.
- */
 function BootScreen({ onStart }: { onStart(): Promise<void> }) {
   const [busy, setBusy] = useState(false);
   return (
     <div className="boot">
       <div className="bootcard">
-        <h1>Sampler</h1>
-        <p>16 pads, sequencer, sample import. Everything runs on your device.</p>
+        <div className="bootlogo">
+          <b>AKAI</b>
+          <i>professional</i>
+        </div>
+        <h1>MPC SAMPLE</h1>
+        <p>16-pad sampler and sequencer. Everything runs on your device.</p>
         <button
           type="button"
           className="bootbtn"
@@ -40,8 +42,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           {busy ? 'Starting…' : 'Tap to start'}
         </button>
         <p className="bootnote">
-          Tap the LCD or drop an audio file onto any pad to load it. Play with
-          Z X C V / A S D F / Q W E R / 1 2 3 4.
+          Select a pad, tap <b>LOAD</b> on the LCD, then play.
         </p>
       </div>
     </div>
@@ -69,14 +70,13 @@ function Panel() {
   const splitSelectedSlice = useStore((s) => s.splitSelectedSlice);
   const mergeSelectedSlice = useStore((s) => s.mergeSelectedSlice);
   const extractSelectedSlice = useStore((s) => s.extractSelectedSlice);
-  const trimSelected = useStore((s) => s.trimSelected);
-  const toggleFullLevel = useStore((s) => s.toggleFullLevel);
+  const sliceAllToPads = useStore((s) => s.sliceAllToPads);
   const cycleLevelsType = useStore((s) => s.cycleLevelsType);
-  const fullLevel = useStore((s) => s.fullLevel);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const faderParam = useStore((s) => s.faderParam);
-  const exportSong = useStore((s) => s.exportSong);
+  const pendingChopPad = useStore((s) => s.pendingChopPad);
+  const resolveChopChoice = useStore((s) => s.resolveChopChoice);
 
   const pad = project.banks[bank][selectedPad];
   const unmuteAll = () => {
@@ -85,10 +85,10 @@ function Panel() {
 
   const [volume, setVolume] = useState(0.8);
   const [faderValue, setFaderValue] = useState(0.75);
+  const [jog, setJog] = useState(0.5);
   const [meter, setMeter] = useState(0);
   const [transport, setTransport] = useState({ playing: false, recording: false });
 
-  // Telemetry poll. The engine never triggers a render itself.
   useEffect(() => {
     let raf = 0;
     const loop = () => {
@@ -126,27 +126,30 @@ function Panel() {
     };
   }, [setShift, play, stop]);
 
+  const onChopChoice = (mode: ChopLoadMode) => resolveChopChoice(mode);
+
   return (
     <div className={`stage ${shift ? 'shifted' : ''}`}>
+      {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
+
       <div className="unit">
         <div className="screw tl" /><div className="screw tr" />
         <div className="screw bl" /><div className="screw br" />
 
-        {/* ---------- black deck ---------- */}
         <div className="deck">
           <div className="deckrow1">
-            <div className="logo"><b>NOVA</b><i>audio labs</i></div>
+            <div className="logo"><b>AKAI</b><i>professional</i></div>
             <div className="fnrow">
               <button type="button" className="fnbtn" onClick={() => cycleB(1)}>B1</button>
               <button type="button" className="fnbtn" onClick={() => cycleB(2)}>B2</button>
               <button type="button" className="fnbtn" onClick={() => cycleB(3)}>B3</button>
             </div>
-            <div className="wordmark">SP SAMPLE</div>
+            <div className="wordmark">MPC SAMPLE</div>
           </div>
 
           <div className="deckrow2">
             <div className="volwrap">
-              <Knob value={volume} onChange={setVolume} size="md" label="MAIN VOL" />
+              <Knob value={volume} onChange={setVolume} size="md" label="MAIN VOL" sensitivity={320} />
               <div className="bankcol">
                 <div className="bankltr">{String.fromCharCode(65 + bank)}</div>
                 <div className="greenled" />
@@ -166,7 +169,6 @@ function Panel() {
           </div>
         </div>
 
-        {/* ---------- body ---------- */}
         <div className="body">
           <div className="col left">
             <div className="sechead">MODE</div>
@@ -185,7 +187,8 @@ function Panel() {
             <div className="grid2 gap">
               <PanelButton label="SHIFT" lit={shift}
                 onPointerDown={() => setShift(true)}
-                onPointerUp={() => setShift(false)} />
+                onPointerUp={() => setShift(false)}
+                onPointerLeave={() => setShift(false)} />
               <PanelButton label="PAD BANK" onClick={() => setBank((bank + 1) % 8)} />
             </div>
 
@@ -194,8 +197,6 @@ function Panel() {
               label={faderParam.toUpperCase().slice(0, 10)}
               onChange={(v) => {
                 setFaderValue(v);
-                // The fader drives whichever parameter is assigned in the
-                // Fader menu, on the currently selected pad.
                 switch (faderParam) {
                   case 'Pad Volume': updatePad(selectedPad, { gain: v * 80 - 74 }); break;
                   case 'Pad Pan': updatePad(selectedPad, { pan: v * 2 - 1 }); break;
@@ -249,6 +250,7 @@ function Panel() {
                 <button type="button" onClick={splitSelectedSlice}>SPLIT</button>
                 <button type="button" onClick={mergeSelectedSlice}>MERGE</button>
                 <button type="button" onClick={extractSelectedSlice}>EXTRACT</button>
+                <button type="button" onClick={sliceAllToPads}>TO PADS</button>
               </div>
             )}
 
@@ -258,7 +260,7 @@ function Panel() {
             </div>
 
             <div className="encblock">
-              <Knob value={0.5} onChange={() => {}} size="lg" />
+              <JogWheel value={jog} onChange={setJog} label="JOG" />
               <div className="micicon" aria-hidden>🎙</div>
             </div>
 
@@ -274,7 +276,7 @@ function Panel() {
                 lit={transport.recording} onClick={toggleRecord} />
             </div>
 
-            <div className="grid2">
+            <div className="grid2 transport">
               <PanelButton label="■" onClick={stop} />
               <PanelButton label="▶" sub="CONTINUE" lit={transport.playing} onClick={play} />
             </div>
@@ -282,14 +284,6 @@ function Panel() {
         </div>
 
         <div className="rest" />
-      </div>
-
-      <div className="quickrow">
-        <button type="button" className={fullLevel ? 'on' : ''} onClick={toggleFullLevel}>
-          FULL LEVEL
-        </button>
-        <button type="button" onClick={trimSelected}>TRIM SAMPLE</button>
-        <button type="button" onClick={() => void exportSong()}>EXPORT WAV</button>
       </div>
 
       <input
@@ -303,11 +297,6 @@ function Panel() {
           e.target.value = '';
         }}
       />
-
-      <p className="hint">
-        Tap the <b>LCD</b>, drop audio on a pad, or use <b>SAMPLE SELECT</b>. <b>Space</b> plays.
-        Hold <b>Shift</b> for secondary functions. Keys <b>ZXCV / ASDF / QWER / 1234</b>.
-      </p>
     </div>
   );
 }

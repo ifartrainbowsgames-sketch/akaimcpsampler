@@ -14,6 +14,7 @@ import type { KnobFXId } from '../audio/fx/knobfx';
 import type { PadFXId } from '../audio/fx/padfx';
 import { midi } from '../midi/midi';
 import { history } from './undo';
+import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
@@ -54,6 +55,10 @@ interface UIState {
   updateProject(patch: Partial<Project>): void;
 
   importSample(file: File, padIndex: number): Promise<void>;
+  pendingChopPad: number | null;
+  resolveChopChoice(mode: ChopLoadMode): void;
+  autoChopPad(padIndex: number, sliceToPads: boolean): void;
+  sliceAllToPads(): void;
   play(): void;
   stop(): void;
   toggleRecord(): void;
@@ -117,6 +122,7 @@ export const useStore = create<UIState>((set, get) => ({
   shift: false,
   padModes: { chop: false, loop: false, mute: false, levels: false },
   faderParam: 'Pad Volume',
+  pendingChopPad: null,
 
   selectedSlice: 0,
   levelsType: 'velocity',
@@ -264,7 +270,69 @@ export const useStore = create<UIState>((set, get) => ({
       end: buffer.length,
       loopStart: 0,
       slices: [],
+      chopType: 'threshold',
     });
+    engine.selectedPad = padIndex;
+    set({ selectedPad: padIndex, screen: 'sample' });
+
+    const mode = getChopLoadMode();
+    if (mode === null) {
+      set({ pendingChopPad: padIndex });
+      return;
+    }
+    if (mode === 'auto') {
+      get().autoChopPad(padIndex, true);
+    }
+  },
+
+  resolveChopChoice(mode) {
+    const padIndex = get().pendingChopPad;
+    set({ pendingChopPad: null });
+    if (padIndex === null) return;
+    if (mode === 'auto') get().autoChopPad(padIndex, true);
+  },
+
+  autoChopPad(padIndex, sliceToPads) {
+    const modes = { ...get().padModes, chop: true };
+    engine.chopMode = true;
+    engine.selectedPad = padIndex;
+    set({ padModes: modes, selectedPad: padIndex, screen: 'sample', bGroup: 1 });
+    get().runChop();
+    if (sliceToPads) get().sliceAllToPads();
+  },
+
+  sliceAllToPads() {
+    const { project, bank, selectedPad } = get();
+    const pad = project.banks[bank][selectedPad];
+    if (!pad.sampleId || pad.slices.length === 0) return;
+
+    const sourceName = pad.sampleName || 'slice';
+    for (let i = 0; i < Math.min(16, pad.slices.length); i++) {
+      const slice = pad.slices[i];
+      const result = engine.extractSlice(pad.sampleId, slice.start, slice.end);
+      if (!result) continue;
+
+      void engine
+        .bufferToWav(result.buffer)
+        .arrayBuffer()
+        .then((ab) => writeSample(result.id, ab));
+
+      get().updatePad(i, {
+        sampleId: result.id,
+        sampleName: `${sourceName}-${i + 1}`.slice(0, 24),
+        start: 0,
+        end: result.buffer.length,
+        loopStart: 0,
+        slices: [],
+      });
+    }
+
+    engine.chopMode = false;
+    set({
+      padModes: { ...get().padModes, chop: false },
+      selectedPad: 0,
+    });
+    engine.selectedPad = 0;
   },
 
   play() {
@@ -371,6 +439,10 @@ export const useStore = create<UIState>((set, get) => ({
       pad.end || buffer.length
     );
     if (!trimmed) return;
+    void engine
+      .bufferToWav(trimmed)
+      .arrayBuffer()
+      .then((ab) => writeSample(pad.sampleId!, ab));
     get().updatePad(selectedPad, {
       start: 0,
       end: trimmed.length,

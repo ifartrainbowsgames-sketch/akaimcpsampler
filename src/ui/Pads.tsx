@@ -25,6 +25,8 @@ export function Pads() {
   const shift = useStore((s) => s.shift);
   const setScreen = useStore((s) => s.setScreen);
   const importSample = useStore((s) => s.importSample);
+  const toggleFullLevel = useStore((s) => s.toggleFullLevel);
+  const trimSelected = useStore((s) => s.trimSelected);
   const project = useStore((s) => s.project);
   const bank = useStore((s) => s.bank);
   const selected = useStore((s) => s.selectedPad);
@@ -70,6 +72,14 @@ export function Pads() {
 
   function trigger(i: number, velocity: number) {
     if (shift) {
+      if (i === 0) {
+        toggleFullLevel();
+        return;
+      }
+      if (i === 12) {
+        trimSelected();
+        return;
+      }
       const target = SHIFT_SCREENS[i];
       if (target) {
         setScreen(target);

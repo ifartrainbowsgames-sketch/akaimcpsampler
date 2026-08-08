@@ -25,6 +25,8 @@ export function LCD() {
   const updatePad = useStore((s) => s.updatePad);
   const chopActive = useStore((s) => s.padModes.chop);
   const selectedSlice = useStore((s) => s.selectedSlice);
+  const runChop = useStore((s) => s.runChop);
+  const sliceAllToPads = useStore((s) => s.sliceAllToPads);
 
   const pad = project.banks[bank][selectedPad];
   const buffer = engine.getBuffer(pad.sampleId);
@@ -79,6 +81,19 @@ export function LCD() {
             {String(selectedPad + 1).padStart(2, '0')}
           </span>
           <span className="sname">{pad.sampleName || '(empty)'}</span>
+          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn" title="Import audio file">
+            {buffer ? 'REPLACE' : 'LOAD'}
+          </label>
+          {chopActive && pad.slices.length > 0 && (
+            <button type="button" className="lcd-btn lcd-btn--action" onClick={sliceAllToPads}>
+              TO PADS
+            </button>
+          )}
+          {chopActive && pad.sampleId && (
+            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={runChop}>
+              CHOP
+            </button>
+          )}
           <span className="chips">
             {pad.noteOn && <i className="chip">♪</i>}
             {pad.loop && <i className="chip">⟳</i>}
@@ -89,11 +104,7 @@ export function LCD() {
           </span>
         </div>
 
-        <label
-          htmlFor={SAMPLE_FILE_INPUT_ID}
-          className="lanes lanes--pick"
-          aria-label={buffer ? 'Replace sample on selected pad' : 'Load audio onto selected pad'}
-        >
+        <div className="lanes">
           <Waveform
             buffer={buffer}
             start={pad.start}
@@ -104,10 +115,10 @@ export function LCD() {
           />
           {!buffer && (
             <span className="lcd-load-cta" aria-hidden>
-              TAP TO LOAD AUDIO
+              LOAD A SAMPLE
             </span>
           )}
-        </label>
+        </div>
 
         <KRow params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
       </div>
