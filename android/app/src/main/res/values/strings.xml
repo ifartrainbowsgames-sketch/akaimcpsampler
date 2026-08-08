@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sampler</string>
+    <string name="title_activity_main">Sampler</string>
+    <string name="package_name">com.novaaudio.sampler</string>
+    <string name="custom_url_scheme">com.novaaudio.sampler</string>
+</resources>
