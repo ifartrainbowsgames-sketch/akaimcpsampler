@@ -45,7 +45,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           {busy ? 'Starting…' : 'Tap to start'}
         </button>
         <p className="bootnote">
-          Select a pad, tap <b>LOAD</b> on the LCD, then play.
+          Select a pad, tap <b>UPLOAD</b> or <b>KITS</b> on the LCD, then play.
         </p>
         <p className="bootver">v{APP_VERSION}</p>
       </div>
@@ -261,8 +261,8 @@ function Panel() {
             )}
 
             <div className="grid2 gap">
-              <PanelButton label="SAMPLE SELECT" sub="SAVE SAMPLE"
-                onClick={() => setScreen(shift ? 'project' : 'browser')} />
+              <PanelButton label="SAMPLE SELECT" sub="KITS"
+                onClick={() => setScreen(shift ? 'project' : 'kits')} />
               <PanelButton label="TAP TEMPO" sub="METRO" />
             </div>
 

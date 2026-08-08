@@ -10,6 +10,7 @@ import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
+import { FACTORY_KITS as FACTORY_KIT_LIST } from '../audio/factory/kits';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -39,6 +40,7 @@ export function LCD() {
   const addManualChopPoint = useStore((s) => s.addManualChopPoint);
   const waveformZoom = useStore((s) => s.waveformZoom);
   const refreshBrowser = useStore((s) => s.refreshBrowser);
+  const setScreen = useStore((s) => s.setScreen);
 
   const pad = project.banks[bank][selectedPad];
   const buffer = engine.getBuffer(pad.sampleId);
@@ -92,15 +94,24 @@ export function LCD() {
           ))}
         </div>
 
+        <div className="lcdmenu">
+          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload" title="Upload audio from device">
+            UPLOAD
+          </label>
+          <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>
+            BROWSE
+          </button>
+          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('kits')}>
+            KITS
+          </button>
+        </div>
+
         <div className="infoline">
           <span>
             {String.fromCharCode(65 + bank)}
             {String(selectedPad + 1).padStart(2, '0')}
           </span>
           <span className="sname">{pad.sampleName || '(empty)'}</span>
-          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn" title="Import audio file">
-            {buffer ? 'REPLACE' : 'LOAD'}
-          </label>
           {chopActive && pad.slices.length > 0 && (
             <button type="button" className="lcd-btn lcd-btn--action" onClick={sliceAllToPads}>
               TO PADS
@@ -195,7 +206,7 @@ export function LCD() {
 
 const SCREEN_TITLES: Record<string, string> = {
   seq: 'SEQUENCE', stepedit: 'STEP EDIT', song: 'SONG',
-  browser: 'BROWSER', smprec: 'SAMPLE REC',
+  browser: 'BROWSER', kits: 'KITS', smprec: 'SAMPLE REC',
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
@@ -313,6 +324,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'browser':
       return <BrowserScreen />;
+
+    case 'kits':
+      return <KitsScreen />;
 
     case 'stepedit':
       return <StepEditScreen />;
@@ -577,8 +591,11 @@ function BrowserScreen() {
 
   return (
     <div className="lcdpanel">
+      <div className="hintline" style={{ marginTop: 0 }}>
+        Your uploads — stored on this device (OPFS).
+      </div>
       <div className="lcdlist browserlist">
-        {entries.length === 0 && <div>— no samples in storage —</div>}
+        {entries.length === 0 && <div>— no uploads yet — tap UPLOAD on Sample screen</div>}
         {entries.map((e) => (
           <div
             key={e.id}
@@ -602,7 +619,55 @@ function BrowserScreen() {
           LOAD
         </button>
       </div>
-      <div className="hintline">Tap to preview · LOAD assigns to current pad.</div>
+      <div className="hintline">Tap to load to the current pad.</div>
+    </div>
+  );
+}
+
+function KitsScreen() {
+  const loadFactoryKit = useStore((s) => s.loadFactoryKit);
+  const setScreen = useStore((s) => s.setScreen);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'drums' | 'bass'>('all');
+
+  const kits = FACTORY_KIT_LIST.filter((k) => filter === 'all' || k.category === filter);
+
+  return (
+    <div className="lcdpanel">
+      <div className="kitfilters">
+        {(['all', 'drums', 'bass'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            className={filter === f ? 'on' : ''}
+            onClick={() => setFilter(f)}
+          >
+            {f === 'all' ? 'ALL' : f.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <div className="lcdlist browserlist">
+        {kits.map((kit) => (
+          <div
+            key={kit.id}
+            className={busy === kit.id ? 'sel' : ''}
+            onClick={() => {
+              if (busy) return;
+              setBusy(kit.id);
+              void loadFactoryKit(kit.id).finally(() => setBusy(null));
+            }}
+          >
+            <b>{kit.name}</b>
+            <small>{kit.description}</small>
+          </div>
+        ))}
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => setScreen('sample')}>BACK</button>
+      </div>
+      <div className="hintline">
+        {busy ? 'Loading kit…' : 'Loads all 16 pads on the current bank.'}
+      </div>
     </div>
   );
 }

@@ -18,10 +18,11 @@ import { history } from './undo';
 import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
 import { listSamples } from '../storage/opfs';
 import { ticksPerBar } from '../audio/scheduler';
+import { FACTORY_KITS, generateFactoryKit } from '../audio/factory/kits';
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
-  | 'browser' | 'smprec'
+  | 'browser' | 'kits' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project';
 
@@ -89,6 +90,7 @@ interface UIState {
   browserEntries: { id: string; name: string }[];
   refreshBrowser(): Promise<void>;
   loadBrowserSample(id: string): Promise<void>;
+  loadFactoryKit(kitId: string): Promise<void>;
 
   stepEditTick: number;
   stepEditEvent: number;
@@ -130,6 +132,11 @@ interface UIState {
   undo(): void;
   redo(): void;
 }
+
+const BASS_PAD_NAMES = [
+  'C1', 'D1', 'E1', 'F1', 'G1', 'A1', 'B1', 'C2',
+  'D2', 'E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3',
+];
 
 const initial = loadAutosave() ?? makeProject('Startup');
 
@@ -452,6 +459,43 @@ export const useStore = create<UIState>((set, get) => ({
       slices: [],
     });
     set({ screen: 'sample' });
+  },
+
+  async loadFactoryKit(kitId) {
+    if (!engine.ctx) await engine.init();
+    const ctx = engine.ctx;
+    if (!ctx) return;
+
+    const kit = generateFactoryKit(ctx, kitId);
+    if (!kit) return;
+
+    const meta = FACTORY_KITS.find((k) => k.id === kitId);
+
+    for (let i = 0; i < 16; i++) {
+      const id = crypto.randomUUID();
+      const buffer = kit.buffers[i];
+      engine.putBuffer(id, buffer);
+      const wav = await engine.bufferToWav(buffer).arrayBuffer();
+      await writeSample(id, wav);
+
+      const names = ['Kick', 'Kick 2', 'Snare', 'Snare 2', 'Hat', 'Hat O', 'Hat C', 'Hat C2',
+        'Clap', 'Clap 2', 'Tom L', 'Tom M', 'Tom H', 'Tom HH', 'Rim', 'Hat L'];
+      const bassNames = BASS_PAD_NAMES;
+      const label = kitId === '808-bass' ? bassNames[i] : names[i];
+
+      get().updatePad(i, {
+        sampleId: id,
+        sampleName: `${meta?.name ?? kit.name}-${label}`.slice(0, 24),
+        start: 0,
+        end: buffer.length,
+        loopStart: 0,
+        slices: [],
+        gain: kitId === '808-bass' ? -3 : 0,
+      });
+    }
+
+    set({ selectedPad: 0, screen: 'sample' });
+    engine.selectedPad = 0;
   },
 
   setStepEditTick(t) {

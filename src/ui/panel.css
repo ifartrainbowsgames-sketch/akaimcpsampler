@@ -131,6 +131,14 @@ button{font:inherit}
 .lcd-btn:active{background:var(--lcd-y);color:#111}
 .lcd-btn--action{border-color:var(--orange);color:#ffb070}
 .lcd-btn--ghost{border-color:#4a4a44;color:#a8a89e}
+.lcd-btn--upload{border-color:var(--orange);color:#ffb070}
+.lcdmenu{display:flex;gap:.25em;padding:.12em .3em 0;flex:0 0 auto;flex-wrap:wrap}
+.lcdlist small{display:block;font-size:.85em;color:#8f8f86;font-weight:400;margin-top:.1em}
+.kitfilters{display:flex;gap:.2em;margin-bottom:.25em}
+.kitfilters button{
+  flex:1;border:.06em solid #4a4a44;background:#2a2a26;color:#a8a89e;
+  font-family:var(--mono);font-size:.62em;padding:.25em 0;border-radius:.1em;cursor:pointer}
+.kitfilters button.on{background:var(--lcd-y);color:#111;font-weight:700}
 .chip{font-style:normal;border:.06em solid var(--lcd-c);color:var(--lcd-c);padding:0 .2em;margin-left:.15em}
 .lanes{flex:1;min-height:0;padding:.15em .3em;display:flex;position:relative}
 .lanes--dual{flex-direction:column;gap:.12em;padding:.1em .25em}

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "Procedural kits are built in-browser. Add WAV folders here later for real sample packs.",
+  "kits": [
+    {
+      "id": "classic-drums",
+      "name": "Classic Drums",
+      "category": "drums",
+      "description": "Kick, snare, hats, clap, toms — 16-pad kit",
+      "source": "procedural"
+    },
+    {
+      "id": "lofi-drums",
+      "name": "Lo-Fi Drums",
+      "category": "drums",
+      "description": "Dusty kicks, rimshots, soft hats",
+      "source": "procedural"
+    },
+    {
+      "id": "808-bass",
+      "name": "808 Bass",
+      "category": "bass",
+      "description": "Sub bass tones across 16 pads",
+      "source": "procedural"
+    }
+  ]
+}
