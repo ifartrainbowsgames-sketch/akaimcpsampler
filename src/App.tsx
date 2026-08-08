@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from './state/store';
 import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
@@ -6,6 +6,7 @@ import { Pads } from './ui/Pads';
 import { Knob } from './ui/Knob';
 import { Fader } from './ui/Fader';
 import { PanelButton } from './ui/PanelButton';
+import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 
 export default function App() {
   const booted = useStore((s) => s.booted);
@@ -86,7 +87,6 @@ function Panel() {
   const [faderValue, setFaderValue] = useState(0.75);
   const [meter, setMeter] = useState(0);
   const [transport, setTransport] = useState({ playing: false, recording: false });
-  const fileInput = useRef<HTMLInputElement>(null);
 
   // Telemetry poll. The engine never triggers a render itself.
   useEffect(() => {
@@ -126,8 +126,6 @@ function Panel() {
     };
   }, [setShift, play, stop]);
 
-  const pickFile = useCallback(() => fileInput.current?.click(), []);
-
   return (
     <div className={`stage ${shift ? 'shifted' : ''}`}>
       <div className="unit">
@@ -155,7 +153,7 @@ function Panel() {
               </div>
             </div>
 
-            <div className="lcdframe"><LCD onPickSample={pickFile} /></div>
+            <div className="lcdframe"><LCD /></div>
 
             <div className="metercol">
               <div className="meterbars">
@@ -255,7 +253,7 @@ function Panel() {
             )}
 
             <div className="grid2 gap">
-              <PanelButton label="SAMPLE SELECT" sub="SAVE SAMPLE" onClick={pickFile} />
+              <PanelButton label="SAMPLE SELECT" sub="SAVE SAMPLE" htmlFor={SAMPLE_FILE_INPUT_ID} />
               <PanelButton label="TAP TEMPO" sub="METRO" />
             </div>
 
@@ -295,10 +293,10 @@ function Panel() {
       </div>
 
       <input
-        ref={fileInput}
+        id={SAMPLE_FILE_INPUT_ID}
+        className="file-input-sr"
         type="file"
-        accept="audio/*"
-        hidden
+        accept="audio/*,.mp3,.wav,.aiff,.m4a,.ogg,.flac"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) void importSample(f, selectedPad);

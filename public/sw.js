@@ -5,7 +5,7 @@
  * breaks after first use. Test PWA mode on a physical device before relying
  * on it — Capacitor is the fallback and it's the same codebase.
  */
-const CACHE = 'sampler-v1';
+const CACHE = 'sampler-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/index.html'])));
@@ -23,6 +23,16 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+
+  // Hashed build assets should always come from the network so deploys show up.
+  if (url.pathname.startsWith('/assets/')) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then((hit) =>
       hit ||
