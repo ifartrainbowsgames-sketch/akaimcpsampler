@@ -43,6 +43,7 @@ interface UIState {
   boot(): Promise<void>;
   setScreen(s: ScreenId): void;
   cycleB(n: 1 | 2 | 3): void;
+  setBGroup(n: 1 | 2 | 3): void;
   setShift(v: boolean): void;
   togglePadMode(m: PadPlayMode): void;
   setBank(b: number): void;
@@ -163,6 +164,10 @@ export const useStore = create<UIState>((set, get) => ({
     const pages = [...get().bPage] as [number, number, number];
     pages[n - 1] += 1;
     set({ bGroup: n, bPage: pages });
+  },
+
+  setBGroup(n) {
+    set({ bGroup: n });
   },
 
   setShift(v) {
