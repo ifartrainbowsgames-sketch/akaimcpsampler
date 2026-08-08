@@ -46,6 +46,7 @@ export interface SchedulerHost {
   countInBars(): number;
   onPosition(state: TransportState): void;
   onLoopComplete?(): void;
+  onMidiClock?(): void;
 }
 
 export class Scheduler {
@@ -184,6 +185,10 @@ export class Scheduler {
             this.host.playEvent(e, this.timeForTick(this.nextTick));
           }
         }
+      }
+
+      if (!inCountIn && tickInLoop % (PPQN / 24) === 0) {
+        this.host.onMidiClock?.();
       }
 
       this.nextTick += 1;

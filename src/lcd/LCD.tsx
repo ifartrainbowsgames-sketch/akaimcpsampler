@@ -58,24 +58,31 @@ export function LCD() {
   }, [screen, refreshBrowser]);
 
   const [playhead, setPlayhead] = useState(-1);
+  const [samplePh, setSamplePh] = useState(-1);
   const [lcdActions, setLcdActions] = useState(false);
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      if (engine.telemetry.playing) {
+      const frame = engine.telemetry.samplePlayhead[selectedPad];
+      if (frame >= 0 && sampleLen > 0) {
+        setSamplePh(frame / sampleLen);
+        setPlayhead(-1);
+      } else if (engine.telemetry.playing && screen !== 'sample') {
         const seq = engine.activeSequence();
         if (seq) {
           const total = seq.bars * 4 * 960;
           setPlayhead(engine.telemetry.positionTicks / total);
         }
+        setSamplePh(-1);
       } else {
         setPlayhead(-1);
+        setSamplePh(-1);
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [selectedPad, sampleLen, screen]);
 
   if (screen === 'sample') {
     const { params } = resolveSamplePage(
@@ -152,6 +159,7 @@ export function LCD() {
               end={padEnd}
               loopStart={pad.loopStart}
               slices={pad.slices}
+              playhead={samplePh >= 0 ? samplePh : undefined}
               zoomWindow={waveformZoom > 1 ? { start: viewStart, len: viewLen } : undefined}
             />
           </div>
@@ -162,7 +170,11 @@ export function LCD() {
               end={padEnd}
               loopStart={pad.loopStart}
               slices={pad.slices}
-              playhead={playhead}
+              playhead={
+                samplePh >= 0
+                  ? Math.max(0, Math.min(1, (samplePh * sampleLen - viewStart) / viewLen))
+                  : playhead
+              }
               zoom={waveformZoom}
               chopActive={chopActive && pad.chopType === 'manual'}
               onTrim={(s, e, l) => setTrimRegion(s, e, l)}
@@ -523,17 +535,72 @@ function RecordScreen() {
 function MidiScreen() {
   const midiConnected = useStore((s) => s.midiConnected);
   const connectMidi = useStore((s) => s.connectMidi);
+  const midiConfig = useStore((s) => s.midiConfig);
+  const setMidiConfig = useStore((s) => s.setMidiConfig);
+  const inputs = useStore((s) => s.midiInputs);
+  const outputs = useStore((s) => s.midiOutputs);
+
+  const toggle = (key: keyof typeof midiConfig) => {
+    const v = midiConfig[key];
+    if (typeof v === 'boolean') setMidiConfig({ ...midiConfig, [key]: !v });
+  };
+
   return (
     <div className="lcdpanel">
       <div className="lcdlist">
         <div className={midiConnected ? 'sel' : ''}>
           MIDI  {midiConnected ? 'CONNECTED' : 'not connected'}
         </div>
-        <div>Pads map from C1 (note 36)</div>
+        <div>Inputs: {inputs.length ? inputs.join(', ') : '—'}</div>
+        <div>Outputs: {outputs.length ? outputs.join(', ') : '—'}</div>
       </div>
+      <div className="lcdrow">
+        <span>In Ch</span>
+        <select
+          value={String(midiConfig.inChannel)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setMidiConfig({
+              ...midiConfig,
+              inChannel: v === 'all' ? 'all' : Number(v),
+            });
+          }}
+        >
+          <option value="all">ALL</option>
+          {Array.from({ length: 16 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>{i + 1}</option>
+          ))}
+        </select>
+      </div>
+      <div className="lcdrow">
+        <span>Out Ch</span>
+        <select
+          value={midiConfig.outChannel}
+          onChange={(e) => setMidiConfig({ ...midiConfig, outChannel: Number(e.target.value) })}
+        >
+          {Array.from({ length: 16 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>{i + 1}</option>
+          ))}
+        </select>
+      </div>
+      {([
+        ['padMidiIn', 'Pad MIDI In'],
+        ['padMidiOut', 'Pad MIDI Out'],
+        ['syncOut', 'MIDI Clock Out'],
+        ['syncIn', 'MIDI Clock In'],
+        ['thru', 'MIDI Thru'],
+      ] as const).map(([key, label]) => (
+        <div className="lcdrow" key={key}>
+          <span>{label}</span>
+          <button type="button" className={`lcd-mini ${midiConfig[key] ? 'on' : ''}`} onClick={() => toggle(key)}>
+            {midiConfig[key] ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      ))}
       <div className="lcdbtns">
         <button type="button" onClick={() => void connectMidi()}>CONNECT</button>
       </div>
+      <div className="hintline">Pads map from C1 (note 36). Settings persist on this device.</div>
     </div>
   );
 }
@@ -932,10 +999,31 @@ function FlexBeatScreen() {
   const selectedPad = useStore((s) => s.selectedPad);
   const updatePad = useStore((s) => s.updatePad);
   const setScreen = useStore((s) => s.setScreen);
+  const pressPadFX = useStore((s) => s.pressPadFX);
+  const releasePadFX = useStore((s) => s.releasePadFX);
+  const active = useStore((s) => s.activePadFX);
   const pad = project.banks[bank][selectedPad];
 
+  const FLEX_FX: { id: import('../audio/fx/padfx').PadFXId; name: string }[] = [
+    { id: 'beatRepeat', name: 'Beat Rpt' },
+    { id: 'halfSpeed', name: 'Half Spd' },
+    { id: 'granular', name: 'Granular' },
+    { id: 'revStepper', name: 'Rev Step' },
+    { id: 'delay', name: 'Delay' },
+    { id: 'reverb', name: 'Reverb' },
+    { id: 'lofi', name: 'Lo-Fi' },
+    { id: 'ringMod', name: 'Ring Mod' },
+    { id: 'chorus', name: 'Chorus' },
+    { id: 'flanger', name: 'Flanger' },
+    { id: 'phaser', name: 'Phaser' },
+    { id: 'lpFilter', name: 'LP Filt' },
+    { id: 'hpFilter', name: 'HP Filt' },
+    { id: 'comb', name: 'Comb' },
+    { id: 'color', name: 'Color' },
+  ];
+
   return (
-    <div className="lcdpanel">
+    <div className="lcdpanel flexbeat-panel">
       <div className="lcdrow">
         <span>Warp</span>
         <select
@@ -956,15 +1044,31 @@ function FlexBeatScreen() {
       </div>
       <div className="lcdrow">
         <span>Mode</span>
-        <b>{pad.warpMode === 'pitch' ? 'Pitch' : 'Stretch'}</b>
+        <button
+          type="button"
+          className="lcd-mini"
+          onClick={() => updatePad(selectedPad, {
+            warpMode: pad.warpMode === 'pitch' ? 'stretch' : 'pitch',
+          })}
+        >
+          {pad.warpMode === 'pitch' ? 'PITCH' : 'STRETCH'}
+        </button>
+        <span>Beats {pad.beats}</span>
       </div>
-      <div className="lcdrow">
-        <span>Beats</span>
-        <input
-          type="range" min={1} max={16} value={pad.beats}
-          onChange={(e) => updatePad(selectedPad, { beats: Number(e.target.value) })}
-        />
-        <b>{pad.beats}</b>
+      <div className="hintline">Master beat FX — hold to engage (synced to {project.bpm} BPM)</div>
+      <div className="fxgrid flexbeat-grid">
+        {FLEX_FX.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            className={active === f.id ? 'on' : ''}
+            onPointerDown={() => pressPadFX(f.id, 0.8)}
+            onPointerUp={() => releasePadFX(f.id)}
+            onPointerLeave={() => active === f.id && releasePadFX(f.id)}
+          >
+            {f.name}
+          </button>
+        ))}
       </div>
       <div className="lcdbtns">
         <button type="button" onClick={() => setScreen('padfx')}>BACK</button>

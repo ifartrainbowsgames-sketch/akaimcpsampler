@@ -74,6 +74,12 @@ export interface Pad {
   cutoff: number;    // 0-127
   reso: number;      // 0-127
 
+  /** 3-band graphic EQ (-12..+12 dB per band). */
+  eqEnabled: boolean;
+  eqLow: number;
+  eqMid: number;
+  eqHigh: number;
+
   muted: boolean;
 }
 
@@ -148,6 +154,10 @@ export function makePad(): Pad {
     filterType: 'off',
     cutoff: 127,
     reso: 0,
+    eqEnabled: false,
+    eqLow: 0,
+    eqMid: 0,
+    eqHigh: 0,
     muted: false,
   };
 }

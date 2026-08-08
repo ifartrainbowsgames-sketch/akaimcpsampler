@@ -201,6 +201,35 @@ export const PAGE_GROUPS: Page[][] = [
         })),
       ],
     },
+    {
+      title: 'EQ',
+      params: (pad) => [
+        {
+          name: 'EQ On',
+          display: pad.eqEnabled ? 'ON' : 'OFF',
+          norm: pad.eqEnabled ? 1 : 0,
+          set: (n, update, i) => update(i, { eqEnabled: n > 0.5 }),
+        },
+        {
+          name: 'Low',
+          display: `${pad.eqLow > 0 ? '+' : ''}${pad.eqLow.toFixed(1)} dB`,
+          norm: clamp01((pad.eqLow + 12) / 24),
+          set: (n, update, i) => update(i, { eqLow: Math.round((n * 24 - 12) * 10) / 10 }),
+        },
+        {
+          name: 'Mid',
+          display: `${pad.eqMid > 0 ? '+' : ''}${pad.eqMid.toFixed(1)} dB`,
+          norm: clamp01((pad.eqMid + 12) / 24),
+          set: (n, update, i) => update(i, { eqMid: Math.round((n * 24 - 12) * 10) / 10 }),
+        },
+        {
+          name: 'High',
+          display: `${pad.eqHigh > 0 ? '+' : ''}${pad.eqHigh.toFixed(1)} dB`,
+          norm: clamp01((pad.eqHigh + 12) / 24),
+          set: (n, update, i) => update(i, { eqHigh: Math.round((n * 24 - 12) * 10) / 10 }),
+        },
+      ],
+    },
   ],
 ];
 

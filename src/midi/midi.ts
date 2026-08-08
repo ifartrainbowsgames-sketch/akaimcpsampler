@@ -1,6 +1,5 @@
 /**
- * Web MIDI in/out. Covers ports, channels, thru and clock — the parts of the
- * hardware's MIDI page that have a browser equivalent. CV/Sync has none.
+ * Web MIDI in/out. Covers ports, channels, thru and clock.
  */
 export interface MidiConfig {
   inChannel: number | 'all';
@@ -8,6 +7,7 @@ export interface MidiConfig {
   padMidiIn: boolean;
   padMidiOut: boolean;
   syncOut: boolean;
+  syncIn: boolean;
   thru: boolean;
 }
 
@@ -17,10 +17,10 @@ export const DEFAULT_MIDI: MidiConfig = {
   padMidiIn: true,
   padMidiOut: false,
   syncOut: false,
+  syncIn: false,
   thru: false,
 };
 
-/** Pads map to the General MIDI drum range starting at C1. */
 const BASE_NOTE = 36;
 
 export class Midi {
@@ -32,6 +32,10 @@ export class Midi {
 
   get available() {
     return typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator;
+  }
+
+  setConfig(c: MidiConfig) {
+    this.config = { ...c };
   }
 
   async connect(): Promise<boolean> {
@@ -46,6 +50,16 @@ export class Midi {
     return true;
   }
 
+  get inputs(): string[] {
+    if (!this.access) return [];
+    return Array.from(this.access.inputs.values()).map((p) => p.name ?? 'Input');
+  }
+
+  get outputs(): string[] {
+    if (!this.access) return [];
+    return Array.from(this.access.outputs.values()).map((p) => p.name ?? 'Output');
+  }
+
   private bindInputs() {
     if (!this.access) return;
     this.access.inputs.forEach((input) => {
@@ -56,8 +70,17 @@ export class Midi {
   private handle(e: MIDIMessageEvent) {
     const data = e.data;
     if (!data || data.length < 2) return;
+
+    if (this.config.thru) {
+      this.sendAll(Array.from(data));
+    }
+
     const status = data[0] & 0xf0;
     const channel = (data[0] & 0x0f) + 1;
+
+    if (status === 0xf8 && this.config.syncIn) {
+      return;
+    }
 
     if (this.config.inChannel !== 'all' && channel !== this.config.inChannel) return;
     if (!this.config.padMidiIn) return;

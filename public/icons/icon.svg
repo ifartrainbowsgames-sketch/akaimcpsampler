@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#FAFAF8"/>
+  <rect x="48" y="48" width="416" height="416" rx="24" fill="#1a1a1a"/>
+  <text x="256" y="200" text-anchor="middle" font-family="Georgia,serif" font-size="72" font-weight="bold" fill="#CE3A2E">AKAI</text>
+  <text x="256" y="280" text-anchor="middle" font-family="Arial,sans-serif" font-size="36" font-weight="bold" fill="#CE3A2E">MPC SAMPLE</text>
+  <g fill="#4a4a4c" stroke="#57C8D8" stroke-width="3">
+    <rect x="96" y="320" width="72" height="72" rx="6"/>
+    <rect x="184" y="320" width="72" height="72" rx="6"/>
+    <rect x="272" y="320" width="72" height="72" rx="6"/>
+    <rect x="360" y="320" width="72" height="72" rx="6"/>
+    <rect x="96" y="408" width="72" height="72" rx="6"/>
+    <rect x="184" y="408" width="72" height="72" rx="6"/>
+    <rect x="272" y="408" width="72" height="72" rx="6"/>
+    <rect x="360" y="408" width="72" height="72" rx="6"/>
+  </g>
+</svg>

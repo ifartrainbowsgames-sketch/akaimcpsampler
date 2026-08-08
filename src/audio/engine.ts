@@ -1,6 +1,7 @@
 import { MAX_VOICES, NUM_PADS, PPQN } from './types';
 import type { Pad, Project, SeqEvent, Sequence } from './types';
-import { triggerVoice, type Voice } from './voice';
+import { triggerVoice, voiceFrameAt, type Voice } from './voice';
+import { stretchFactorFromWarp, timeStretchBuffer } from './stretch';
 import { Scheduler, type TransportState, ticksPerBar } from './scheduler';
 import { KnobFX, type KnobFXId } from './fx/knobfx';
 import { PadFXRack, type PadFXId } from './fx/padfx';
@@ -29,6 +30,7 @@ export class Engine {
 
   private buffers = new Map<string, AudioBuffer>();
   private reversed = new Map<string, AudioBuffer>();
+  private stretched = new Map<string, AudioBuffer>();
   private voices: Voice[] = [];
 
   private project: Project | null = null;
@@ -62,6 +64,8 @@ export class Engine {
     padActivity: new Array<number>(NUM_PADS).fill(0),
     /** Timestamp when pad last fired from sequencer (for pad lights). */
     seqPadLit: new Array<number>(NUM_PADS).fill(0),
+    /** Current sample frame per pad while sounding (-1 = silent). */
+    samplePlayhead: new Array<number>(NUM_PADS).fill(-1),
   };
 
   private meterData = new Uint8Array(0);
@@ -152,6 +156,7 @@ export class Engine {
         this.telemetry.positionTicks = s.positionTicks;
       },
       onLoopComplete: () => this.onSequenceLoopComplete(),
+      onMidiClock: () => midi.clock(),
     });
 
     await ctx.resume();
@@ -183,11 +188,17 @@ export class Engine {
     if (!this.ctx) throw new Error('Engine not initialised');
     const buf = await this.ctx.decodeAudioData(data.slice(0));
     this.buffers.set(id, buf);
+    this.stretched.clear();
     return buf;
   }
 
   putBuffer(id: string, buf: AudioBuffer) {
     this.buffers.set(id, buf);
+    this.stretched.clear();
+  }
+
+  clearStretchCache() {
+    this.stretched.clear();
   }
 
   getBuffer(id: string | null): AudioBuffer | null {
@@ -237,6 +248,7 @@ export class Engine {
     }
     this.buffers.set(sampleId, out);
     this.reversed.delete(sampleId);
+    this.stretched.clear();
     return out;
   }
 
@@ -294,17 +306,36 @@ export class Engine {
 
   // --------------------------------------------------------------- playback
 
-  /** Playback rate implied by warp settings. */
-  private warpRate(pad: Pad, buffer: AudioBuffer): number {
-    if (pad.warpAmount === 'off') return 1;
-    if (pad.warpAmount === 'seq') {
+  /** Playback rate (pitch mode) or pre-stretched buffer (stretch mode). */
+  private resolvePlayback(
+    pad: Pad,
+    buffer: AudioBuffer,
+    region?: { start: number; end: number },
+  ): { buffer: AudioBuffer; rate: number; padOverride: Partial<Pad> | null } {
+    const start = region?.start ?? pad.start;
+    const end = region?.end ?? (pad.end || buffer.length);
+    const regionDur = (end - start) / buffer.sampleRate;
+
+    if (pad.warpMode === 'stretch' && pad.warpAmount !== 'off' && this.ctx) {
       const bpm = this.project?.bpm ?? 120;
-      const sampleSeconds = buffer.duration;
-      const targetSeconds = (pad.beats * 60) / bpm;
-      return sampleSeconds / targetSeconds;
+      const factor = stretchFactorFromWarp(pad.warpAmount, pad.beats, bpm, regionDur);
+      if (Math.abs(factor - 1) > 0.02) {
+        const key = `${pad.sampleId}-${start}-${end}-${factor.toFixed(3)}-${pad.warpAmount}-${pad.beats}-${bpm}`;
+        let stretched = this.stretched.get(key);
+        if (!stretched) {
+          stretched = timeStretchBuffer(this.ctx, buffer, start, end, factor);
+          this.stretched.set(key, stretched);
+        }
+        return {
+          buffer: stretched,
+          rate: 1,
+          padOverride: { start: 0, end: stretched.length, loopStart: 0 },
+        };
+      }
+      return { buffer, rate: 1, padOverride: null };
     }
-    // 50% = half as long (twice as fast), 200% = twice as long.
-    return 100 / pad.warpAmount;
+
+    return { buffer, rate: this.warpRate(pad, buffer), padOverride: null };
   }
 
   /**
@@ -419,17 +450,23 @@ export class Engine {
       region = { start: L - e, end: L - s };
     }
 
+    const resolved = this.resolvePlayback(effectivePad, buffer, region);
+    const playPad = resolved.padOverride
+      ? { ...effectivePad, ...resolved.padOverride }
+      : effectivePad;
+    const playRegion = resolved.padOverride ? undefined : region;
+
     const voice = triggerVoice({
       ctx: this.ctx,
-      buffer,
-      pad: effectivePad,
+      buffer: resolved.buffer,
+      pad: playPad,
       padIndex,
       bankIndex: bank,
       destination: this.padGains[padIndex],
       when: t + offsetSec,
       velocity,
-      slice: region,
-      rate: this.warpRate(pad, buffer),
+      slice: playRegion,
+      rate: resolved.rate,
     });
 
     this.voices.push(voice);
@@ -660,7 +697,7 @@ export class Engine {
     });
   }
 
-  /** Read the output meter. Call from rAF, not from the audio path. */
+  /** Read the output meter and sample playheads. Call from rAF. */
   readLevel(): number {
     if (!this.analyser) return 0;
     this.analyser.getByteTimeDomainData(this.meterData);
@@ -670,7 +707,31 @@ export class Engine {
       if (d > peak) peak = d;
     }
     this.telemetry.level = peak;
+    this.updateSamplePlayheads();
     return peak;
+  }
+
+  private updateSamplePlayheads() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.telemetry.samplePlayhead.fill(-1);
+    for (const v of this.voices) {
+      const frame = voiceFrameAt(v, t);
+      if (frame >= v.regionStart && frame <= v.regionEnd) {
+        this.telemetry.samplePlayhead[v.pad] = frame;
+      }
+    }
+  }
+
+  private warpRate(pad: Pad, buffer: AudioBuffer): number {
+    if (pad.warpAmount === 'off') return 1;
+    if (pad.warpAmount === 'seq') {
+      const bpm = this.project?.bpm ?? 120;
+      const sampleSeconds = buffer.duration;
+      const targetSeconds = (pad.beats * 60) / bpm;
+      return sampleSeconds / targetSeconds;
+    }
+    return 100 / pad.warpAmount;
   }
 
   ticksToBars(ticks: number): string {

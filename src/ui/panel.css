@@ -231,6 +231,8 @@ button{font:inherit}
 .lcdrow b{color:#e6e6dc;width:3.4em;text-align:right;flex:0 0 auto}
 .hintline{font-size:.85em;color:#6f6f66;margin-top:auto}
 .lcd-mini{font-size:.75em;padding:.2em .5em;border:1px solid #555;background:#333;color:#ddd;border-radius:.15em;cursor:pointer}
+.lcd-mini.on{background:#3FBF52;color:#111;border-color:#3FBF52}
+.flexbeat-grid{max-height:8em;overflow-y:auto}
 .pending{color:#8f8f86}
 .lcdlist{flex:1;padding:.25em;font-size:.85em;line-height:1.6;color:#a8a89e}
 .lcdlist .sel{background:var(--lcd-y);color:#111;font-weight:700}

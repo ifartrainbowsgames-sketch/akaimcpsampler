@@ -7,5 +7,18 @@
   "orientation": "portrait",
   "background_color": "#FAFAF8",
   "theme_color": "#0d0d0e",
-  "icons": []
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
 }

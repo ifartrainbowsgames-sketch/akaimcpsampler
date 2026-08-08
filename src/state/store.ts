@@ -13,7 +13,8 @@ import { chopByRegions, chopByThreshold, mergeSlice, splitSlice } from '../audio
 import { downloadBlob, renderToWav } from '../audio/export';
 import type { KnobFXId } from '../audio/fx/knobfx';
 import type { PadFXId } from '../audio/fx/padfx';
-import { midi } from '../midi/midi';
+import { midi, type MidiConfig } from '../midi/midi';
+import { getMidiConfig, saveMidiConfig } from '../storage/midiConfig';
 import { history } from './undo';
 import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
 import { listSamples, deleteSample } from '../storage/opfs';
@@ -165,6 +166,10 @@ interface UIState {
   stopSampleRecord(): Promise<void>;
   connectMidi(): Promise<void>;
   midiConnected: boolean;
+  midiConfig: MidiConfig;
+  midiInputs: string[];
+  midiOutputs: string[];
+  setMidiConfig(c: MidiConfig): void;
   undo(): void;
   redo(): void;
 }
@@ -223,6 +228,9 @@ export const useStore = create<UIState>((set, get) => ({
   activePadFX: null,
   inputOpen: false,
   midiConnected: false,
+  midiConfig: getMidiConfig(),
+  midiInputs: [] as string[],
+  midiOutputs: [] as string[],
 
   async boot() {
     await engine.init();
@@ -248,6 +256,7 @@ export const useStore = create<UIState>((set, get) => ({
       engine.setSequenceSlot(slot);
       set({ bank: b, seqSlot: slot });
     };
+    midi.setConfig(get().midiConfig);
     // Re-hydrate any samples referenced by the restored project.
     const seen = new Set<string>();
     for (const bank of get().project.banks) {
@@ -378,6 +387,9 @@ export const useStore = create<UIState>((set, get) => ({
     );
     const next = { ...project, banks };
     engine.setProject(next);
+    if ('warpAmount' in patch || 'warpMode' in patch || 'beats' in patch) {
+      engine.clearStretchCache();
+    }
     scheduleAutosave(next);
     set({ project: next });
   },
@@ -1171,7 +1183,17 @@ export const useStore = create<UIState>((set, get) => ({
       midi.onPadOn = (pad, velocity) => get().hitPad(pad, velocity);
       midi.onPadOff = (pad) => get().releasePad(pad);
     }
-    set({ midiConnected: ok });
+    set({
+      midiConnected: ok,
+      midiInputs: midi.inputs,
+      midiOutputs: midi.outputs,
+    });
+  },
+
+  setMidiConfig(c) {
+    midi.setConfig(c);
+    saveMidiConfig(c);
+    set({ midiConfig: c });
   },
 
   undo() {

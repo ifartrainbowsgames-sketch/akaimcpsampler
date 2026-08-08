@@ -3,22 +3,24 @@ import type { Pad, FilterType } from './types';
 /**
  * A single playing note. Created per hit, disposed on end.
  *
- * Graph: source -> ampGain -> filter -> panner -> destination
- *
- * Everything downstream of `destination` (the pad's persistent gain node) is
- * created once at init and never torn down.
+ * Graph: source -> ampGain -> [EQ] -> filter -> panner -> destination
  */
 export interface Voice {
   pad: number;
   bank: number;
   muteGroup: number | null;
   startedAt: number;
+  regionStart: number;
+  regionEnd: number;
+  loopStart: number;
+  loop: boolean;
+  effectiveRate: number;
+  sampleRate: number;
   source: AudioBufferSourceNode;
   ampGain: GainNode;
   stop(when?: number): void;
 }
 
-/** 0-127 -> seconds, exponential-ish so low values are usefully short. */
 function envTime(v: number, max = 4): number {
   const n = Math.max(0, Math.min(127, v)) / 127;
   return n * n * max;
@@ -37,14 +39,17 @@ function filterConfig(type: FilterType): { biquad: BiquadFilterType; q: number }
   }
 }
 
-/** 0-127 -> Hz, roughly logarithmic across the audible band. */
 function cutoffHz(v: number): number {
   const n = Math.max(0, Math.min(127, v)) / 127;
-  return 20 * Math.pow(1000, n); // 20 Hz .. 20 kHz
+  return 20 * Math.pow(1000, n);
 }
 
 function dbToGain(db: number): number {
   return db === -Infinity ? 0 : Math.pow(10, db / 20);
+}
+
+function eqGainDb(v: number): number {
+  return Math.max(-12, Math.min(12, v));
 }
 
 export interface TriggerOptions {
@@ -54,12 +59,9 @@ export interface TriggerOptions {
   padIndex: number;
   bankIndex: number;
   destination: AudioNode;
-  /** Absolute AudioContext time. */
   when: number;
-  velocity: number; // 1-127
-  /** Optional slice override for chop mode. */
+  velocity: number;
   slice?: { start: number; end: number };
-  /** Playback rate multiplier from warp/tune. */
   rate?: number;
 }
 
@@ -74,20 +76,43 @@ export function triggerVoice(o: TriggerOptions): Voice {
   const source = ctx.createBufferSource();
   source.buffer = buffer;
 
-  // Tuning: semitones + cents, combined with any warp rate.
   const detune = pad.semi * 100 + pad.fine;
   const rate = o.rate ?? 1;
   source.playbackRate.value = rate;
-  // detune is not universally supported on BufferSource; fold it into rate.
   if (detune !== 0) {
     source.playbackRate.value = rate * Math.pow(2, detune / 1200);
   }
+  const effectiveRate = source.playbackRate.value;
 
   const ampGain = ctx.createGain();
   const panner = ctx.createStereoPanner();
   panner.pan.value = Math.max(-1, Math.min(1, pad.pan));
 
   let last: AudioNode = ampGain;
+
+  if (pad.eqEnabled) {
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowshelf';
+    low.frequency.value = 200;
+    low.gain.value = eqGainDb(pad.eqLow ?? 0);
+
+    const mid = ctx.createBiquadFilter();
+    mid.type = 'peaking';
+    mid.frequency.value = 1000;
+    mid.Q.value = 1;
+    mid.gain.value = eqGainDb(pad.eqMid ?? 0);
+
+    const high = ctx.createBiquadFilter();
+    high.type = 'highshelf';
+    high.frequency.value = 4000;
+    high.gain.value = eqGainDb(pad.eqHigh ?? 0);
+
+    ampGain.connect(low);
+    low.connect(mid);
+    mid.connect(high);
+    last = high;
+  }
+
   const fc = filterConfig(pad.filterType);
   let filter: BiquadFilterNode | null = null;
   if (fc) {
@@ -95,20 +120,19 @@ export function triggerVoice(o: TriggerOptions): Voice {
     filter.type = fc.biquad;
     filter.Q.value = fc.q + (pad.reso / 127) * 18;
     filter.frequency.value = cutoffHz(pad.cutoff);
-    ampGain.connect(filter);
+    last.connect(filter);
     last = filter;
   }
   last.connect(panner);
   panner.connect(destination);
   source.connect(ampGain);
 
-  // ---- amplitude envelope -------------------------------------------------
   const velScale = 1 - (pad.ampEnv.amount / 127) * (1 - velocity / 127);
   const peak = dbToGain(pad.gain) * Math.max(0, Math.min(1, velScale));
 
   const attack = envTime(pad.ampEnv.attack, 2);
   const decay = envTime(pad.ampEnv.decay, 6);
-  const regionSeconds = (endFrame - startFrame) / sr / source.playbackRate.value;
+  const regionSeconds = (endFrame - startFrame) / sr / effectiveRate;
 
   const g = ampGain.gain;
   g.cancelScheduledValues(when);
@@ -120,19 +144,15 @@ export function triggerVoice(o: TriggerOptions): Voice {
   }
 
   if (!pad.noteOn) {
-    // One-shot: apply decay from either the start or the end of the region.
     const decayStart =
       pad.ampEnv.decayFrom === 'start'
         ? when + attack
         : when + Math.max(attack, regionSeconds - decay);
     if (decay > 0.001) {
-      // setTargetAtTime gives a natural exponential tail; /3 approximates
-      // reaching near-silence within the stated time.
       g.setTargetAtTime(0, decayStart, Math.max(0.005, decay / 3));
     }
   }
 
-  // ---- filter envelope ----------------------------------------------------
   if (filter && pad.filterEnv.amount > 0) {
     const depth = pad.filterEnv.amount / 127;
     const base = cutoffHz(pad.cutoff);
@@ -146,13 +166,13 @@ export function triggerVoice(o: TriggerOptions): Voice {
     if (fd > 0.001) f.setTargetAtTime(base, when + fa, Math.max(0.005, fd / 3));
   }
 
-  // ---- region / looping ---------------------------------------------------
   const startSec = startFrame / sr;
   const durSec = (endFrame - startFrame) / sr;
+  const loopStartFrame = pad.loopStart || startFrame;
 
   if (pad.loop) {
     source.loop = true;
-    source.loopStart = (pad.loopStart || startFrame) / sr;
+    source.loopStart = loopStartFrame / sr;
     source.loopEnd = endFrame / sr;
     source.start(when, startSec);
   } else {
@@ -164,6 +184,12 @@ export function triggerVoice(o: TriggerOptions): Voice {
     bank: o.bankIndex,
     muteGroup: pad.muteGroup,
     startedAt: when,
+    regionStart: startFrame,
+    regionEnd: endFrame,
+    loopStart: loopStartFrame,
+    loop: pad.loop,
+    effectiveRate,
+    sampleRate: sr,
     source,
     ampGain,
     stop(at?: number) {
@@ -192,4 +218,21 @@ export function triggerVoice(o: TriggerOptions): Voice {
   };
 
   return voice;
+}
+
+/** Current frame position for a playing voice (for waveform playhead). */
+export function voiceFrameAt(v: Voice, ctxTime: number): number {
+  const elapsed = Math.max(0, ctxTime - v.startedAt);
+  const framesPlayed = elapsed * v.sampleRate * v.effectiveRate;
+  const regionLen = v.regionEnd - v.regionStart;
+
+  if (v.loop && regionLen > 0) {
+    const loopLen = v.regionEnd - v.loopStart;
+    if (loopLen <= 0) return v.regionStart;
+    const inLoop = framesPlayed % loopLen;
+    return v.loopStart + inLoop;
+  }
+
+  const frame = v.regionStart + framesPlayed;
+  return Math.min(v.regionEnd, frame);
 }

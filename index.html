@@ -6,6 +6,8 @@
     <meta name="theme-color" content="#0d0d0e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
     <title>MPC SAMPLE</title>
   </head>
   <body>
@@ -14,7 +16,7 @@
     <script>
       if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js?v=9').then((reg) => {
+          navigator.serviceWorker.register('/sw.js?v=11').then((reg) => {
             reg.update();
             setInterval(() => reg.update(), 60 * 60 * 1000);
           }).catch(() => {});
