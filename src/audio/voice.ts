@@ -19,6 +19,8 @@ export interface Voice {
   source: AudioBufferSourceNode;
   ampGain: GainNode;
   stop(when?: number): void;
+  /** Immediate cut — used for mono drum retrigger. */
+  kill(when?: number): void;
 }
 
 function envTime(v: number, max = 4): number {
@@ -200,6 +202,16 @@ export function triggerVoice(o: TriggerOptions): Voice {
         g.setValueAtTime(g.value, t);
         g.setTargetAtTime(0, t, Math.max(0.003, release / 3));
         source.stop(t + Math.max(0.02, release + 0.05));
+      } catch {
+        /* already stopped */
+      }
+    },
+    kill(at?: number) {
+      const t = at ?? ctx.currentTime;
+      try {
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(0, t);
+        source.stop(t);
       } catch {
         /* already stopped */
       }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   makeProject,
+  migrateProject,
   MAX_SLICES,
   TICKS_PER_16TH,
   type Pad,
@@ -175,7 +176,7 @@ interface UIState {
   redo(): void;
 }
 
-const initial = loadAutosave() ?? makeProject('Startup');
+const initial = migrateProject(loadAutosave() ?? makeProject('Startup'));
 
 let autosaveTimer: number | null = null;
 function scheduleAutosave(p: Project) {
@@ -416,6 +417,7 @@ export const useStore = create<UIState>((set, get) => ({
       loopStart: 0,
       slices: [],
       chopType: 'threshold',
+      polyphony: 'mono',
     });
     engine.selectedPad = padIndex;
     set({ selectedPad: padIndex, screen: 'sample' });
@@ -594,8 +596,9 @@ export const useStore = create<UIState>((set, get) => ({
   },
 
   async loadSavedProject(id) {
-    const p = loadProject(id);
-    if (!p) return;
+    const raw = loadProject(id);
+    if (!raw) return;
+    const p = migrateProject(raw);
     history.push(get().project);
     engine.setProject(p);
     engine.setBank(0);
@@ -746,6 +749,7 @@ export const useStore = create<UIState>((set, get) => ({
         loopStart: 0,
         slices: [],
         gain: meta?.defaultGain ?? 0,
+        polyphony: 'mono',
       });
     }
 

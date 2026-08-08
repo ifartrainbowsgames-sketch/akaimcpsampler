@@ -95,8 +95,8 @@ export class Engine {
     this.meterData = new Uint8Array(this.analyser.frequencyBinCount);
 
     // Compressor starts effectively transparent; the Compressor page drives it.
-    this.compressor.threshold.value = -6;
-    this.compressor.ratio.value = 2;
+    this.compressor.threshold.value = 0;
+    this.compressor.ratio.value = 1.5;
     this.compressor.attack.value = 0.012;
     this.compressor.release.value = 0.11;
 
@@ -404,10 +404,14 @@ export class Engine {
         if (v.muteGroup === pad.muteGroup) v.stop(t);
       }
     }
-    // Mono: retrigger cuts the previous instance of this pad.
+    // Mono: retrigger cuts the previous instance of this pad immediately.
     if (pad.polyphony === 'mono') {
-      for (const v of this.voices) {
-        if (v.pad === padIndex && v.bank === bank) v.stop(t);
+      for (let vi = this.voices.length - 1; vi >= 0; vi--) {
+        const v = this.voices[vi];
+        if (v.pad === padIndex && v.bank === bank) {
+          v.kill(t);
+          this.voices.splice(vi, 1);
+        }
       }
     }
 
