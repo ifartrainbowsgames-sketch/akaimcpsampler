@@ -1,27 +1,16 @@
 {
-  "version": 1,
-  "note": "Procedural kits are built in-browser. Add WAV folders here later for real sample packs.",
+  "version": 2,
+  "note": "Ten procedural kits built in-browser. Add WAV folders under public/factory/ later.",
   "kits": [
-    {
-      "id": "classic-drums",
-      "name": "Classic Drums",
-      "category": "drums",
-      "description": "Kick, snare, hats, clap, toms — 16-pad kit",
-      "source": "procedural"
-    },
-    {
-      "id": "lofi-drums",
-      "name": "Lo-Fi Drums",
-      "category": "drums",
-      "description": "Dusty kicks, rimshots, soft hats",
-      "source": "procedural"
-    },
-    {
-      "id": "808-bass",
-      "name": "808 Bass",
-      "category": "bass",
-      "description": "Sub bass tones across 16 pads",
-      "source": "procedural"
-    }
+    { "id": "classic-drums", "name": "Classic Drums", "category": "drums" },
+    { "id": "lofi-drums", "name": "Lo-Fi Drums", "category": "drums" },
+    { "id": "trap-drums", "name": "Trap Drums", "category": "drums" },
+    { "id": "house-drums", "name": "House Drums", "category": "drums" },
+    { "id": "techno-drums", "name": "Techno Drums", "category": "drums" },
+    { "id": "vinyl-drums", "name": "Vinyl Drums", "category": "drums" },
+    { "id": "808-bass", "name": "808 Bass", "category": "bass" },
+    { "id": "percussion", "name": "World Perc", "category": "perc" },
+    { "id": "synth-stabs", "name": "Synth Stabs", "category": "synth" },
+    { "id": "fx-hits", "name": "FX Hits", "category": "fx" }
   ]
 }

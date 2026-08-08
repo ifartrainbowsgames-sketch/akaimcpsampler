@@ -59,7 +59,6 @@ export function LCD() {
 
   const [playhead, setPlayhead] = useState(-1);
   const [samplePh, setSamplePh] = useState(-1);
-  const [lcdActions, setLcdActions] = useState(false);
   useEffect(() => {
     let raf = 0;
     const loop = () => {
@@ -104,17 +103,12 @@ export function LCD() {
           ))}
         </div>
 
-        <div className="infoline" onDoubleClick={() => setLcdActions((v) => !v)}>
+        <div className="infoline">
           <span className="padid">
             {String.fromCharCode(65 + bank)}
             {String(selectedPad + 1).padStart(2, '0')}
           </span>
           <span className="sname">{pad.sampleName || '(empty)'}</span>
-          {!buffer && (
-            <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">
-              LOAD
-            </label>
-          )}
           <span className="chips">
             {pad.noteOn && <i className="chip">♪</i>}
             {pad.loop && <i className="chip">⟳</i>}
@@ -125,14 +119,12 @@ export function LCD() {
           </span>
         </div>
 
-        {lcdActions && (
-          <div className="lcdmenu lcdmenu--popup">
-            <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">UPLOAD</label>
-            <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>BROWSE</button>
-            <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('library')}>FREESOUND</button>
-            <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>KITS</button>
-          </div>
-        )}
+        <div className="lcdmenu">
+          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">UPLOAD</label>
+          <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>BROWSE</button>
+          <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>KITS</button>
+          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('library')}>FREESOUND</button>
+        </div>
 
         {chopActive && (
           <div className="lcdchop">
@@ -781,21 +773,26 @@ function KitsScreen() {
   const loadFactoryKit = useStore((s) => s.loadFactoryKit);
   const setScreen = useStore((s) => s.setScreen);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'drums' | 'bass'>('all');
+  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'other'>('all');
 
-  const kits = FACTORY_KIT_LIST.filter((k) => filter === 'all' || k.category === filter);
+  const kits = FACTORY_KIT_LIST.filter((k) => {
+    if (filter === 'all') return true;
+    if (filter === 'drums') return k.category === 'drums';
+    if (filter === 'bass') return k.category === 'bass';
+    return k.category === 'perc' || k.category === 'synth' || k.category === 'fx';
+  });
 
   return (
     <div className="lcdpanel">
       <div className="kitfilters">
-        {(['all', 'drums', 'bass'] as const).map((f) => (
+        {(['all', 'drums', 'bass', 'other'] as const).map((f) => (
           <button
             key={f}
             type="button"
             className={filter === f ? 'on' : ''}
             onClick={() => setFilter(f)}
           >
-            {f === 'all' ? 'ALL' : f.toUpperCase()}
+            {f === 'all' ? 'ALL' : f === 'other' ? 'FX/SYN' : f.toUpperCase()}
           </button>
         ))}
       </div>

@@ -175,11 +175,6 @@ interface UIState {
   redo(): void;
 }
 
-const BASS_PAD_NAMES = [
-  'C1', 'D1', 'E1', 'F1', 'G1', 'A1', 'B1', 'C2',
-  'D2', 'E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3',
-];
-
 const initial = loadAutosave() ?? makeProject('Startup');
 
 let autosaveTimer: number | null = null;
@@ -741,10 +736,7 @@ export const useStore = create<UIState>((set, get) => ({
       const wav = await engine.bufferToWav(buffer).arrayBuffer();
       await writeSample(id, wav);
 
-      const names = ['Kick', 'Kick 2', 'Snare', 'Snare 2', 'Hat', 'Hat O', 'Hat C', 'Hat C2',
-        'Clap', 'Clap 2', 'Tom L', 'Tom M', 'Tom H', 'Tom HH', 'Rim', 'Hat L'];
-      const bassNames = BASS_PAD_NAMES;
-      const label = kitId === '808-bass' ? bassNames[i] : names[i];
+      const label = meta?.padNames[i] ?? `Pad ${i + 1}`;
 
       get().updatePad(i, {
         sampleId: id,
@@ -753,7 +745,7 @@ export const useStore = create<UIState>((set, get) => ({
         end: buffer.length,
         loopStart: 0,
         slices: [],
-        gain: kitId === '808-bass' ? -3 : 0,
+        gain: meta?.defaultGain ?? 0,
       });
     }
 
