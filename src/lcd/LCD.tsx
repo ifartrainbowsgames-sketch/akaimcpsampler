@@ -3,8 +3,8 @@ import { saveProject } from '../storage/projects';
 import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { Waveform } from '../ui/Waveform';
-import { PAGE_GROUPS, type KParam } from './pages';
-import { chopPage } from './chopPage';
+import { type KParam } from './pages';
+import { resolveSamplePage, sampleTabLabel } from './samplePage';
 import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
@@ -27,6 +27,7 @@ export function LCD() {
   const selectedSlice = useStore((s) => s.selectedSlice);
   const runChop = useStore((s) => s.runChop);
   const sliceAllToPads = useStore((s) => s.sliceAllToPads);
+  const setBGroup = useStore((s) => s.setBGroup);
 
   const pad = project.banks[bank][selectedPad];
   const buffer = engine.getBuffer(pad.sampleId);
@@ -51,28 +52,23 @@ export function LCD() {
   }, []);
 
   if (screen === 'sample') {
-    const group = PAGE_GROUPS[bGroup - 1];
-    let page = group[bPage[bGroup - 1] % group.length];
-
-    // Chop replaces the Trim page while it's active — the other page groups
-    // are untouched.
-    if (chopActive && bGroup === 1 && page.title === 'Trim') {
-      page = chopPage(selectedSlice);
-    }
-    const params = page.params(pad, project);
+    const { params } = resolveSamplePage(
+      bGroup, bPage, chopActive, selectedSlice, pad, project,
+    );
 
     return (
       <div className="lcd">
         <div className="tabs">
-          {PAGE_GROUPS.map((g, i) => {
-            const p = g[bPage[i] % g.length];
-            const title = chopActive && i === 0 && p.title === 'Trim' ? 'Chop' : p.title;
-            return (
-              <div key={i} className={i === bGroup - 1 ? 'on' : ''}>
-                {title}
-              </div>
-            );
-          })}
+          {TAB_INDICES.map((i) => (
+            <button
+              key={i}
+              type="button"
+              className={i === bGroup - 1 ? 'on' : ''}
+              onClick={() => setBGroup((i + 1) as 1 | 2 | 3)}
+            >
+              {sampleTabLabel(i, chopActive && i === 0)}
+            </button>
+          ))}
         </div>
 
         <div className="infoline">
@@ -120,7 +116,7 @@ export function LCD() {
           )}
         </div>
 
-        <KRow params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
+        <Footline params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
       </div>
     );
   }
@@ -145,6 +141,40 @@ const SCREEN_TITLES: Record<string, string> = {
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
 };
+
+const TAB_INDICES = [0, 1, 2];
+
+function Footline({
+  params,
+  onChange,
+}: {
+  params: KParam[];
+  onChange(p: KParam, v: number): void;
+}) {
+  return (
+    <div className="footline">
+      {[0, 1, 2].map((i) => {
+        const p = params[i];
+        return (
+          <label key={i} className="footcell">
+            <span>{p?.name ?? '—'}</span>
+            {p && (
+              <input
+                className="footslider"
+                type="range"
+                min={0}
+                max={1000}
+                value={Math.round(p.norm * 1000)}
+                onChange={(e) => onChange(p, Number(e.target.value) / 1000)}
+                aria-label={p.name}
+              />
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 function KRow({
   params,

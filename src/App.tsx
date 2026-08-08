@@ -3,6 +3,7 @@ import { useStore } from './state/store';
 import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
 import { Pads } from './ui/Pads';
+import { ParamKnobs } from './ui/ParamKnobs';
 import { Knob } from './ui/Knob';
 import { JogWheel } from './ui/JogWheel';
 import { Fader } from './ui/Fader';
@@ -144,16 +145,19 @@ function Panel() {
           <div className="deckrow1">
             <div className="logo"><b>AKAI</b><i>professional</i></div>
             <div className="fnrow">
-              <button type="button" className="fnbtn" onClick={() => cycleB(1)}>B1</button>
-              <button type="button" className="fnbtn" onClick={() => cycleB(2)}>B2</button>
-              <button type="button" className="fnbtn" onClick={() => cycleB(3)}>B3</button>
+              <button type="button" className="fnbtn" aria-label="B1" onClick={() => cycleB(1)} />
+              <button type="button" className="fnbtn" aria-label="B2" onClick={() => cycleB(2)} />
+              <button type="button" className="fnbtn" aria-label="B3" onClick={() => cycleB(3)} />
             </div>
             <div className="wordmark">MPC SAMPLE</div>
           </div>
 
           <div className="deckrow2">
             <div className="volwrap">
-              <Knob value={volume} onChange={setVolume} size="md" label="MAIN VOL" sensitivity={320} />
+              <div className="volstack">
+                <Knob value={volume} onChange={setVolume} size="md" sensitivity={320} />
+                <div className="vollabel">MAIN<br />VOLUME</div>
+              </div>
               <div className="bankcol">
                 <div className="bankltr">{String.fromCharCode(65 + bank)}</div>
                 <div className="greenled" />
@@ -219,11 +223,7 @@ function Panel() {
           </div>
 
           <div className="col centre">
-            <div className="kknobs">
-              <div className="kspacer">K1</div>
-              <div className="kspacer">K2</div>
-              <div className="kspacer">K3</div>
-            </div>
+            <ParamKnobs />
             <Pads />
           </div>
 
@@ -281,8 +281,14 @@ function Panel() {
             </div>
 
             <div className="grid2 transport">
-              <PanelButton label="■" onClick={stop} />
-              <PanelButton label="▶" sub="CONTINUE" lit={transport.playing} onClick={play} />
+              <button type="button" className="pb tp stop" onClick={stop} aria-label="Stop">
+                <span className="cap" />
+                <span className="sub">&nbsp;</span>
+              </button>
+              <button type="button" className={`pb tp play ${transport.playing ? 'lit' : ''}`} onClick={play} aria-label="Play">
+                <span className="cap" />
+                <span className="sub">CONTINUE</span>
+              </button>
             </div>
           </div>
         </div>
