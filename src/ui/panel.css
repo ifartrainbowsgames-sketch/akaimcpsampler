@@ -43,6 +43,7 @@ button{font:inherit}
 .bootbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #8d430b}
 .bootbtn:disabled{opacity:.6}
 .bootnote{font-size:12px;margin-top:18px;opacity:.6}
+.bootver{font-size:11px;margin-top:10px;opacity:.45;letter-spacing:.08em}
 
 /* ---------------- chassis ---------------- */
 .stage{display:flex;flex-direction:column;align-items:center;padding:clamp(8px,2.5vw,32px)}
@@ -276,6 +277,14 @@ button{font:inherit}
 .modal-btn.primary{border-color:var(--orange);color:#fff;
   background:linear-gradient(180deg,#FF9A3D,var(--orange) 50%,var(--orange-lo))}
 .modal-btn:active{filter:brightness(1.1)}
+
+.update-banner{
+  position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;
+  justify-content:center;gap:12px;padding:10px 16px;background:#1a1a18;color:#e6e6dc;
+  border-bottom:1px solid var(--orange);font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.update-banner button{
+  border:0;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer;
+  background:linear-gradient(180deg,#FF9A3D,var(--orange));color:#fff}
 
 .shifted .pb .cap{filter:hue-rotate(-20deg) saturate(1.3)}
 
