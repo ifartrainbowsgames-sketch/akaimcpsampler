@@ -489,19 +489,45 @@ function SongScreen() {
 }
 
 function RecordScreen() {
-  const inputOpen = useStore((s) => s.inputOpen);
+  const recordError = useStore((s) => s.recordError);
   const openInput = useStore((s) => s.openInput);
   const startSampleRecord = useStore((s) => s.startSampleRecord);
   const stopSampleRecord = useStore((s) => s.stopSampleRecord);
+  const inputReady = useStore((s) => s.inputOpen);
   const [rec, setRec] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!inputReady) return;
+    let raf = 0;
+    const loop = () => {
+      setLevel(engine.inputLevel);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [inputReady]);
 
   return (
     <div className="lcdpanel">
-      {!inputOpen ? (
+      {recordError && (
+        <div className="pending" style={{ color: '#CE3A2E' }}>{recordError}</div>
+      )}
+      {!inputReady ? (
         <>
-          <div className="pending">Microphone not enabled.</div>
+          <div className="pending">Allow microphone access to record samples.</div>
           <div className="lcdbtns">
-            <button type="button" onClick={() => void openInput()}>ENABLE INPUT</button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void openInput().finally(() => setBusy(false));
+              }}
+            >
+              {busy ? '…' : 'ENABLE INPUT'}
+            </button>
           </div>
         </>
       ) : (
@@ -509,12 +535,28 @@ function RecordScreen() {
           <div className="big" style={{ color: rec ? '#CE3A2E' : undefined }}>
             {rec ? '● REC' : 'READY'}
           </div>
+          <div className="lcdrow">
+            <span>Input</span>
+            <div className="recmeter">
+              <i style={{ width: `${Math.round(level * 100)}%` }} />
+            </div>
+          </div>
           <div className="lcdbtns">
             <button
               type="button"
+              disabled={busy}
               onClick={() => {
-                if (rec) { void stopSampleRecord(); setRec(false); }
-                else { startSampleRecord(); setRec(true); }
+                if (rec) {
+                  setBusy(true);
+                  void stopSampleRecord()
+                    .then((ok) => { if (ok) setRec(false); })
+                    .finally(() => setBusy(false));
+                } else {
+                  setBusy(true);
+                  void startSampleRecord()
+                    .then((ok) => { if (ok) setRec(true); })
+                    .finally(() => setBusy(false));
+                }
               }}
             >
               {rec ? 'STOP' : 'RECORD'}
@@ -524,7 +566,7 @@ function RecordScreen() {
             </button>
           </div>
           <div className="hintline">
-            Tap CHOP POINT while recording to slice as you go.
+            Speak or play into the mic — the meter should move. Tap STOP to load the sample on a pad.
           </div>
         </>
       )}

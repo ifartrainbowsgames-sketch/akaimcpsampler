@@ -161,9 +161,10 @@ interface UIState {
 
   // ---- Phase 8: recording, MIDI, undo ----
   inputOpen: boolean;
-  openInput(): Promise<void>;
-  startSampleRecord(): void;
-  stopSampleRecord(): Promise<void>;
+  recordError: string | null;
+  openInput(): Promise<boolean>;
+  startSampleRecord(): Promise<boolean>;
+  stopSampleRecord(): Promise<boolean>;
   connectMidi(): Promise<void>;
   midiConnected: boolean;
   midiConfig: MidiConfig;
@@ -227,6 +228,7 @@ export const useStore = create<UIState>((set, get) => ({
   knobFX: 'off',
   activePadFX: null,
   inputOpen: false,
+  recordError: null,
   midiConnected: false,
   midiConfig: getMidiConfig(),
   midiInputs: [] as string[],
@@ -1133,23 +1135,41 @@ export const useStore = create<UIState>((set, get) => ({
   // ---------------------------------------------- recording, MIDI, history
 
   async openInput() {
+    set({ recordError: null });
     const ok = await engine.openInput();
-    set({ inputOpen: ok });
+    set({ inputOpen: ok, recordError: ok ? null : 'Microphone access denied or unavailable.' });
+    return ok;
   },
 
-  startSampleRecord() {
+  async startSampleRecord() {
+    set({ recordError: null });
+    if (!get().inputOpen) {
+      const ok = await get().openInput();
+      if (!ok) return false;
+    }
+    if (engine.ctx?.state === 'suspended') {
+      try {
+        await engine.ctx.resume();
+      } catch {
+        set({ recordError: 'Could not start audio — tap Start on the boot screen again.' });
+        return false;
+      }
+    }
     engine.startRecording();
     set({});
+    return true;
   },
 
   async stopSampleRecord() {
     const result = engine.stopRecording();
-    if (!result) return;
+    if (!result) {
+      set({ recordError: 'Nothing recorded — check the input meter moves when you speak.' });
+      return false;
+    }
 
     const id = crypto.randomUUID();
     engine.putBuffer(id, result.buffer);
 
-    // Live chop points dropped during recording become slices immediately.
     const slices = result.chops.length
       ? result.chops.map((start, i) => ({
           start,
@@ -1174,7 +1194,8 @@ export const useStore = create<UIState>((set, get) => ({
       loopStart: 0,
       slices,
     });
-    set({ selectedPad: target, screen: 'sample' });
+    set({ selectedPad: target, screen: 'sample', recordError: null });
+    return true;
   },
 
   async connectMidi() {

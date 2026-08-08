@@ -1,12 +1,7 @@
 import { encodeWav } from './export';
 
 /**
- * Sample recording from mic, line in, or internal resampling.
- *
- * Also maintains the Recall buffer: a rolling capture of the last 25 seconds
- * of input, always running once permission is granted, so Recall can retrieve
- * a take you didn't know you wanted. That does mean the mic stays live —
- * surface it clearly in the UI.
+ * Sample recording from mic. Maintains a rolling Recall buffer once open.
  */
 const RECALL_SECONDS = 25;
 
@@ -17,19 +12,19 @@ export class Recorder {
   private stream: MediaStream | null = null;
   private srcNode: MediaStreamAudioSourceNode | null = null;
   private processor: ScriptProcessorNode | null = null;
+  private silentOut: GainNode | null = null;
   private monitorGain: GainNode;
 
-  /** Rolling recall buffer. */
   private ring: Float32Array[] = [];
   private ringWrite = 0;
   private ringSize = 0;
 
+  /** Stereo pairs [L0, R0, L1, R1, …] per audio callback. */
   private capturing: Float32Array[] = [];
   private capturingLength = 0;
   recording = false;
   level = 0;
 
-  /** Chop points dropped live while recording, in frames. */
   liveChops: number[] = [];
 
   constructor(ctx: AudioContext, monitorDestination: AudioNode) {
@@ -48,12 +43,24 @@ export class Recorder {
   /** Must be called from a user gesture on iOS. */
   async open(): Promise<boolean> {
     if (this.stream) return true;
+
+    if (!navigator.mediaDevices?.getUserMedia) return false;
+
+    if (this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
+          channelCount: { ideal: 1 },
         },
       });
     } catch {
@@ -62,54 +69,54 @@ export class Recorder {
 
     this.srcNode = this.ctx.createMediaStreamSource(this.stream);
 
-    // ScriptProcessor is deprecated but is the only way to pull raw frames back
-    // to the main thread without a MessagePort round trip per block. Recording
-    // is not latency-critical, so the tradeoff is acceptable here — unlike in
-    // the playback path, where it would not be.
     const bufSize = 4096;
-    this.processor = this.ctx.createScriptProcessor(bufSize, 2, 2);
+    this.processor = this.ctx.createScriptProcessor(bufSize, 1, 1);
     this.processor.onaudioprocess = (e) => this.onAudio(e);
+
+    this.silentOut = this.ctx.createGain();
+    this.silentOut.gain.value = 0;
 
     this.srcNode.connect(this.processor);
     this.srcNode.connect(this.monitorGain);
-    // ScriptProcessor needs a destination connection to run at all.
-    this.processor.connect(this.ctx.destination);
+    this.processor.connect(this.silentOut);
+    this.silentOut.connect(this.ctx.destination);
+
     return true;
   }
 
   private onAudio(e: AudioProcessingEvent) {
     const input = e.inputBuffer;
-    const chans = Math.min(2, input.numberOfChannels);
-    let peak = 0;
+    const frames = input.length;
+    const ch0 = input.getChannelData(0);
+    const ch1 = input.numberOfChannels > 1 ? input.getChannelData(1) : ch0;
 
-    for (let ch = 0; ch < chans; ch++) {
-      const data = input.getChannelData(ch);
+    let peak = 0;
+    for (let ch = 0; ch < 2; ch++) {
+      const data = ch === 0 ? ch0 : ch1;
       const ring = this.ring[ch];
       let w = this.ringWrite;
-      for (let i = 0; i < data.length; i++) {
+      for (let i = 0; i < frames; i++) {
         const s = data[i];
         ring[w] = s;
         w = (w + 1) % this.ringSize;
         const a = Math.abs(s);
         if (a > peak) peak = a;
       }
-      if (ch === chans - 1) this.ringWrite = w;
-
-      if (this.recording) {
-        this.capturing.push(new Float32Array(data));
-      }
     }
-    if (this.recording) this.capturingLength += input.length;
+    this.ringWrite = (this.ringWrite + frames) % this.ringSize;
+
+    if (this.recording) {
+      this.capturing.push(new Float32Array(ch0), new Float32Array(ch1));
+      this.capturingLength += frames;
+    }
     this.level = peak;
 
-    // Mute the monitor path's own output so we don't double it.
-    for (let ch = 0; ch < e.outputBuffer.numberOfChannels; ch++) {
-      e.outputBuffer.getChannelData(ch).fill(0);
-    }
+    const out = e.outputBuffer.getChannelData(0);
+    out.fill(0);
   }
 
   setMonitor(on: boolean) {
-    this.monitorGain.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.02);
+    this.monitorGain.gain.setTargetAtTime(on ? 0.85 : 0, this.ctx.currentTime, 0.02);
   }
 
   start() {
@@ -119,7 +126,6 @@ export class Recorder {
     this.recording = true;
   }
 
-  /** Drop a chop point at the current position — the "lazy chopping" workflow. */
   markChop() {
     if (this.recording) this.liveChops.push(this.capturingLength);
   }
@@ -127,23 +133,26 @@ export class Recorder {
   stop(): { buffer: AudioBuffer; chops: number[] } | null {
     if (!this.recording) return null;
     this.recording = false;
-    if (this.capturing.length === 0) return null;
+    if (this.capturing.length === 0 || this.capturingLength === 0) {
+      this.capturing = [];
+      this.capturingLength = 0;
+      return null;
+    }
 
-    // Blocks alternate channels; de-interleave back into a stereo buffer.
-    const blocks = this.capturing;
-    const frames = Math.floor(this.capturingLength);
-    const out = this.ctx.createBuffer(2, Math.max(1, frames), this.ctx.sampleRate);
+    const frames = this.capturingLength;
+    const out = this.ctx.createBuffer(2, frames, this.ctx.sampleRate);
     const L = out.getChannelData(0);
     const R = out.getChannelData(1);
 
     let off = 0;
-    for (let i = 0; i < blocks.length; i += 2) {
-      const l = blocks[i];
-      const r = blocks[i + 1] ?? l;
-      L.set(l.subarray(0, Math.min(l.length, frames - off)), off);
-      R.set(r.subarray(0, Math.min(r.length, frames - off)), off);
-      off += l.length;
-      if (off >= frames) break;
+    for (let i = 0; i < this.capturing.length; i += 2) {
+      const l = this.capturing[i];
+      const r = this.capturing[i + 1] ?? l;
+      const n = Math.min(l.length, frames - off);
+      if (n <= 0) break;
+      L.set(l.subarray(0, n), off);
+      R.set(r.subarray(0, n), off);
+      off += n;
     }
 
     const chops = this.liveChops.slice();
@@ -152,7 +161,6 @@ export class Recorder {
     return { buffer: out, chops };
   }
 
-  /** Recall: pull the last N seconds out of the rolling buffer. */
   recall(seconds = RECALL_SECONDS): AudioBuffer {
     const frames = Math.min(this.ringSize, Math.floor(seconds * this.ctx.sampleRate));
     const out = this.ctx.createBuffer(2, frames, this.ctx.sampleRate);
@@ -174,11 +182,13 @@ export class Recorder {
   close() {
     try {
       this.processor?.disconnect();
+      this.silentOut?.disconnect();
       this.srcNode?.disconnect();
       this.stream?.getTracks().forEach((t) => t.stop());
     } catch { /* noop */ }
     this.stream = null;
     this.srcNode = null;
     this.processor = null;
+    this.silentOut = null;
   }
 }

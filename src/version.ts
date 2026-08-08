@@ -1,2 +1,2 @@
 /** Bump when forcing clients to pick up a new shell or service worker. */
-export const APP_VERSION = '0.7.0';
+export const APP_VERSION = '0.7.1';

@@ -649,6 +649,14 @@ export class Engine {
   // -------------------------------------------------------------- recording
 
   async openInput(): Promise<boolean> {
+    if (!this.ctx) return false;
+    if (this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        return false;
+      }
+    }
     return this.recorder ? this.recorder.open() : false;
   }
 
