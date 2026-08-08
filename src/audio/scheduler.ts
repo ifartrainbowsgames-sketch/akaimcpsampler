@@ -3,37 +3,14 @@ import type { Sequence, SeqEvent } from './types';
 
 /**
  * Lookahead scheduling, per "A Tale of Two Clocks".
- *
- * A JS timer ticks every SCHEDULE_INTERVAL and hands every event falling
- * within LOOKAHEAD to Web Audio with an absolute future timestamp. The audio
- * thread then executes them sample-accurately regardless of timer jitter.
- *
- * Do not replace this with setInterval-fires-the-sound. Do not replace it with
- * requestAnimationFrame (stops in background tabs). Do not use an AudioWorklet
- * as the clock (fires every 128 frames, ~2.7ms, far more often than needed).
  */
-const SCHEDULE_INTERVAL = 25; // ms between ticks
-const LOOKAHEAD = 0.1;        // seconds of events scheduled ahead
+const SCHEDULE_INTERVAL = 25;
+const LOOKAHEAD = 0.1;
 
-/**
- * Roger Linn's swing: delay every even-numbered 16th note within each 8th.
- * The percentage is the share of the 8th note given to the FIRST 16th.
- *
- *   50%    straight
- *   54%    loosens a straight beat without reading as swing
- *   62%    classic loose hip-hop feel
- *   66.67% perfect triplet swing
- *
- * Applied at playback time, never baked into stored events, so it stays a live
- * performance control.
- */
 export function applySwing(tick: number, swingPct: number): number {
   if (swingPct <= 50) return tick;
   const posIn8th = tick % TICKS_PER_8TH;
-  // Only the offbeat 16th of each pair moves.
   if (posIn8th < TICKS_PER_16TH) return tick;
-  // ...and only if it sits exactly on the 16th grid. Unquantized
-  // finger-drumming passes through untouched — that raw feel is the point.
   if (posIn8th !== TICKS_PER_16TH) return tick;
   const delay = (swingPct / 100 - 0.5) * TICKS_PER_8TH;
   return tick + delay;
@@ -51,9 +28,9 @@ export function ticksPerBar(timeSig: [number, number]): number {
 export interface TransportState {
   playing: boolean;
   recording: boolean;
-  /** Position in ticks within the current sequence. */
+  /** True once count-in bars have elapsed. */
+  recordingLive: boolean;
   positionTicks: number;
-  /** For UI: which 16th step is currently sounding. */
   currentStep: number;
 }
 
@@ -63,13 +40,12 @@ export interface SchedulerHost {
   getBpm(): number;
   getSwing(): number;
   getTimeSignature(): [number, number];
-  /** Fire a note. `when` is an absolute AudioContext time. */
   playEvent(e: SeqEvent, when: number): void;
-  /** Optional metronome click. */
   click?(when: number, accent: boolean): void;
   metronomeEnabled(): boolean;
-  /** Called on the main thread each tick so the UI can mirror position. */
+  countInBars(): number;
   onPosition(state: TransportState): void;
+  onLoopComplete?(): void;
 }
 
 export class Scheduler {
@@ -77,16 +53,18 @@ export class Scheduler {
   private timer: number | null = null;
   private worker: Worker | null = null;
 
-  /** AudioContext time at which the current loop pass started. */
   private loopStartTime = 0;
-  /** Next tick within the sequence we have not yet scheduled. */
   private nextTick = 0;
   private loopLengthTicks = 0;
   private lastClickTick = -1;
+  private countInTicks = 0;
+  private countInDone = true;
+  private lastLoopIndex = 0;
 
   state: TransportState = {
     playing: false,
     recording: false,
+    recordingLive: false,
     positionTicks: 0,
     currentStep: 0,
   };
@@ -96,10 +74,6 @@ export class Scheduler {
     this.spawnWorker();
   }
 
-  /**
-   * The tick runs from a Worker timer because browsers throttle main-thread
-   * timers hard in background tabs, which would stall playback.
-   */
   private spawnWorker() {
     const src = `
       let id = null;
@@ -115,7 +89,7 @@ export class Scheduler {
       this.worker = new Worker(url);
       this.worker.onmessage = () => this.tick();
     } catch {
-      this.worker = null; // fall back to setInterval
+      this.worker = null;
     }
   }
 
@@ -123,14 +97,17 @@ export class Scheduler {
     return 60 / this.host.getBpm() / PPQN;
   }
 
-  start(fromTick = 0) {
+  start(fromTick = 0, countInBars = 0) {
     const seq = this.host.getSequence();
     if (!seq) return;
     const ctx = this.host.ctx;
     this.loopLengthTicks = seq.bars * ticksPerBar(this.host.getTimeSignature());
     this.nextTick = fromTick;
     this.lastClickTick = -1;
-    // Small offset so the first events aren't scheduled in the past.
+    this.lastLoopIndex = Math.floor(fromTick / this.loopLengthTicks);
+    this.countInTicks = countInBars * ticksPerBar(this.host.getTimeSignature());
+    this.countInDone = this.countInTicks === 0;
+    this.state.recordingLive = this.countInDone && this.state.recording;
     this.loopStartTime = ctx.currentTime + 0.06 - fromTick * this.secPerTick();
     this.state.playing = true;
 
@@ -142,8 +119,11 @@ export class Scheduler {
   stop() {
     this.state.playing = false;
     this.state.recording = false;
+    this.state.recordingLive = false;
     this.state.positionTicks = 0;
     this.state.currentStep = 0;
+    this.countInTicks = 0;
+    this.countInDone = true;
     if (this.worker) this.worker.postMessage('stop');
     if (this.timer !== null) {
       clearInterval(this.timer);
@@ -152,12 +132,10 @@ export class Scheduler {
     this.host.onPosition({ ...this.state });
   }
 
-  /** Absolute AudioContext time for a tick in the current loop pass. */
   private timeForTick(tick: number): number {
     return this.loopStartTime + tick * this.secPerTick();
   }
 
-  /** Current playhead in ticks, derived from the audio clock (never drifts). */
   currentTick(): number {
     if (!this.state.playing) return 0;
     const elapsed = this.host.ctx.currentTime - this.loopStartTime;
@@ -171,50 +149,54 @@ export class Scheduler {
 
     const ctx = this.host.ctx;
     const horizon = ctx.currentTime + LOOKAHEAD;
-
-    // Recompute loop length in case bars changed mid-playback.
     const bar = ticksPerBar(this.host.getTimeSignature());
     this.loopLengthTicks = seq.bars * bar;
-
     const swing = this.host.getSwing();
+    const rawPos = this.currentTick();
+    const inCountIn = !this.countInDone && rawPos < this.countInTicks;
+
+    if (!this.countInDone && rawPos >= this.countInTicks) {
+      this.countInDone = true;
+      this.state.recordingLive = this.state.recording;
+    }
 
     while (this.timeForTick(this.nextTick) < horizon) {
       const tickInLoop = this.nextTick % this.loopLengthTicks;
+      const loopIndex = Math.floor(this.nextTick / this.loopLengthTicks);
 
-      // --- metronome ---
-      if (this.host.metronomeEnabled() && tickInLoop % PPQN === 0) {
+      if (loopIndex > this.lastLoopIndex && tickInLoop === 0 && this.nextTick > 0) {
+        this.host.onLoopComplete?.();
+        this.lastLoopIndex = loopIndex;
+      }
+
+      const metronomeOn = this.host.metronomeEnabled() || inCountIn;
+      if (metronomeOn && tickInLoop % PPQN === 0) {
         if (this.nextTick !== this.lastClickTick) {
           this.host.click?.(this.timeForTick(this.nextTick), tickInLoop % bar === 0);
           this.lastClickTick = this.nextTick;
         }
       }
 
-      // --- events landing on this tick, after swing ---
-      for (const e of seq.events) {
-        const swung = applySwing(e.tick, swing);
-        // Events are stored on the raw grid; compare against the swung
-        // position rounded to the nearest whole tick.
-        if (Math.round(swung) === tickInLoop) {
-          this.host.playEvent(e, this.timeForTick(this.nextTick));
+      if (!inCountIn) {
+        for (const e of seq.events) {
+          const swung = applySwing(e.tick, swing);
+          if (Math.round(swung) === tickInLoop) {
+            this.host.playEvent(e, this.timeForTick(this.nextTick));
+          }
         }
       }
 
       this.nextTick += 1;
-
-      // Wrap: re-anchor the loop start so the next pass lines up exactly.
-      if (this.nextTick % this.loopLengthTicks === 0 && this.nextTick > 0) {
-        // No re-anchoring needed — nextTick keeps counting and timeForTick
-        // stays linear, which avoids accumulating rounding error.
-      }
     }
 
-    const pos = this.currentTick() % this.loopLengthTicks;
-    this.state.positionTicks = pos;
+    const pos = inCountIn
+      ? rawPos % Math.max(1, this.countInTicks)
+      : (rawPos - this.countInTicks) % this.loopLengthTicks;
+    this.state.positionTicks = Math.max(0, pos);
     this.state.currentStep = Math.floor(pos / TICKS_PER_16TH);
     this.host.onPosition({ ...this.state });
   }
 
-  /** Record a live hit at the current playhead, honouring record quantize. */
   recordHit(
     seq: Sequence,
     pad: number,
@@ -222,11 +204,12 @@ export class Scheduler {
     velocity: number,
     quantize: number | null
   ): SeqEvent {
-    const raw = this.currentTick() % this.loopLengthTicks;
-    const tick = quantize ? quantizeTick(raw, quantize) % this.loopLengthTicks : Math.round(raw);
+    const loopLen = this.loopLengthTicks || seq.bars * ticksPerBar(this.host.getTimeSignature());
+    const raw = this.countInDone
+      ? (this.currentTick() - this.countInTicks) % loopLen
+      : 0;
+    const tick = quantize ? quantizeTick(raw, quantize) % loopLen : Math.round(raw);
     const ev: SeqEvent = { tick, pad, bank, velocity, duration: TICKS_PER_16TH };
-    // Keep the list tick-sorted so the scheduler can advance a cursor rather
-    // than filtering the whole array every tick.
     const i = seq.events.findIndex((e) => e.tick > tick);
     if (i === -1) seq.events.push(ev);
     else seq.events.splice(i, 0, ev);

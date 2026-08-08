@@ -3,7 +3,6 @@ import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { SHIFT_FUNCTIONS, SHIFT_SCREENS } from './shiftMap';
 
-/** Display rows run top-to-bottom; pad 1 is bottom-left. */
 const ROWS = [
   [12, 13, 14, 15],
   [8, 9, 10, 11],
@@ -11,13 +10,15 @@ const ROWS = [
   [0, 1, 2, 3],
 ];
 
-/** QWERTY mapping so desktop users can actually play. */
 const KEYMAP: Record<string, number> = {
   z: 0, x: 1, c: 2, v: 3,
   a: 4, s: 5, d: 6, f: 7,
   q: 8, w: 9, e: 10, r: 11,
   '1': 12, '2': 13, '3': 14, '4': 15,
 };
+
+const FLASH_MS = 220;
+const SEQ_LIT_MS = 180;
 
 export function Pads() {
   const hitPad = useStore((s) => s.hitPad);
@@ -35,25 +36,33 @@ export function Pads() {
   const toggleRecQuantize = useStore((s) => s.toggleRecQuantize);
   const resampleToPad = useStore((s) => s.resampleToPad);
   const toggleWarpMode = useStore((s) => s.toggleWarpMode);
-  const cycleFaderParam = useStore((s) => s.cycleFaderParam);
-  const stepEditTick = useStore((s) => s.stepEditTick);
-  const setStepEditTick = useStore((s) => s.setStepEditTick);
-  const selectPad = useStore((s) => s.selectPad);
   const screen = useStore((s) => s.screen);
   const project = useStore((s) => s.project);
   const bank = useStore((s) => s.bank);
   const selected = useStore((s) => s.selectedPad);
+  const seqSlot = useStore((s) => s.seqSlot);
+  const noteRepeat = useStore((s) => s.noteRepeat);
+  const noteRepeatTriplet = useStore((s) => s.noteRepeatTriplet);
+  const fullLevel = useStore((s) => s.fullLevel);
 
   const [flash, setFlash] = useState<Record<number, boolean>>({});
+  const [seqLit, setSeqLit] = useState<Record<number, boolean>>({});
   const [dropTarget, setDropTarget] = useState<number | null>(null);
-  const [step, setStep] = useState(0);
   const held = useRef(new Set<number>());
+  const repeatTimers = useRef<Record<number, number>>({});
+  const now = useRef(performance.now());
 
-  // Telemetry is polled on rAF — the engine never triggers a render itself.
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      setStep(engine.telemetry.step);
+      const t = performance.now();
+      now.current = t;
+      const lit: Record<number, boolean> = {};
+      for (let i = 0; i < 16; i++) {
+        if (t - engine.telemetry.padActivity[i] < FLASH_MS) lit[i] = true;
+        if (t - engine.telemetry.seqPadLit[i] < SEQ_LIT_MS) lit[i] = true;
+      }
+      setSeqLit(lit);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -72,6 +81,7 @@ export function Pads() {
       const i = KEYMAP[e.key.toLowerCase()];
       if (i === undefined) return;
       held.current.delete(i);
+      stopRepeat(i);
       releasePad(i);
     };
     window.addEventListener('keydown', down);
@@ -81,7 +91,30 @@ export function Pads() {
       window.removeEventListener('keyup', up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shift]);
+  }, [shift, noteRepeat, noteRepeatTriplet, project.bpm]);
+
+  function repeatIntervalMs() {
+    const beat = 60000 / project.bpm;
+    return noteRepeatTriplet ? beat / 6 : beat / 4;
+  }
+
+  function startRepeat(i: number, velocity: number) {
+    if (!noteRepeat) return;
+    stopRepeat(i);
+    repeatTimers.current[i] = window.setInterval(() => {
+      hitPad(i, fullLevel ? 127 : velocity);
+      setFlash((f) => ({ ...f, [i]: true }));
+      window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), FLASH_MS);
+    }, repeatIntervalMs());
+  }
+
+  function stopRepeat(i: number) {
+    const id = repeatTimers.current[i];
+    if (id) {
+      clearInterval(id);
+      delete repeatTimers.current[i];
+    }
+  }
 
   function trigger(i: number, velocity: number) {
     if (shift) {
@@ -92,7 +125,6 @@ export function Pads() {
         case 3: toggleCountIn(); return;
         case 5: halfSpeed(); return;
         case 6: doubleSpeed(); return;
-        case 8: cycleFaderParam(); return;
         case 9: toggleRecQuantize(); return;
         case 10: void resampleToPad(selected); return;
         case 12: trimSelected(); return;
@@ -106,21 +138,12 @@ export function Pads() {
       }
     }
 
-    if (screen === 'stepedit') {
-      setStepEditTick(stepEditTick);
-      selectPad(i);
-      hitPad(i, velocity);
-      setFlash((f) => ({ ...f, [i]: true }));
-      window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), 140);
-      return;
-    }
-
     hitPad(i, velocity);
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(8);
+    if (screen !== 'stepedit' && typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(4);
     }
     setFlash((f) => ({ ...f, [i]: true }));
-    window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), 140);
+    window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), FLASH_MS);
   }
 
   return (
@@ -130,30 +153,39 @@ export function Pads() {
           {row.map((i) => {
             const pad = project.banks[bank][i];
             const loaded = !!pad.sampleId;
-            const playing = step % 16 === i && engine.telemetry.playing;
+            const playing = !!seqLit[i];
+            const isSeqSlot = screen === 'seq' && seqSlot === i;
             return (
               <div className="padcell" key={i}>
                 <button
                   type="button"
                   className={[
                     'pad',
-                    flash[i] ? 'hit' : '',
+                    flash[i] || playing ? 'hit' : '',
                     pad.muted ? 'muted' : '',
                     loaded ? 'loaded' : 'empty',
                     playing ? 'seqlit' : '',
+                    isSeqSlot ? 'seqslot' : '',
                     selected === i ? 'selected' : '',
                     dropTarget === i ? 'dropping' : '',
                   ].join(' ')}
                   onPointerDown={(e) => {
-                    // Velocity from pointer pressure where the device reports
-                    // it; a sensible fixed value otherwise.
+                    e.currentTarget.setPointerCapture(e.pointerId);
                     const v = e.pressure > 0 && e.pressure < 1
                       ? Math.max(20, Math.round(e.pressure * 127))
-                      : 100;
+                      : fullLevel ? 127 : 100;
                     trigger(i, v);
+                    startRepeat(i, v);
                   }}
-                  onPointerUp={() => releasePad(i)}
-                  onPointerLeave={() => releasePad(i)}
+                  onPointerUp={(e) => {
+                    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* */ }
+                    stopRepeat(i);
+                    releasePad(i);
+                  }}
+                  onPointerCancel={() => {
+                    stopRepeat(i);
+                    releasePad(i);
+                  }}
                   onDragOver={(e) => { e.preventDefault(); setDropTarget(i); }}
                   onDragLeave={() => setDropTarget(null)}
                   onDrop={(e) => {

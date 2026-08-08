@@ -1,11 +1,11 @@
 {
-  "name": "Sampler",
-  "short_name": "Sampler",
+  "name": "MPC SAMPLE",
+  "short_name": "MPC SAMPLE",
   "description": "A browser-based MPC-style sampler and sequencer.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d0d0e",
+  "background_color": "#FAFAF8",
   "theme_color": "#0d0d0e",
   "icons": []
 }

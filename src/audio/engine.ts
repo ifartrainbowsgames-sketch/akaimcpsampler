@@ -1,7 +1,7 @@
 import { MAX_VOICES, NUM_PADS, PPQN } from './types';
 import type { Pad, Project, SeqEvent, Sequence } from './types';
 import { triggerVoice, type Voice } from './voice';
-import { Scheduler, type TransportState } from './scheduler';
+import { Scheduler, type TransportState, ticksPerBar } from './scheduler';
 import { KnobFX, type KnobFXId } from './fx/knobfx';
 import { PadFXRack, type PadFXId } from './fx/padfx';
 import { Recorder } from './recorder';
@@ -34,6 +34,12 @@ export class Engine {
   private project: Project | null = null;
   private currentBank = 0;
   private currentSeqSlot = 0;
+  /** Playhead preserved for CONTINUE after stop. */
+  pausedAt = 0;
+  songMode = false;
+  songIndex = 0;
+  onRecordHit: ((ev: SeqEvent) => void) | null = null;
+  onSongStepChange: ((bank: number, slot: number) => void) | null = null;
 
   /** Pad Play modes. Set from the UI; consulted on every trigger. */
   chopMode = false;
@@ -49,10 +55,13 @@ export class Engine {
   telemetry = {
     playing: false,
     recording: false,
+    recordingLive: false,
     step: 0,
     positionTicks: 0,
     level: 0,
     padActivity: new Array<number>(NUM_PADS).fill(0),
+    /** Timestamp when pad last fired from sequencer (for pad lights). */
+    seqPadLit: new Array<number>(NUM_PADS).fill(0),
   };
 
   private meterData = new Uint8Array(0);
@@ -132,14 +141,17 @@ export class Engine {
         const m = this.project?.metronome ?? 'off';
         return m === 'on' || (m === 'record' && this.telemetry.recording);
       },
+      countInBars: () => (this.project?.countIn ? 1 : 0),
       click: (when, accent) => this.click(when, accent),
       playEvent: (e, when) => this.playEvent(e, when),
       onPosition: (s: TransportState) => {
         this.telemetry.playing = s.playing;
         this.telemetry.recording = s.recording;
+        this.telemetry.recordingLive = s.recordingLive;
         this.telemetry.step = s.currentStep;
         this.telemetry.positionTicks = s.positionTicks;
       },
+      onLoopComplete: () => this.onSequenceLoopComplete(),
     });
 
     await ctx.resume();
@@ -161,8 +173,8 @@ export class Engine {
     return this.project?.sequences[this.currentBank]?.[this.currentSeqSlot] ?? null;
   }
 
-  private activePad(index: number): Pad | null {
-    return this.project?.banks[this.currentBank]?.[index] ?? null;
+  private activePad(index: number, bank = this.currentBank): Pad | null {
+    return this.project?.banks[bank]?.[index] ?? null;
   }
 
   // ---------------------------------------------------------------- samples
@@ -300,12 +312,17 @@ export class Engine {
    * possible latency, so we schedule at currentTime rather than adding a
    * safety margin.
    */
-  trigger(padIndex: number, velocity = 100, when?: number, sliceIndex?: number): void {
+  trigger(
+    padIndex: number,
+    velocity = 100,
+    when?: number,
+    sliceIndex?: number,
+    bankIndex?: number,
+  ): void {
     if (!this.ctx || !this.project) return;
 
-    // Chop mode: every pad triggers a slice of the *selected* pad's sample.
-    // 16 Levels: every pad plays the selected sample with one parameter
-    // spread across the grid. Both remap which pad actually sounds.
+    const bank = bankIndex ?? this.currentBank;
+
     let sourcePad = padIndex;
     let slice = sliceIndex;
     let vel = velocity;
@@ -315,13 +332,15 @@ export class Engine {
     if (this.chopMode && sliceIndex === undefined) {
       sourcePad = this.selectedPad;
       slice = padIndex;
+      const chopPad = this.activePad(sourcePad, bank);
+      if (!chopPad?.slices[padIndex]) return;
     } else if (this.levelsMode) {
       sourcePad = this.selectedPad;
       const n = padIndex / 15; // 0..1 across the 16 pads
       if (this.levelsType === 'velocity') {
         vel = Math.max(1, Math.round(8 + n * 119));
       } else if (this.levelsType === 'filter') {
-        const base = this.activePad(sourcePad)?.cutoff ?? 127;
+        const base = this.activePad(sourcePad, bank)?.cutoff ?? 127;
         cutoffOverride =
           padIndex < 8
             ? (padIndex / 8) * base
@@ -332,7 +351,7 @@ export class Engine {
       }
     }
 
-    const pad = this.activePad(sourcePad);
+    const pad = this.activePad(sourcePad, bank);
     if (!pad || pad.muted || !pad.sampleId) return;
 
     const buffer = pad.reverse
@@ -357,7 +376,7 @@ export class Engine {
     // Mono: retrigger cuts the previous instance of this pad.
     if (pad.polyphony === 'mono') {
       for (const v of this.voices) {
-        if (v.pad === padIndex && v.bank === this.currentBank) v.stop(t);
+        if (v.pad === padIndex && v.bank === bank) v.stop(t);
       }
     }
 
@@ -405,7 +424,7 @@ export class Engine {
       buffer,
       pad: effectivePad,
       padIndex,
-      bankIndex: this.currentBank,
+      bankIndex: bank,
       destination: this.padGains[padIndex],
       when: t + offsetSec,
       velocity,
@@ -424,19 +443,20 @@ export class Engine {
 
     // Pad link: fire the linked pad simultaneously. One level deep only.
     if (pad.padLink !== null && pad.padLink !== padIndex) {
-      const linked = this.activePad(pad.padLink);
+      const linked = this.activePad(pad.padLink, bank);
       if (linked && linked.padLink === null) {
-        this.trigger(pad.padLink, velocity, t);
+        this.trigger(pad.padLink, velocity, t, undefined, bank);
       }
     }
   }
 
-  release(padIndex: number) {
-    const pad = this.activePad(padIndex);
+  release(padIndex: number, bankIndex?: number) {
+    const bank = bankIndex ?? this.currentBank;
+    const pad = this.activePad(padIndex, bank);
     if (!pad?.noteOn) return;
     const t = this.ctx?.currentTime ?? 0;
     for (const v of this.voices) {
-      if (v.pad === padIndex && v.bank === this.currentBank) v.stop(t);
+      if (v.pad === padIndex && v.bank === bank) v.stop(t);
     }
   }
 
@@ -447,7 +467,17 @@ export class Engine {
   }
 
   private playEvent(e: SeqEvent, when: number) {
-    this.trigger(e.pad, e.velocity, when);
+    this.trigger(e.pad, e.velocity, when, undefined, e.bank);
+    this.telemetry.seqPadLit[e.pad] = performance.now();
+  }
+
+  private onSequenceLoopComplete() {
+    if (!this.songMode || !this.project?.song.length) return;
+    this.songIndex = (this.songIndex + 1) % this.project.song.length;
+    const step = this.project.song[this.songIndex];
+    this.currentBank = step.bank;
+    this.currentSeqSlot = step.slot;
+    this.onSongStepChange?.(step.bank, step.slot);
   }
 
   private click(when: number, accent: boolean) {
@@ -466,33 +496,64 @@ export class Engine {
 
   // -------------------------------------------------------------- transport
 
-  play() {
+  play(continueFromPaused = false) {
     if (!this.ctx) return;
-    this.scheduler.start(0);
+    const from = continueFromPaused ? this.pausedAt : 0;
+    if (!continueFromPaused) this.pausedAt = 0;
+    const countIn = this.project?.countIn && this.scheduler.state.recording ? 1 : 0;
+    this.scheduler.start(from, countIn);
+    midi.start();
   }
 
-  stop() {
+  stop(hardReset = false) {
+    if (this.scheduler.state.playing && !hardReset) {
+      const seq = this.activeSequence();
+      if (seq) {
+        const bar = ticksPerBar(this.project?.timeSignature ?? [4, 4]);
+        const loopLen = seq.bars * bar;
+        this.pausedAt = this.scheduler.currentTick() % loopLen;
+      }
+    }
+    if (hardReset) this.pausedAt = 0;
     this.scheduler.stop();
     this.stopAll();
+    this.songMode = false;
+    this.songIndex = 0;
+    midi.stop();
   }
 
   setRecording(on: boolean) {
     this.scheduler.state.recording = on;
     this.telemetry.recording = on;
+    if (!on) this.scheduler.state.recordingLive = false;
+  }
+
+  startSongMode() {
+    if (!this.project?.song.length) return;
+    this.songMode = true;
+    this.songIndex = 0;
+    const step = this.project.song[0];
+    this.currentBank = step.bank;
+    this.currentSeqSlot = step.slot;
+    this.onSongStepChange?.(step.bank, step.slot);
+    this.play(false);
   }
 
   /** Record a live pad hit into the active sequence. */
-  recordHit(padIndex: number, velocity: number) {
+  recordHit(padIndex: number, velocity: number, recordPad?: number, recordBank?: number) {
     const seq = this.activeSequence();
     if (!seq || !this.project) return;
     if (!this.scheduler.state.playing || !this.scheduler.state.recording) return;
-    this.scheduler.recordHit(
+    if (!this.scheduler.state.recordingLive) return;
+    const ev = this.scheduler.recordHit(
       seq,
-      padIndex,
-      this.currentBank,
+      recordPad ?? padIndex,
+      recordBank ?? this.currentBank,
       velocity,
       this.project.recordQuantize ? this.project.quantize : null
     );
+    this.onRecordHit?.(ev);
+    return ev;
   }
 
   // ---------------------------------------------------------------- params

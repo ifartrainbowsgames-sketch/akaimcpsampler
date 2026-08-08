@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { saveProject } from '../storage/projects';
+import { saveProject, listProjects } from '../storage/projects';
 import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { Waveform } from '../ui/Waveform';
@@ -173,9 +173,9 @@ export function LCD() {
               onSliceTap={addManualChopPoint}
             />
             {!buffer && (
-              <span className="lcd-load-cta" aria-hidden>
+              <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-load-cta">
                 TAP TO LOAD
-              </span>
+              </label>
             )}
           </div>
         </div>
@@ -275,18 +275,17 @@ function ScreenBody({ screen }: { screen: string }) {
   const updateProject = useStore((s) => s.updateProject);
 
   switch (screen) {
-    case 'seq':
+    case 'seq': {
+      const seqSlot = useStore.getState().seqSlot;
+      const bank = useStore.getState().bank;
+      const seq = project.sequences[bank][seqSlot];
+      const countIn = project.countIn;
+      const metro = project.metronome;
       return (
         <div className="lcdpanel">
-          <div className="big">{project.bpm.toFixed(1)} BPM</div>
-          <Row label="Swing">
-            <input
-              type="range" min={50} max={75} step={0.5}
-              value={project.swing}
-              onChange={(e) => updateProject({ swing: Number(e.target.value) })}
-            />
-            <b>{project.swing.toFixed(1)}%</b>
-          </Row>
+          <div className="big">Seq {seqSlot + 1}: {seq.name}</div>
+          <div className="lcdrow"><span>Events</span><b>{seq.events.length}</b></div>
+          <div className="lcdrow"><span>Length</span><b>{seq.bars} bars</b></div>
           <Row label="Tempo">
             <input
               type="range" min={40} max={200} step={0.5}
@@ -295,14 +294,35 @@ function ScreenBody({ screen }: { screen: string }) {
             />
             <b>{project.bpm.toFixed(1)}</b>
           </Row>
+          <Row label="Swing">
+            <input
+              type="range" min={50} max={75} step={0.5}
+              value={project.swing}
+              onChange={(e) => updateProject({ swing: Number(e.target.value) })}
+            />
+            <b>{project.swing.toFixed(1)}%</b>
+          </Row>
+          <div className="lcdrow">
+            <span>Metro</span>
+            <b>{metro.toUpperCase()}</b>
+            <button type="button" className="lcd-mini" onClick={() => useStore.getState().toggleMetronome()}>⇄</button>
+          </div>
+          <div className="lcdrow">
+            <span>Count-in</span>
+            <b>{countIn ? '1 bar' : 'Off'}</b>
+          </div>
           <div className="hintline">
-            50 straight · 54 loose · 62 hip-hop · 66.7 triplet
+            Tap a pad to pick seq 1–16 (when stopped). SEQ RECORD arms + starts transport.
           </div>
         </div>
       );
+    }
 
     case 'project':
       return <ProjectScreen />;
+
+    case 'loadproj':
+      return <LoadProjectScreen />;
 
     case 'knobfx':
       return <KnobFXScreen />;
@@ -433,12 +453,13 @@ function SongScreen() {
   const addSongStep = useStore((s) => s.addSongStep);
   const removeSongStep = useStore((s) => s.removeSongStep);
   const exportSong = useStore((s) => s.exportSong);
+  const playSong = useStore((s) => s.playSong);
   const seqSlot = useStore((s) => s.seqSlot);
 
   return (
     <div className="lcdpanel">
       <div className="lcdlist songlist">
-        {project.song.length === 0 && <div>— empty —</div>}
+        {project.song.length === 0 && <div>— empty — INSERT current seq</div>}
         {project.song.map((step, i) => (
           <div key={i} onClick={() => removeSongStep(i)}>
             {String(i + 1).padStart(2, '0')}  {project.sequences[step.bank][step.slot].name}
@@ -447,9 +468,10 @@ function SongScreen() {
       </div>
       <div className="lcdbtns">
         <button type="button" onClick={() => addSongStep(bank, seqSlot)}>INSERT</button>
+        <button type="button" onClick={() => playSong()} disabled={!project.song.length}>PLAY</button>
         <button type="button" onClick={() => void exportSong()}>EXPORT</button>
       </div>
-      <div className="hintline">Tap a step to remove it.</div>
+      <div className="hintline">PLAY chains sequences. Tap a step to remove.</div>
     </div>
   );
 }
@@ -517,30 +539,37 @@ function MidiScreen() {
 }
 
 function CompressorScreen() {
-  const [a, setA] = useState(0.1);
-  const [r, setR] = useState(0.35);
-  const [amt, setAmt] = useState(0.3);
-  const apply = (na: number, nr: number, nAmt: number) =>
-    engine.setCompressor(0.1 + na * 150, 3 + nr * 297, nAmt * 100);
+  const compressor = useStore((s) => s.compressor);
+  const setCompressorSettings = useStore((s) => s.setCompressorSettings);
+  const { attack: a, release: r, amount: amt } = compressor;
 
   return (
     <div className="lcdpanel">
       <div className="lcdrow">
         <span>Attack</span>
         <input type="range" min={0} max={1000} value={a * 1000}
-          onChange={(e) => { const v = Number(e.target.value) / 1000; setA(v); apply(v, r, amt); }} />
+          onChange={(e) => {
+            const v = Number(e.target.value) / 1000;
+            setCompressorSettings(v, r, amt);
+          }} />
         <b>{(0.1 + a * 150).toFixed(1)}ms</b>
       </div>
       <div className="lcdrow">
         <span>Release</span>
         <input type="range" min={0} max={1000} value={r * 1000}
-          onChange={(e) => { const v = Number(e.target.value) / 1000; setR(v); apply(a, v, amt); }} />
+          onChange={(e) => {
+            const v = Number(e.target.value) / 1000;
+            setCompressorSettings(a, v, amt);
+          }} />
         <b>{Math.round(3 + r * 297)}ms</b>
       </div>
       <div className="lcdrow">
         <span>Amount</span>
         <input type="range" min={0} max={1000} value={amt * 1000}
-          onChange={(e) => { const v = Number(e.target.value) / 1000; setAmt(v); apply(a, r, v); }} />
+          onChange={(e) => {
+            const v = Number(e.target.value) / 1000;
+            setCompressorSettings(a, r, v);
+          }} />
         <b>{Math.round(amt * 100)}%</b>
       </div>
       <div className="hintline">Makeup gain is derived automatically.</div>
@@ -551,6 +580,7 @@ function CompressorScreen() {
 function ProjectScreen() {
   const project = useStore((s) => s.project);
   const exportSequence = useStore((s) => s.exportSequence);
+  const setScreen = useStore((s) => s.setScreen);
   return (
     <div className="lcdpanel">
       <div className="lcdlist">
@@ -559,7 +589,31 @@ function ProjectScreen() {
       </div>
       <div className="lcdbtns">
         <button type="button" onClick={() => saveProject(project)}>SAVE</button>
+        <button type="button" onClick={() => setScreen('loadproj')}>LOAD</button>
         <button type="button" onClick={() => void exportSequence()}>EXPORT SEQ</button>
+      </div>
+    </div>
+  );
+}
+
+function LoadProjectScreen() {
+  const loadSavedProject = useStore((s) => s.loadSavedProject);
+  const setScreen = useStore((s) => s.setScreen);
+  const [projects] = useState(() => listProjects());
+
+  return (
+    <div className="lcdpanel">
+      <div className="lcdlist browserlist">
+        {projects.length === 0 && <div>— no saved projects —</div>}
+        {projects.map((p) => (
+          <div key={p.id} onClick={() => void loadSavedProject(p.id).then(() => setScreen('sample'))}>
+            <b>{p.name}</b>
+            <small>{new Date(p.saved).toLocaleString()}</small>
+          </div>
+        ))}
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => setScreen('project')}>BACK</button>
       </div>
     </div>
   );
@@ -568,6 +622,7 @@ function ProjectScreen() {
 function BrowserScreen() {
   const entries = useStore((s) => s.browserEntries);
   const loadBrowserSample = useStore((s) => s.loadBrowserSample);
+  const deleteBrowserSample = useStore((s) => s.deleteBrowserSample);
   const setScreen = useStore((s) => s.setScreen);
   const [sel, setSel] = useState(0);
 
@@ -599,6 +654,13 @@ function BrowserScreen() {
           disabled={!entries[sel]}
         >
           LOAD
+        </button>
+        <button
+          type="button"
+          onClick={() => entries[sel] && void deleteBrowserSample(entries[sel].id)}
+          disabled={!entries[sel]}
+        >
+          DELETE
         </button>
       </div>
       <div className="hintline">Tap to load to the current pad.</div>
@@ -751,14 +813,14 @@ function StepEditScreen() {
       <div className="lcdbtns">
         <button type="button" onClick={eraseStepEvent} disabled={!current}>ERASE</button>
       </div>
-      <div className="hintline">Use the fader to nudge the selected event.</div>
+      <div className="hintline">Pad = select event. Shift+ERASE mode + pad = erase. Fader nudges timing.</div>
     </div>
   );
 }
 
 function FaderMenuScreen() {
   const faderParam = useStore((s) => s.faderParam);
-  const cycleFaderParam = useStore((s) => s.cycleFaderParam);
+  const setFaderParam = useStore((s) => s.setFaderParam);
   const setScreen = useStore((s) => s.setScreen);
   const params = [
     'Pad Volume', 'Pad Pan', 'Pad Tune', 'Pad Filter Cutoff', 'Kit Volume',
@@ -768,7 +830,11 @@ function FaderMenuScreen() {
     <div className="lcdpanel">
       <div className="lcdlist">
         {params.map((p) => (
-          <div key={p} className={p === faderParam ? 'sel' : ''} onClick={cycleFaderParam}>
+          <div
+            key={p}
+            className={p === faderParam ? 'sel' : ''}
+            onClick={() => { setFaderParam(p); setScreen('sample'); }}
+          >
             {p}
           </div>
         ))}
@@ -776,7 +842,7 @@ function FaderMenuScreen() {
       <div className="lcdbtns">
         <button type="button" onClick={() => setScreen('sample')}>BACK</button>
       </div>
-      <div className="hintline">Current: {faderParam}</div>
+      <div className="hintline">Tap to assign the fader.</div>
     </div>
   );
 }

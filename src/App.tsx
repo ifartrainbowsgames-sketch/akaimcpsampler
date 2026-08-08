@@ -66,6 +66,16 @@ function Panel() {
   const play = useStore((s) => s.play);
   const stop = useStore((s) => s.stop);
   const toggleRecord = useStore((s) => s.toggleRecord);
+  const tapTempo = useStore((s) => s.tapTempo);
+  const toggleMetronome = useStore((s) => s.toggleMetronome);
+  const toggleNoteRepeat = useStore((s) => s.toggleNoteRepeat);
+  const toggleTriplet = useStore((s) => s.toggleTriplet);
+  const eraseSequence = useStore((s) => s.eraseSequence);
+  const copySequence = useStore((s) => s.copySequence);
+  const recallSample = useStore((s) => s.recallSample);
+  const noteRepeat = useStore((s) => s.noteRepeat);
+  const noteRepeatTriplet = useStore((s) => s.noteRepeatTriplet);
+  const metronome = useStore((s) => s.project.metronome);
   const importSample = useStore((s) => s.importSample);
   const selectedPad = useStore((s) => s.selectedPad);
   const project = useStore((s) => s.project);
@@ -117,7 +127,7 @@ function Panel() {
       if (e.key === 'Shift') setShift(true);
       if (e.code === 'Space') {
         e.preventDefault();
-        engine.telemetry.playing ? stop() : play();
+        engine.telemetry.playing ? stop() : play(true);
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -211,15 +221,18 @@ function Panel() {
                   case 'Pad Pan': updatePad(selectedPad, { pan: v * 2 - 1 }); break;
                   case 'Pad Tune': updatePad(selectedPad, { semi: Math.round(v * 48 - 24) }); break;
                   case 'Pad Filter Cutoff': updatePad(selectedPad, { cutoff: Math.round(v * 127) }); break;
-                  case 'Kit Volume': engine.setKitVolume(v * 80 - 74); break;
+                  case 'Kit Volume': useStore.getState().setKitVolume(v * 80 - 74); break;
                   default: break;
                 }
               }}
             />
 
             <div className="grid2">
-              <PanelButton label="ERASE" sub="COPY" />
-              <PanelButton label="NOTE REPEAT" sub="TRIPLET" />
+              <PanelButton label="ERASE" sub="COPY" lit={shift}
+                onClick={() => shift ? copySequence() : eraseSequence()} />
+              <PanelButton label="NOTE REPEAT" sub="TRIPLET"
+                lit={noteRepeat || noteRepeatTriplet}
+                onClick={() => shift ? toggleTriplet() : toggleNoteRepeat()} />
             </div>
           </div>
 
@@ -258,7 +271,9 @@ function Panel() {
             <div className="grid2 gap">
               <PanelButton label="SAMPLE SELECT" sub="FREESOUND"
                 onClick={() => setScreen(shift ? 'project' : 'library')} />
-              <PanelButton label="TAP TEMPO" sub="METRO" />
+              <PanelButton label="TAP TEMPO" sub="METRO"
+                lit={metronome !== 'off'}
+                onClick={() => shift ? toggleMetronome() : tapTempo()} />
             </div>
 
             <div className="encblock">
@@ -273,17 +288,17 @@ function Panel() {
 
             <div className="grid2">
               <PanelButton label="SAMPLE RECORD" sub="RECALL"
-                onClick={() => setScreen('smprec')} />
+                onClick={() => shift ? void recallSample() : setScreen('smprec')} />
               <PanelButton label="SEQ RECORD" sub="RECALL"
                 lit={transport.recording} onClick={toggleRecord} />
             </div>
 
             <div className="grid2 transport">
-              <button type="button" className="pb tp stop" onClick={stop} aria-label="Stop">
+              <button type="button" className="pb tp stop" onClick={() => stop(shift)} aria-label="Stop">
                 <span className="cap" />
-                <span className="sub">&nbsp;</span>
+                <span className="sub">{shift ? 'RESET' : ''}</span>
               </button>
-              <button type="button" className={`pb tp play ${transport.playing ? 'lit' : ''}`} onClick={play} aria-label="Play">
+              <button type="button" className={`pb tp play ${transport.playing ? 'lit' : ''}`} onClick={() => play(true)} aria-label="Play">
                 <span className="cap" />
                 <span className="sub">CONTINUE</span>
               </button>

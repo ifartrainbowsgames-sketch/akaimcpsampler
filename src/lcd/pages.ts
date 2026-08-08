@@ -1,4 +1,5 @@
 import type { Pad, Project } from '../audio/types';
+import { useStore } from '../state/store';
 
 export interface KParam {
   name: string;
@@ -68,9 +69,15 @@ export const PAGE_GROUPS: Page[][] = [
         },
         {
           name: 'Kit Vol',
-          display: '0.00 dB',
-          norm: 0.925,
-          set: () => {},
+          display: (() => {
+            const kv = useStore.getState().kitVolume;
+            return kv <= -74 ? '-INF' : `${kv.toFixed(2)} dB`;
+          })(),
+          norm: (() => {
+            const kv = useStore.getState().kitVolume;
+            return clamp01((kv + 74) / 80);
+          })(),
+          set: (n, _update, _i) => useStore.getState().setKitVolume(n * 80 - 74),
         },
         {
           name: 'Pan',

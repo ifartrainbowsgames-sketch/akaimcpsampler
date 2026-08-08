@@ -7,7 +7,7 @@ import {
   type Project,
 } from '../audio/types';
 import { engine } from '../audio/engine';
-import { autosave, loadAutosave } from '../storage/projects';
+import { autosave, loadAutosave, loadProject } from '../storage/projects';
 import { readSample, writeSample } from '../storage/opfs';
 import { chopByRegions, chopByThreshold, mergeSlice, splitSlice } from '../audio/chop';
 import { downloadBlob, renderToWav } from '../audio/export';
@@ -16,7 +16,7 @@ import type { PadFXId } from '../audio/fx/padfx';
 import { midi } from '../midi/midi';
 import { history } from './undo';
 import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
-import { listSamples } from '../storage/opfs';
+import { listSamples, deleteSample } from '../storage/opfs';
 import { ticksPerBar } from '../audio/scheduler';
 import { FACTORY_KITS, generateFactoryKit } from '../audio/factory/kits';
 import type { LibrarySound } from '../library/types';
@@ -26,7 +26,7 @@ export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
   | 'browser' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx'
-  | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project';
+  | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj';
 
 export type PadPlayMode = 'chop' | 'loop' | 'mute' | 'levels';
 
@@ -36,6 +36,12 @@ interface UIState {
   bank: number;
   seqSlot: number;
   selectedPad: number;
+  pausedAt: number;
+  kitVolume: number;
+  compressor: { attack: number; release: number; amount: number };
+  noteRepeat: boolean;
+  noteRepeatTriplet: boolean;
+  eraseMode: boolean;
 
   screen: ScreenId;
   /** Which B-button group is showing, and how far through its page cycle. */
@@ -53,6 +59,7 @@ interface UIState {
   setShift(v: boolean): void;
   togglePadMode(m: PadPlayMode): void;
   setBank(b: number): void;
+  setSequenceSlot(i: number): void;
   selectPad(i: number): void;
 
   hitPad(i: number, velocity?: number): void;
@@ -66,9 +73,25 @@ interface UIState {
   resolveChopChoice(mode: ChopLoadMode): void;
   autoChopPad(padIndex: number, sliceToPads: boolean): void;
   sliceAllToPads(): void;
-  play(): void;
-  stop(): void;
+  play(continueFromPaused?: boolean): void;
+  stop(hardReset?: boolean): void;
   toggleRecord(): void;
+  playSong(): void;
+  tapTempo(): void;
+  toggleMetronome(): void;
+  toggleNoteRepeat(): void;
+  toggleTriplet(): void;
+  toggleEraseMode(): void;
+  eraseSequence(): void;
+  copySequence(): void;
+  recallSample(): Promise<void>;
+  setFaderParam(p: string): void;
+  setKitVolume(db: number): void;
+  setCompressorSettings(a: number, r: number, amt: number): void;
+  loadSavedProject(id: string): Promise<void>;
+  deleteBrowserSample(id: string): Promise<void>;
+  selectStepEditPad(pad: number): void;
+  erasePadFromStep(pad: number): void;
 
   // ---- Phase 4: sample editing ----
   selectedSlice: number;
@@ -165,6 +188,12 @@ export const useStore = create<UIState>((set, get) => ({
   bank: 0,
   seqSlot: 0,
   selectedPad: 0,
+  pausedAt: 0,
+  kitVolume: 0,
+  compressor: { attack: 0.1, release: 0.35, amount: 0.3 },
+  noteRepeat: false,
+  noteRepeatTriplet: false,
+  eraseMode: false,
 
   screen: 'sample',
   bGroup: 1,
@@ -198,6 +227,27 @@ export const useStore = create<UIState>((set, get) => ({
   async boot() {
     await engine.init();
     engine.setProject(get().project);
+    engine.setSequenceSlot(get().seqSlot);
+    engine.setKitVolume(get().kitVolume);
+    engine.setCompressor(
+      0.1 + get().compressor.attack * 150,
+      3 + get().compressor.release * 297,
+      get().compressor.amount * 100,
+    );
+    engine.onRecordHit = () => {
+      const { project, bank, seqSlot } = get();
+      const banks = project.sequences.map((row, bi) =>
+        bi === bank
+          ? row.map((s, si) => (si === seqSlot ? { ...s, events: [...s.events] } : s))
+          : row
+      );
+      get().updateProject({ sequences: banks });
+    };
+    engine.onSongStepChange = (b, slot) => {
+      engine.setBank(b);
+      engine.setSequenceSlot(slot);
+      set({ bank: b, seqSlot: slot });
+    };
     // Re-hydrate any samples referenced by the restored project.
     const seen = new Set<string>();
     for (const bank of get().project.banks) {
@@ -237,6 +287,8 @@ export const useStore = create<UIState>((set, get) => ({
 
   togglePadMode(m) {
     const modes = { ...get().padModes, [m]: !get().padModes[m] };
+    if (m === 'chop' && modes.chop) modes.levels = false;
+    if (m === 'levels' && modes.levels) modes.chop = false;
     const { selectedPad, bank, project } = get();
 
     // Chop and 16 Levels remap what the pads do, so the engine needs to know.
@@ -269,26 +321,44 @@ export const useStore = create<UIState>((set, get) => ({
     set({ bank: b });
   },
 
+  setSequenceSlot(i) {
+    const slot = Math.max(0, Math.min(15, i));
+    engine.setSequenceSlot(slot);
+    set({ seqSlot: slot });
+  },
+
   selectPad(i) {
     engine.selectedPad = i;
     set({ selectedPad: i, selectedSlice: 0 });
   },
 
   hitPad(i, velocity = 100) {
-    const { padModes, project, bank } = get();
+    const { padModes, project, bank, screen, eraseMode } = get();
 
-    // Mute mode: pads toggle mute instead of triggering.
+    if (screen === 'seq' && !engine.telemetry.playing) {
+      get().setSequenceSlot(i);
+      return;
+    }
+
+    if (screen === 'stepedit' && get().shift && eraseMode) {
+      get().erasePadFromStep(i);
+      return;
+    }
+
+    if (screen === 'stepedit' && !get().shift) {
+      get().selectStepEditPad(i);
+    }
+
     if (padModes.mute) {
       const pad = project.banks[bank][i];
       get().updatePad(i, { muted: !pad.muted });
       return;
     }
 
+    const recordPad = padModes.chop || padModes.levels ? get().selectedPad : i;
     engine.trigger(i, velocity);
-    engine.recordHit(i, velocity);
+    engine.recordHit(i, velocity, recordPad, bank);
 
-    // In chop mode the pads address slices, so keep the source pad selected
-    // and track which slice is being edited.
     if (get().padModes.chop) set({ selectedSlice: i });
     else if (!get().padModes.levels) {
       engine.selectedPad = i;
@@ -401,13 +471,172 @@ export const useStore = create<UIState>((set, get) => ({
     engine.selectedPad = 0;
   },
 
-  play() {
-    engine.play();
+  play(continueFromPaused = false) {
+    if (engine.telemetry.playing) return;
+    engine.play(continueFromPaused);
   },
 
-  stop() {
-    engine.stop();
+  stop(hardReset = false) {
+    const pos = engine.telemetry.positionTicks;
+    engine.stop(hardReset);
     engine.setRecording(false);
+    set({ pausedAt: hardReset ? 0 : pos });
+  },
+
+  playSong() {
+    get().stop(true);
+    engine.startSongMode();
+    set({});
+  },
+
+  tapTempo() {
+    const taps = (get() as UIState & { _taps?: number[] })._taps ?? [];
+    const now = performance.now();
+    taps.push(now);
+    while (taps.length > 4) taps.shift();
+    (get() as UIState & { _taps?: number[] })._taps = taps;
+    if (taps.length >= 2) {
+      const span = taps[taps.length - 1] - taps[0];
+      const bpm = (60000 * (taps.length - 1)) / span;
+      if (bpm >= 40 && bpm <= 200) get().updateProject({ bpm: Math.round(bpm * 10) / 10 });
+    }
+  },
+
+  toggleMetronome() {
+    const order = ['off', 'on', 'record'] as const;
+    const cur = get().project.metronome;
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    get().updateProject({ metronome: next });
+  },
+
+  toggleNoteRepeat() {
+    set({ noteRepeat: !get().noteRepeat });
+  },
+
+  toggleTriplet() {
+    set({ noteRepeatTriplet: !get().noteRepeatTriplet });
+  },
+
+  toggleEraseMode() {
+    set({ eraseMode: !get().eraseMode });
+  },
+
+  eraseSequence() {
+    const { project, bank, seqSlot } = get();
+    history.push(project);
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank
+        ? row.map((s, si) => (si === seqSlot ? { ...s, events: [] } : s))
+        : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  copySequence() {
+    const { project, bank, seqSlot } = get();
+    const target = (seqSlot + 1) % 16;
+    history.push(project);
+    const src = project.sequences[bank][seqSlot];
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank
+        ? row.map((s, si) =>
+            si === target
+              ? { ...s, events: src.events.map((e) => ({ ...e })), bars: src.bars, name: `${src.name} copy` }
+              : s
+          )
+        : row
+    );
+    get().updateProject({ sequences: banks });
+    get().setSequenceSlot(target);
+  },
+
+  async recallSample() {
+    const buffer = engine.recall();
+    if (!buffer) return;
+    const id = crypto.randomUUID();
+    engine.putBuffer(id, buffer);
+    const { project, bank, selectedPad } = get();
+    const free = project.banks[bank].findIndex((p) => !p.sampleId);
+    const target = free === -1 ? selectedPad : free;
+    void engine.bufferToWav(buffer).arrayBuffer().then((ab) => writeSample(id, ab));
+    get().updatePad(target, {
+      sampleId: id,
+      sampleName: `Recall ${new Date().toTimeString().slice(0, 5)}`,
+      start: 0,
+      end: buffer.length,
+      loopStart: 0,
+      slices: [],
+    });
+    set({ selectedPad: target, screen: 'sample' });
+  },
+
+  setFaderParam(p) {
+    set({ faderParam: p });
+  },
+
+  setKitVolume(db) {
+    engine.setKitVolume(db);
+    set({ kitVolume: db });
+  },
+
+  setCompressorSettings(a, r, amt) {
+    engine.setCompressor(0.1 + a * 150, 3 + r * 297, amt * 100);
+    set({ compressor: { attack: a, release: r, amount: amt } });
+  },
+
+  async loadSavedProject(id) {
+    const p = loadProject(id);
+    if (!p) return;
+    history.push(get().project);
+    engine.setProject(p);
+    engine.setBank(0);
+    engine.setSequenceSlot(0);
+    const seen = new Set<string>();
+    for (const bank of p.banks) {
+      for (const pad of bank) {
+        if (!pad.sampleId || seen.has(pad.sampleId)) continue;
+        seen.add(pad.sampleId);
+        const data = await readSample(pad.sampleId);
+        if (data) {
+          try { await engine.loadSample(pad.sampleId, data); } catch { /* skip */ }
+        }
+      }
+    }
+    set({ project: p, bank: 0, seqSlot: 0, selectedPad: 0, screen: 'sample' });
+  },
+
+  async deleteBrowserSample(id) {
+    await deleteSample(id);
+    await get().refreshBrowser();
+  },
+
+  selectStepEditPad(pad) {
+    const { project, bank, seqSlot, stepEditTick } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const atTick = stepEditTick * project.quantize;
+    const matches = seq.events
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => e.pad === pad && Math.abs(e.tick - atTick) < project.quantize / 2);
+    if (matches.length > 0) {
+      set({ stepEditEvent: matches[0].i, selectedPad: pad });
+      engine.selectedPad = pad;
+    } else {
+      get().selectPad(pad);
+      engine.trigger(pad, 100);
+    }
+  },
+
+  erasePadFromStep(pad) {
+    const { project, bank, seqSlot, stepEditTick } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const atTick = stepEditTick * project.quantize;
+    const events = seq.events.filter(
+      (e) => !(e.pad === pad && Math.abs(e.tick - atTick) < project.quantize / 2)
+    );
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences: banks });
   },
 
   selectSlice(i) {
@@ -961,8 +1190,16 @@ export const useStore = create<UIState>((set, get) => ({
 
   toggleRecord() {
     const on = !engine.telemetry.recording;
-    engine.setRecording(on);
-    // Ensure record quantize snaps to the project's current division.
+    if (on) {
+      if (!engine.telemetry.playing) {
+        engine.setRecording(true);
+        get().play(false);
+      } else {
+        engine.setRecording(true);
+      }
+    } else {
+      engine.setRecording(false);
+    }
     if (on && get().project.recordQuantize) {
       engine.setProject({ ...get().project, quantize: get().project.quantize || TICKS_PER_16TH });
     }
