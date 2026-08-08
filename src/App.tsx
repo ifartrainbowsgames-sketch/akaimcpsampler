@@ -8,7 +8,9 @@ import { JogWheel } from './ui/JogWheel';
 import { Fader } from './ui/Fader';
 import { PanelButton } from './ui/PanelButton';
 import { ChopModeModal } from './ui/ChopModeModal';
+import { UpdateBanner } from './ui/UpdateBanner';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
+import { APP_VERSION } from './version';
 import type { ChopLoadMode } from './storage/preferences';
 
 export default function App() {
@@ -44,6 +46,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
         <p className="bootnote">
           Select a pad, tap <b>LOAD</b> on the LCD, then play.
         </p>
+        <p className="bootver">v{APP_VERSION}</p>
       </div>
     </div>
   );
@@ -130,6 +133,7 @@ function Panel() {
 
   return (
     <div className={`stage ${shift ? 'shifted' : ''}`}>
+      <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
 
       <div className="unit">
