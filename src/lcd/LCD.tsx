@@ -11,6 +11,7 @@ import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
 import { FACTORY_KITS as FACTORY_KIT_LIST } from '../audio/factory/kits';
+import { LibraryScreen } from './LibraryScreen';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -103,6 +104,9 @@ export function LCD() {
           </button>
           <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('kits')}>
             KITS
+          </button>
+          <button type="button" className="lcd-btn" onClick={() => setScreen('library')}>
+            LIBRARY
           </button>
         </div>
 
@@ -206,7 +210,7 @@ export function LCD() {
 
 const SCREEN_TITLES: Record<string, string> = {
   seq: 'SEQUENCE', stepedit: 'STEP EDIT', song: 'SONG',
-  browser: 'BROWSER', kits: 'KITS', smprec: 'SAMPLE REC',
+  browser: 'BROWSER', kits: 'KITS', library: 'LIBRARY', smprec: 'SAMPLE REC',
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
@@ -327,6 +331,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'kits':
       return <KitsScreen />;
+
+    case 'library':
+      return <LibraryScreen />;
 
     case 'stepedit':
       return <StepEditScreen />;

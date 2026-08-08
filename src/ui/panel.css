@@ -139,6 +139,30 @@ button{font:inherit}
   flex:1;border:.06em solid #4a4a44;background:#2a2a26;color:#a8a89e;
   font-family:var(--mono);font-size:.62em;padding:.25em 0;border-radius:.1em;cursor:pointer}
 .kitfilters button.on{background:var(--lcd-y);color:#111;font-weight:700}
+.librarypanel{gap:.2em}
+.libraryhdr{display:flex;justify-content:space-between;align-items:center;font-size:.65em;color:#8f8f86}
+.libbadge{color:var(--lcd-c);font-weight:700}
+.libstatus{font-size:.9em}
+.librarysearch{display:flex;gap:.2em}
+.librarysearch input{
+  flex:1;min-width:0;background:#1e1e1c;border:.06em solid #4a4a44;color:#e6e6dc;
+  font-family:var(--mono);font-size:.72em;padding:.3em .4em;border-radius:.1em}
+.librarysearch button,.libload,.librarykey button{
+  border:.06em solid #4a4a44;background:#2a2a26;color:var(--lcd-y);
+  font-family:var(--mono);font-size:.62em;padding:.3em .5em;border-radius:.1em;cursor:pointer}
+.librarysearch button:disabled,.libload:disabled{opacity:.4}
+.librarylist{max-height:7em}
+.libraryrow{display:flex;align-items:center;gap:.3em;padding:.15em 0}
+.librarymeta{flex:1;min-width:0;cursor:pointer}
+.libraryerr{color:#e88;font-size:.7em;line-height:1.3}
+.librarykey{display:flex;flex-wrap:wrap;gap:.25em;align-items:center;font-size:.65em}
+.librarykey input{
+  flex:1;min-width:6em;background:#1e1e1c;border:.06em solid #4a4a44;color:#e6e6dc;
+  font-family:var(--mono);padding:.25em .35em}
+.keylink{color:var(--lcd-c)}
+.libpage{font-size:.75em;color:#a8a89e;align-self:center}
+.kitfilters{flex-wrap:wrap}
+.kitfilters button{flex:0 1 auto;min-width:2.8em}
 .chip{font-style:normal;border:.06em solid var(--lcd-c);color:var(--lcd-c);padding:0 .2em;margin-left:.15em}
 .lanes{flex:1;min-height:0;padding:.15em .3em;display:flex;position:relative}
 .lanes--dual{flex-direction:column;gap:.12em;padding:.1em .25em}

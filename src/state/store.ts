@@ -19,10 +19,12 @@ import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
 import { listSamples } from '../storage/opfs';
 import { ticksPerBar } from '../audio/scheduler';
 import { FACTORY_KITS, generateFactoryKit } from '../audio/factory/kits';
+import type { LibrarySound } from '../library/types';
+import { fetchFreesoundPreview, searchFreesound, checkFreesoundProxy } from '../library/freesound';
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
-  | 'browser' | 'kits' | 'smprec'
+  | 'browser' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project';
 
@@ -91,6 +93,17 @@ interface UIState {
   refreshBrowser(): Promise<void>;
   loadBrowserSample(id: string): Promise<void>;
   loadFactoryKit(kitId: string): Promise<void>;
+
+  libraryResults: LibrarySound[];
+  libraryPage: number;
+  libraryNumPages: number;
+  libraryQuery: string;
+  libraryError: string | null;
+  libraryLoading: boolean;
+  libraryProxyReady: boolean;
+  searchLibrary(query: string, filter?: string, page?: number): Promise<void>;
+  loadLibrarySound(sound: LibrarySound): Promise<void>;
+  checkLibraryProxy(): Promise<void>;
 
   stepEditTick: number;
   stepEditEvent: number;
@@ -167,6 +180,13 @@ export const useStore = create<UIState>((set, get) => ({
   fullLevel: false,
   waveformZoom: 1,
   browserEntries: [],
+  libraryResults: [],
+  libraryPage: 1,
+  libraryNumPages: 1,
+  libraryQuery: 'kick drum',
+  libraryError: null,
+  libraryLoading: false,
+  libraryProxyReady: false,
   stepEditTick: 0,
   stepEditEvent: 0,
 
@@ -496,6 +516,55 @@ export const useStore = create<UIState>((set, get) => ({
 
     set({ selectedPad: 0, screen: 'sample' });
     engine.selectedPad = 0;
+  },
+
+  async checkLibraryProxy() {
+    const ready = await checkFreesoundProxy();
+    set({ libraryProxyReady: ready });
+  },
+
+  async searchLibrary(query, filter = 'duration:[0 TO 8]', page = 1) {
+    set({ libraryLoading: true, libraryError: null, libraryQuery: query });
+    try {
+      const result = await searchFreesound(query, page, filter);
+      set({
+        libraryResults: result.sounds,
+        libraryPage: result.page,
+        libraryNumPages: result.numPages,
+        libraryLoading: false,
+      });
+    } catch (e) {
+      set({
+        libraryError: e instanceof Error ? e.message : 'Search failed',
+        libraryLoading: false,
+        libraryResults: [],
+      });
+    }
+  },
+
+  async loadLibrarySound(sound) {
+    set({ libraryLoading: true, libraryError: null });
+    try {
+      const data = await fetchFreesoundPreview(sound.id);
+      const id = `fs-${sound.id}`;
+      const buffer = await engine.loadSample(id, data);
+      await writeSample(id, data);
+      const { selectedPad } = get();
+      get().updatePad(selectedPad, {
+        sampleId: id,
+        sampleName: sound.name.slice(0, 24),
+        start: 0,
+        end: buffer.length,
+        loopStart: 0,
+        slices: [],
+      });
+      set({ screen: 'sample', libraryLoading: false });
+    } catch (e) {
+      set({
+        libraryError: e instanceof Error ? e.message : 'Load failed',
+        libraryLoading: false,
+      });
+    }
   },
 
   setStepEditTick(t) {
