@@ -27,6 +27,19 @@ export function Pads() {
   const importSample = useStore((s) => s.importSample);
   const toggleFullLevel = useStore((s) => s.toggleFullLevel);
   const trimSelected = useStore((s) => s.trimSelected);
+  const halfSeq = useStore((s) => s.halfSeq);
+  const doubleSeq = useStore((s) => s.doubleSeq);
+  const toggleCountIn = useStore((s) => s.toggleCountIn);
+  const halfSpeed = useStore((s) => s.halfSpeed);
+  const doubleSpeed = useStore((s) => s.doubleSpeed);
+  const toggleRecQuantize = useStore((s) => s.toggleRecQuantize);
+  const resampleToPad = useStore((s) => s.resampleToPad);
+  const toggleWarpMode = useStore((s) => s.toggleWarpMode);
+  const cycleFaderParam = useStore((s) => s.cycleFaderParam);
+  const stepEditTick = useStore((s) => s.stepEditTick);
+  const setStepEditTick = useStore((s) => s.setStepEditTick);
+  const selectPad = useStore((s) => s.selectPad);
+  const screen = useStore((s) => s.screen);
   const project = useStore((s) => s.project);
   const bank = useStore((s) => s.bank);
   const selected = useStore((s) => s.selectedPad);
@@ -72,13 +85,19 @@ export function Pads() {
 
   function trigger(i: number, velocity: number) {
     if (shift) {
-      if (i === 0) {
-        toggleFullLevel();
-        return;
-      }
-      if (i === 12) {
-        trimSelected();
-        return;
+      switch (i) {
+        case 0: toggleFullLevel(); return;
+        case 1: halfSeq(); return;
+        case 2: doubleSeq(); return;
+        case 3: toggleCountIn(); return;
+        case 5: halfSpeed(); return;
+        case 6: doubleSpeed(); return;
+        case 8: cycleFaderParam(); return;
+        case 9: toggleRecQuantize(); return;
+        case 10: void resampleToPad(selected); return;
+        case 12: trimSelected(); return;
+        case 14: toggleWarpMode(); return;
+        default: break;
       }
       const target = SHIFT_SCREENS[i];
       if (target) {
@@ -86,7 +105,20 @@ export function Pads() {
         return;
       }
     }
+
+    if (screen === 'stepedit') {
+      setStepEditTick(stepEditTick);
+      selectPad(i);
+      hitPad(i, velocity);
+      setFlash((f) => ({ ...f, [i]: true }));
+      window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), 140);
+      return;
+    }
+
     hitPad(i, velocity);
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(8);
+    }
     setFlash((f) => ({ ...f, [i]: true }));
     window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), 140);
   }

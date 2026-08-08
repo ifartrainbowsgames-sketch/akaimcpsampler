@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   makeProject,
+  MAX_SLICES,
   TICKS_PER_16TH,
   type Pad,
   type Project,
@@ -15,6 +16,8 @@ import type { PadFXId } from '../audio/fx/padfx';
 import { midi } from '../midi/midi';
 import { history } from './undo';
 import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
+import { listSamples } from '../storage/opfs';
+import { ticksPerBar } from '../audio/scheduler';
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
@@ -77,6 +80,33 @@ interface UIState {
   cycleLevelsType(): void;
   selectSlice(i: number): void;
 
+  waveformZoom: number;
+  setWaveformZoom(z: number): void;
+  setTrimRegion(start: number, end: number, loopStart: number): void;
+  previewAtFrame(frame: number): void;
+  addManualChopPoint(frame: number): void;
+
+  browserEntries: { id: string; name: string }[];
+  refreshBrowser(): Promise<void>;
+  loadBrowserSample(id: string): Promise<void>;
+
+  stepEditTick: number;
+  stepEditEvent: number;
+  setStepEditTick(t: number): void;
+  setStepEditEvent(i: number): void;
+  eraseStepEvent(): void;
+  nudgeStepEvent(delta: number): void;
+
+  halfSeq(): void;
+  doubleSeq(): void;
+  toggleCountIn(): void;
+  halfSpeed(): void;
+  doubleSpeed(): void;
+  toggleRecQuantize(): void;
+  resampleToPad(padIndex: number): Promise<void>;
+  toggleWarpMode(): void;
+  cycleFaderParam(): void;
+
   // ---- Phase 6: FX ----
   knobFX: KnobFXId;
   setKnobFX(id: KnobFXId): void;
@@ -128,6 +158,10 @@ export const useStore = create<UIState>((set, get) => ({
   selectedSlice: 0,
   levelsType: 'velocity',
   fullLevel: false,
+  waveformZoom: 1,
+  browserEntries: [],
+  stepEditTick: 0,
+  stepEditEvent: 0,
 
   knobFX: 'off',
   activePadFX: null,
@@ -351,6 +385,226 @@ export const useStore = create<UIState>((set, get) => ({
 
   selectSlice(i) {
     set({ selectedSlice: i });
+  },
+
+  setWaveformZoom(z) {
+    set({ waveformZoom: Math.max(1, Math.min(16, z)) });
+  },
+
+  setTrimRegion(start, end, loopStart) {
+    const { selectedPad } = get();
+    get().updatePad(selectedPad, { start, end, loopStart });
+  },
+
+  previewAtFrame(frame) {
+    const { selectedPad } = get();
+    engine.previewAtFrame(selectedPad, frame);
+  },
+
+  addManualChopPoint(frame) {
+    const { project, bank, selectedPad } = get();
+    const pad = project.banks[bank][selectedPad];
+    const buffer = engine.getBuffer(pad.sampleId);
+    if (!buffer) return;
+    const from = pad.start;
+    const to = pad.end || buffer.length;
+    const f = Math.max(from + 1, Math.min(to - 1, Math.round(frame)));
+
+    let slices = pad.slices.length ? pad.slices.slice() : [{ start: from, end: to }];
+    const idx = slices.findIndex((s) => f > s.start && f < s.end);
+    if (idx < 0) return;
+    const s = slices[idx];
+    slices.splice(idx, 1, { start: s.start, end: f }, { start: f, end: s.end });
+    get().updatePad(selectedPad, { slices: slices.slice(0, MAX_SLICES), chopType: 'manual' });
+  },
+
+  async refreshBrowser() {
+    const ids = await listSamples();
+    const { project } = get();
+    const names = new Map<string, string>();
+    for (const bank of project.banks) {
+      for (const pad of bank) {
+        if (pad.sampleId) names.set(pad.sampleId, pad.sampleName || pad.sampleId.slice(0, 8));
+      }
+    }
+    const entries = ids.map((id) => ({ id, name: names.get(id) ?? id.slice(0, 8) }));
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    set({ browserEntries: entries });
+  },
+
+  async loadBrowserSample(id) {
+    const data = await readSample(id);
+    if (!data) return;
+    try {
+      await engine.loadSample(id, data);
+    } catch {
+      return;
+    }
+    const buffer = engine.getBuffer(id);
+    if (!buffer) return;
+    const { selectedPad } = get();
+    get().updatePad(selectedPad, {
+      sampleId: id,
+      sampleName: get().browserEntries.find((e) => e.id === id)?.name ?? 'Sample',
+      start: 0,
+      end: buffer.length,
+      loopStart: 0,
+      slices: [],
+    });
+    set({ screen: 'sample' });
+  },
+
+  setStepEditTick(t) {
+    set({ stepEditTick: Math.max(0, t), stepEditEvent: 0 });
+  },
+
+  setStepEditEvent(i) {
+    set({ stepEditEvent: Math.max(0, i) });
+  },
+
+  eraseStepEvent() {
+    const { project, bank, seqSlot, stepEditTick, stepEditEvent } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const atTick = stepEditTick * project.quantize;
+    const matches = seq.events
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => Math.abs(e.tick - atTick) < project.quantize / 2);
+    const target = matches[stepEditEvent];
+    if (!target) return;
+    const events = seq.events.filter((_, i) => i !== target.i);
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  nudgeStepEvent(delta) {
+    const { project, bank, seqSlot, stepEditTick, stepEditEvent } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const atTick = stepEditTick * project.quantize;
+    const matches = seq.events
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => Math.abs(e.tick - atTick) < project.quantize / 2);
+    const target = matches[stepEditEvent];
+    if (!target) return;
+    const barLen = seq.bars * ticksPerBar(project.timeSignature);
+    const events = seq.events.map((e, i) =>
+      i === target.i
+        ? { ...e, tick: (e.tick + delta + barLen) % barLen }
+        : e
+    );
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  halfSeq() {
+    const { project, bank, seqSlot } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const bars = Math.max(1, Math.floor(seq.bars / 2));
+    const limit = bars * ticksPerBar(project.timeSignature);
+    const events = seq.events.filter((e) => e.tick < limit);
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank
+        ? row.map((s, si) => (si === seqSlot ? { ...s, bars, events } : s))
+        : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  doubleSeq() {
+    const { project, bank, seqSlot } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const bars = Math.min(128, seq.bars * 2);
+    const oldLen = seq.bars * ticksPerBar(project.timeSignature);
+    const dup = seq.events.map((e) => ({ ...e, tick: e.tick + oldLen }));
+    const events = [...seq.events, ...dup].sort((a, b) => a.tick - b.tick);
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank
+        ? row.map((s, si) => (si === seqSlot ? { ...s, bars, events } : s))
+        : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  toggleCountIn() {
+    const p = get().project;
+    get().updateProject({ countIn: !p.countIn });
+  },
+
+  halfSpeed() {
+    const { project, bank, seqSlot } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const bars = Math.min(128, seq.bars * 2);
+    const events = seq.events.map((e) => ({ ...e, tick: e.tick * 2 }));
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank
+        ? row.map((s, si) => (si === seqSlot ? { ...s, bars, events } : s))
+        : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  doubleSpeed() {
+    const { project, bank, seqSlot } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const bars = Math.max(1, Math.floor(seq.bars / 2));
+    const events = seq.events
+      .map((e) => ({ ...e, tick: Math.floor(e.tick / 2) }))
+      .filter((e) => e.tick < bars * ticksPerBar(project.timeSignature));
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank
+        ? row.map((s, si) => (si === seqSlot ? { ...s, bars, events } : s))
+        : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  toggleRecQuantize() {
+    const p = get().project;
+    get().updateProject({ recordQuantize: !p.recordQuantize });
+  },
+
+  async resampleToPad(padIndex) {
+    const p = get().project;
+    const blob = await renderToWav({
+      project: p,
+      order: [{ bank: get().bank, slot: get().seqSlot }],
+      getBuffer: (id) => engine.getBuffer(id),
+    });
+    if (!blob) return;
+    const data = await blob.arrayBuffer();
+    const id = crypto.randomUUID();
+    await engine.loadSample(id, data);
+    await writeSample(id, data);
+    const buffer = engine.getBuffer(id);
+    if (!buffer) return;
+    get().updatePad(padIndex, {
+      sampleId: id,
+      sampleName: `Resample ${new Date().toTimeString().slice(0, 5)}`,
+      start: 0,
+      end: buffer.length,
+      loopStart: 0,
+      slices: [],
+    });
+    set({ selectedPad: padIndex, screen: 'sample' });
+  },
+
+  toggleWarpMode() {
+    const { project, bank, selectedPad } = get();
+    const pad = project.banks[bank][selectedPad];
+    get().updatePad(selectedPad, {
+      warpMode: pad.warpMode === 'pitch' ? 'stretch' : 'pitch',
+    });
+  },
+
+  cycleFaderParam() {
+    const order = [
+      'Pad Volume', 'Pad Pan', 'Pad Tune', 'Pad Filter Cutoff', 'Kit Volume',
+    ];
+    const i = order.indexOf(get().faderParam);
+    set({ faderParam: order[(i + 1) % order.length] });
   },
 
   /** Run the current chop type over the selected pad's sample. */

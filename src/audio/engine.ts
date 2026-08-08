@@ -561,6 +561,44 @@ export class Engine {
   setInputMonitor(on: boolean) { this.recorder?.setMonitor(on); }
   get inputLevel() { return this.recorder?.level ?? 0; }
 
+  /** Short preview from an absolute frame — used by LCD tap-to-audition. */
+  previewAtFrame(padIndex: number, frame: number, durationSec = 0.22): void {
+    if (!this.ctx || !this.project) return;
+    const pad = this.activePad(padIndex);
+    if (!pad?.sampleId) return;
+    const buffer = pad.reverse
+      ? this.getReversed(pad.sampleId)
+      : this.buffers.get(pad.sampleId);
+    if (!buffer) return;
+
+    const regionEnd = pad.end || buffer.length;
+    const frameClamped = Math.max(pad.start, Math.min(Math.round(frame), regionEnd - 1));
+    const endFrame = Math.min(
+      regionEnd,
+      frameClamped + Math.round(durationSec * buffer.sampleRate),
+    );
+    if (endFrame <= frameClamped) return;
+
+    const t = this.ctx.currentTime;
+    const voice = triggerVoice({
+      ctx: this.ctx,
+      buffer,
+      pad: { ...pad, loop: false, noteOn: false },
+      padIndex,
+      bankIndex: this.currentBank,
+      destination: this.padGains[padIndex],
+      when: t,
+      velocity: 100,
+      slice: { start: frameClamped, end: endFrame },
+      rate: this.warpRate(pad, buffer),
+    });
+    this.voices.push(voice);
+    voice.source.addEventListener('ended', () => {
+      const i = this.voices.indexOf(voice);
+      if (i >= 0) this.voices.splice(i, 1);
+    });
+  }
+
   /** Read the output meter. Call from rAF, not from the audio path. */
   readLevel(): number {
     if (!this.analyser) return 0;

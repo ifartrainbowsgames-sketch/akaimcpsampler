@@ -12,6 +12,7 @@ import { ChopModeModal } from './ui/ChopModeModal';
 import { UpdateBanner } from './ui/UpdateBanner';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
+import { AkaiLogo } from './ui/AkaiLogo';
 import type { ChopLoadMode } from './storage/preferences';
 
 export default function App() {
@@ -28,8 +29,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
     <div className="boot">
       <div className="bootcard">
         <div className="bootlogo">
-          <b>AKAI</b>
-          <i>professional</i>
+          <AkaiLogo className="akailogo" />
         </div>
         <h1>MPC SAMPLE</h1>
         <p>16-pad sampler and sequencer. Everything runs on your device.</p>
@@ -70,17 +70,14 @@ function Panel() {
   const selectedPad = useStore((s) => s.selectedPad);
   const project = useStore((s) => s.project);
   const updatePad = useStore((s) => s.updatePad);
-  const runChop = useStore((s) => s.runChop);
-  const splitSelectedSlice = useStore((s) => s.splitSelectedSlice);
-  const mergeSelectedSlice = useStore((s) => s.mergeSelectedSlice);
-  const extractSelectedSlice = useStore((s) => s.extractSelectedSlice);
-  const sliceAllToPads = useStore((s) => s.sliceAllToPads);
   const cycleLevelsType = useStore((s) => s.cycleLevelsType);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const faderParam = useStore((s) => s.faderParam);
   const pendingChopPad = useStore((s) => s.pendingChopPad);
   const resolveChopChoice = useStore((s) => s.resolveChopChoice);
+  const setWaveformZoom = useStore((s) => s.setWaveformZoom);
+  const nudgeStepEvent = useStore((s) => s.nudgeStepEvent);
 
   const pad = project.banks[bank][selectedPad];
   const unmuteAll = () => {
@@ -92,6 +89,10 @@ function Panel() {
   const [jog, setJog] = useState(0.5);
   const [meter, setMeter] = useState(0);
   const [transport, setTransport] = useState({ playing: false, recording: false });
+
+  useEffect(() => {
+    setWaveformZoom(1 + jog * 15);
+  }, [jog, setWaveformZoom]);
 
   useEffect(() => {
     let raf = 0;
@@ -143,7 +144,7 @@ function Panel() {
 
         <div className="deck">
           <div className="deckrow1">
-            <div className="logo"><b>AKAI</b><i>professional</i></div>
+            <div className="logo"><AkaiLogo className="akailogo akailogo--deck" /></div>
             <div className="fnrow">
               <button type="button" className="fnbtn" aria-label="B1" onClick={() => cycleB(1)} />
               <button type="button" className="fnbtn" aria-label="B2" onClick={() => cycleB(2)} />
@@ -205,6 +206,11 @@ function Panel() {
               label={faderParam.toUpperCase().slice(0, 10)}
               onChange={(v) => {
                 setFaderValue(v);
+                if (screen === 'stepedit') {
+                  const delta = Math.round((v - 0.5) * 48);
+                  if (delta !== 0) nudgeStepEvent(delta);
+                  return;
+                }
                 switch (faderParam) {
                   case 'Pad Volume': updatePad(selectedPad, { gain: v * 80 - 74 }); break;
                   case 'Pad Pan': updatePad(selectedPad, { pan: v * 2 - 1 }); break;
@@ -249,17 +255,14 @@ function Panel() {
             </div>
 
             {padModes.chop && (
-              <div className="chopbar">
-                <button type="button" onClick={runChop}>CHOP</button>
-                <button type="button" onClick={splitSelectedSlice}>SPLIT</button>
-                <button type="button" onClick={mergeSelectedSlice}>MERGE</button>
-                <button type="button" onClick={extractSelectedSlice}>EXTRACT</button>
-                <button type="button" onClick={sliceAllToPads}>TO PADS</button>
+              <div className="chopbar chopbar--compact">
+                <span className="chopbar__hint">Chop controls on LCD</span>
               </div>
             )}
 
             <div className="grid2 gap">
-              <PanelButton label="SAMPLE SELECT" sub="SAVE SAMPLE" htmlFor={SAMPLE_FILE_INPUT_ID} />
+              <PanelButton label="SAMPLE SELECT" sub="SAVE SAMPLE"
+                onClick={() => setScreen(shift ? 'project' : 'browser')} />
               <PanelButton label="TAP TEMPO" sub="METRO" />
             </div>
 

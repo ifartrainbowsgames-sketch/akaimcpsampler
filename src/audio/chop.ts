@@ -121,13 +121,20 @@ export function mergeSlice(slices: Slice[], index: number): Slice[] {
 }
 
 /** Peak-per-pixel waveform summary for drawing. */
-export function waveformPeaks(buffer: AudioBuffer, width: number): Float32Array {
+export function waveformPeaks(
+  buffer: AudioBuffer,
+  width: number,
+  region?: { start: number; end: number },
+): Float32Array {
   const data = buffer.getChannelData(0);
+  const from = region?.start ?? 0;
+  const to = region?.end ?? data.length;
+  const span = Math.max(1, to - from);
   const peaks = new Float32Array(width);
-  const step = data.length / width;
+  const step = span / width;
   for (let i = 0; i < width; i++) {
-    const start = Math.floor(i * step);
-    const end = Math.min(data.length, Math.floor((i + 1) * step));
+    const start = from + Math.floor(i * step);
+    const end = Math.min(to, from + Math.floor((i + 1) * step));
     let max = 0;
     for (let j = start; j < end; j++) {
       const v = Math.abs(data[j]);
