@@ -142,7 +142,8 @@ export function makePad(): Pad {
     warpMode: 'pitch',
     warpAmount: 'off',
     beats: 4,
-    polyphony: 'poly',
+  /** One-shot drum hits retrigger cleanly; use Poly on the Program page for pads. */
+    polyphony: 'mono',
     muteGroup: null,
     padLink: null,
     noteOn: false,
@@ -187,5 +188,17 @@ export function makeProject(name = 'New Project'): Project {
       )
     ),
     song: [],
+  };
+}
+
+/** One-shot pads used to default to poly — stacked hits ducked the compressor. */
+export function migrateProject(p: Project): Project {
+  return {
+    ...p,
+    banks: p.banks.map((bank) =>
+      bank.map((pad) =>
+        !pad.noteOn && pad.polyphony === 'poly' ? { ...pad, polyphony: 'mono' } : pad
+      )
+    ),
   };
 }
