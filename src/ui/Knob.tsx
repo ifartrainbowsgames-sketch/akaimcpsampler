@@ -1,21 +1,17 @@
 import { useRef, useCallback } from 'react';
 
 interface Props {
-  value: number;      // 0..1
+  value: number;
   onChange(v: number): void;
   size?: 'sm' | 'md' | 'lg';
   label?: string;
-  /**
-   * Soft takeover: the knob has absolute position only, so after a page change
-   * its physical position won't match the new parameter. Until the drag crosses
-   * the current value, the control has no authority.
-   */
   softTakeover?: boolean;
-  /** Pixels of vertical drag for full travel; higher = slower. */
   sensitivity?: number;
+  /** Blue position ring like the hardware MAIN VOLUME knob. */
+  variant?: 'default' | 'volume';
 }
 
-export function Knob({ value, onChange, size = 'md', label, sensitivity = 300 }: Props) {
+export function Knob({ value, onChange, size = 'md', label, sensitivity = 300, variant = 'default' }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, y: 0, v: 0 });
 
@@ -39,7 +35,7 @@ export function Knob({ value, onChange, size = 'md', label, sensitivity = 300 }:
     <div className="knobwrap">
       <div
         ref={ref}
-        className={`knob knob-${size}`}
+        className={`knob knob-${size}${variant === 'volume' ? ' knob--vol' : ''}`}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -52,6 +48,9 @@ export function Knob({ value, onChange, size = 'md', label, sensitivity = 300 }:
         aria-label={label ?? 'knob'}
       >
         <i style={{ transform: `rotate(${angle}deg)` }} />
+        {variant === 'volume' && (
+          <span className="knob-blue" style={{ transform: `rotate(${angle}deg)` }} />
+        )}
         <span className="knobtick" />
       </div>
       {label && <div className="knoblabel">{label}</div>}

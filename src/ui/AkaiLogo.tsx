@@ -1,18 +1,17 @@
-/** AKAI professional wordmark — simplified vector for boot + deck. */
+/** AKAI professional — matches hardware deck silkscreen. */
 export function AkaiLogo({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 120 28"
-      aria-label="AKAI professional"
-      role="img"
-    >
-      <text x="0" y="20" fill="currentColor" fontFamily="ui-sans-serif, system-ui" fontSize="22" fontWeight="800">
-        AKAI
-      </text>
-      <text x="62" y="20" fill="currentColor" fontFamily="ui-sans-serif, system-ui" fontSize="11" fontStyle="italic" opacity="0.85">
-        professional
-      </text>
-    </svg>
+    <div className={`akaibrand ${className ?? ''}`} aria-label="AKAI professional">
+      <span className="akaibrand__main">AKAI</span>
+      <span className="akaibrand__sub">professional</span>
+    </div>
+  );
+}
+
+export function MpcWordmark({ className }: { className?: string }) {
+  return (
+    <div className={`mpcword ${className ?? ''}`} aria-label="MPC SAMPLE">
+      MPC SAMPLE
+    </div>
   );
 }

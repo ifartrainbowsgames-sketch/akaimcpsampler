@@ -12,7 +12,7 @@ import { ChopModeModal } from './ui/ChopModeModal';
 import { UpdateBanner } from './ui/UpdateBanner';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
-import { AkaiLogo } from './ui/AkaiLogo';
+import { AkaiLogo, MpcWordmark } from './ui/AkaiLogo';
 import type { ChopLoadMode } from './storage/preferences';
 
 export default function App() {
@@ -150,13 +150,13 @@ function Panel() {
               <button type="button" className="fnbtn" aria-label="B2" onClick={() => cycleB(2)} />
               <button type="button" className="fnbtn" aria-label="B3" onClick={() => cycleB(3)} />
             </div>
-            <div className="wordmark">MPC SAMPLE</div>
+            <div className="wordmark"><MpcWordmark /></div>
           </div>
 
           <div className="deckrow2">
             <div className="volwrap">
               <div className="volstack">
-                <Knob value={volume} onChange={setVolume} size="md" sensitivity={320} />
+                <Knob value={volume} onChange={setVolume} size="md" sensitivity={320} variant="volume" />
                 <div className="vollabel">MAIN<br />VOLUME</div>
               </div>
               <div className="bankcol">
@@ -167,13 +167,8 @@ function Panel() {
 
             <div className="lcdframe"><LCD /></div>
 
-            <div className="metercol">
-              <div className="meterbars">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <i key={i} className={meter * 8 > i ? (i > 6 ? 'hot' : 'on') : ''} />
-                ))}
-              </div>
-              <div className="speaker" />
+            <div className="speakercol">
+              <div className={`speaker ${meter > 0.05 ? 'speaker--on' : ''}`} />
             </div>
           </div>
         </div>

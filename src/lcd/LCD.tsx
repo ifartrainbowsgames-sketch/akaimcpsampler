@@ -12,6 +12,7 @@ import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
 import { FACTORY_KITS as FACTORY_KIT_LIST } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
+import { HwSlider } from '../ui/HwSlider';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -57,6 +58,7 @@ export function LCD() {
   }, [screen, refreshBrowser]);
 
   const [playhead, setPlayhead] = useState(-1);
+  const [lcdActions, setLcdActions] = useState(false);
   useEffect(() => {
     let raf = 0;
     const loop = () => {
@@ -95,48 +97,16 @@ export function LCD() {
           ))}
         </div>
 
-        <div className="lcdmenu">
-          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload" title="Upload audio from device">
-            UPLOAD
-          </label>
-          <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>
-            BROWSE
-          </button>
-          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('library')}>
-            FREESOUND
-          </button>
-          <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>
-            KITS
-          </button>
-        </div>
-
-        <div className="infoline">
-          <span>
+        <div className="infoline" onDoubleClick={() => setLcdActions((v) => !v)}>
+          <span className="padid">
             {String.fromCharCode(65 + bank)}
             {String(selectedPad + 1).padStart(2, '0')}
           </span>
           <span className="sname">{pad.sampleName || '(empty)'}</span>
-          {chopActive && pad.slices.length > 0 && (
-            <button type="button" className="lcd-btn lcd-btn--action" onClick={sliceAllToPads}>
-              TO PADS
-            </button>
-          )}
-          {chopActive && (
-            <>
-              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={splitSelectedSlice}>SPLIT</button>
-              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={mergeSelectedSlice}>MERGE</button>
-              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={extractSelectedSlice}>EXTRACT</button>
-            </>
-          )}
-          {chopActive && pad.sampleId && (
-            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={runChop}>
-              CHOP
-            </button>
-          )}
-          {buffer && (pad.start > 0 || padEnd < sampleLen) && (
-            <button type="button" className="lcd-btn lcd-btn--action" onClick={trimSelected}>
-              APPLY TRIM
-            </button>
+          {!buffer && (
+            <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">
+              LOAD
+            </label>
           )}
           <span className="chips">
             {pad.noteOn && <i className="chip">♪</i>}
@@ -148,45 +118,65 @@ export function LCD() {
           </span>
         </div>
 
-        <div className="waveblock">
-          <div className="lcdmeters" aria-hidden>
-            <MeterBar value={Math.max(0, (pad.gain + 74) / 80)} label="VOL" />
-            <MeterBar value={(pad.pan + 1) / 2} label="PAN" />
+        {lcdActions && (
+          <div className="lcdmenu lcdmenu--popup">
+            <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">UPLOAD</label>
+            <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>BROWSE</button>
+            <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('library')}>FREESOUND</button>
+            <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>KITS</button>
           </div>
-          <div className="lanes lanes--dual">
-            <div className="lane lane--overview">
-              <Waveform
-                buffer={buffer}
-                start={pad.start}
-                end={padEnd}
-                loopStart={pad.loopStart}
-                slices={pad.slices}
-                zoomWindow={waveformZoom > 1 ? { start: viewStart, len: viewLen } : undefined}
-              />
-            </div>
-            <div className="lane lane--detail">
-              <WaveformSurface
-                buffer={buffer}
-                start={pad.start}
-                end={padEnd}
-                loopStart={pad.loopStart}
-                slices={pad.slices}
-                playhead={playhead}
-                zoom={waveformZoom}
-                chopActive={chopActive && pad.chopType === 'manual'}
-                onTrim={(s, e, l) => setTrimRegion(s, e, l)}
-                onPreview={(norm) => {
-                  const frame = viewStart + norm * viewLen;
-                  previewAtFrame(frame);
-                }}
-                onSliceTap={addManualChopPoint}
-              />
-              {!buffer && (
-                <span className="lcd-load-cta" aria-hidden>
-                  TAP LOAD OR DROP AUDIO
-                </span>
-              )}
-            </div>
+        )}
+
+        {chopActive && (
+          <div className="lcdchop">
+            {pad.sampleId && (
+              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={runChop}>CHOP</button>
+            )}
+            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={splitSelectedSlice}>SPLIT</button>
+            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={mergeSelectedSlice}>MERGE</button>
+            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={extractSelectedSlice}>EXTRACT</button>
+            {pad.slices.length > 0 && (
+              <button type="button" className="lcd-btn lcd-btn--action" onClick={sliceAllToPads}>TO PADS</button>
+            )}
+            {buffer && (pad.start > 0 || padEnd < sampleLen) && (
+              <button type="button" className="lcd-btn lcd-btn--action" onClick={trimSelected}>APPLY TRIM</button>
+            )}
+          </div>
+        )}
+
+        <div className="lanes lanes--dual">
+          <div className="lane lane--overview">
+            <Waveform
+              buffer={buffer}
+              start={pad.start}
+              end={padEnd}
+              loopStart={pad.loopStart}
+              slices={pad.slices}
+              zoomWindow={waveformZoom > 1 ? { start: viewStart, len: viewLen } : undefined}
+            />
+          </div>
+          <div className="lane lane--detail">
+            <WaveformSurface
+              buffer={buffer}
+              start={pad.start}
+              end={padEnd}
+              loopStart={pad.loopStart}
+              slices={pad.slices}
+              playhead={playhead}
+              zoom={waveformZoom}
+              chopActive={chopActive && pad.chopType === 'manual'}
+              onTrim={(s, e, l) => setTrimRegion(s, e, l)}
+              onPreview={(norm) => {
+                const frame = viewStart + norm * viewLen;
+                previewAtFrame(frame);
+              }}
+              onSliceTap={addManualChopPoint}
+            />
+            {!buffer && (
+              <span className="lcd-load-cta" aria-hidden>
+                TAP TO LOAD
+              </span>
+            )}
           </div>
         </div>
 
@@ -229,21 +219,18 @@ function Footline({
     <div className="footline">
       {[0, 1, 2].map((i) => {
         const p = params[i];
-        return (
-          <label key={i} className="footcell">
-            <span>{p?.name ?? '—'}</span>
-            {p && (
-              <input
-                className="footslider"
-                type="range"
-                min={0}
-                max={1000}
-                value={Math.round(p.norm * 1000)}
-                onChange={(e) => onChange(p, Number(e.target.value) / 1000)}
-                aria-label={p.name}
-              />
-            )}
-          </label>
+        return p ? (
+          <HwSlider
+            key={i}
+            label={p.name}
+            value={p.norm}
+            onChange={(v) => onChange(p, v)}
+          />
+        ) : (
+          <div key={i} className="footcell">
+            <span>—</span>
+            <div className="hwslider hwslider--empty" />
+          </div>
         );
       })}
     </div>
@@ -574,18 +561,6 @@ function ProjectScreen() {
         <button type="button" onClick={() => saveProject(project)}>SAVE</button>
         <button type="button" onClick={() => void exportSequence()}>EXPORT SEQ</button>
       </div>
-    </div>
-  );
-}
-
-function MeterBar({ value, label }: { value: number; label: string }) {
-  const n = Math.max(0, Math.min(1, value));
-  return (
-    <div className="lcdmeter">
-      <div className="lcdmeter__track">
-        <i style={{ height: `${Math.round(n * 100)}%` }} />
-      </div>
-      <span>{label}</span>
     </div>
   );
 }
