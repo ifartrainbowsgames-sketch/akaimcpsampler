@@ -39,8 +39,8 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           {busy ? 'Starting…' : 'Tap to start'}
         </button>
         <p className="bootnote">
-          Drop an audio file onto any pad to load it. Play with Z X C V / A S D F /
-          Q W E R / 1 2 3 4.
+          Tap the LCD or drop an audio file onto any pad to load it. Play with
+          Z X C V / A S D F / Q W E R / 1 2 3 4.
         </p>
       </div>
     </div>
@@ -155,7 +155,7 @@ function Panel() {
               </div>
             </div>
 
-            <div className="lcdframe"><LCD /></div>
+            <div className="lcdframe"><LCD onPickSample={pickFile} /></div>
 
             <div className="metercol">
               <div className="meterbars">
@@ -307,7 +307,7 @@ function Panel() {
       />
 
       <p className="hint">
-        Drop audio on a pad, or use <b>SAMPLE SELECT</b>. <b>Space</b> plays.
+        Tap the <b>LCD</b>, drop audio on a pad, or use <b>SAMPLE SELECT</b>. <b>Space</b> plays.
         Hold <b>Shift</b> for secondary functions. Keys <b>ZXCV / ASDF / QWER / 1234</b>.
       </p>
     </div>

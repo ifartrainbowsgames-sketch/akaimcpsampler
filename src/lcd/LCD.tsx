@@ -14,7 +14,11 @@ import { PAD_FX } from '../audio/fx/padfx';
  * labels and K1-K3 parameters in one place rather than scattering them through
  * components.
  */
-export function LCD() {
+interface LCDProps {
+  onPickSample?: () => void;
+}
+
+export function LCD({ onPickSample }: LCDProps) {
   const screen = useStore((s) => s.screen);
   const bGroup = useStore((s) => s.bGroup);
   const bPage = useStore((s) => s.bPage);
@@ -88,7 +92,12 @@ export function LCD() {
           </span>
         </div>
 
-        <div className="lanes">
+        <button
+          type="button"
+          className="lanes lanes--pick"
+          onClick={onPickSample}
+          aria-label={buffer ? 'Replace sample on selected pad' : 'Load audio onto selected pad'}
+        >
           <Waveform
             buffer={buffer}
             start={pad.start}
@@ -97,7 +106,7 @@ export function LCD() {
             slices={pad.slices}
             playhead={playhead}
           />
-        </div>
+        </button>
 
         <KRow params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
       </div>

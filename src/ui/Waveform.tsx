@@ -39,7 +39,7 @@ export function Waveform({ buffer, start, end, loopStart, slices, playhead }: Pr
     if (!buffer) {
       ctx.fillStyle = '#5a5a52';
       ctx.font = '10px ui-monospace, monospace';
-      ctx.fillText('no sample — drop a file on a pad', 8, h / 2 - 6);
+      ctx.fillText('tap LCD to load audio', 8, h / 2 - 6);
       return;
     }
 

@@ -109,7 +109,11 @@ button{font:inherit}
 .infoline .sname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip{font-style:normal;border:.06em solid var(--lcd-c);color:var(--lcd-c);padding:0 .2em;margin-left:.15em}
 .lanes{flex:1;min-height:0;padding:.15em .3em;display:flex}
-.waveform{width:100%;height:100%;display:block}
+.lanes--pick{
+  width:100%;border:0;background:transparent;padding:.15em .3em;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.lanes--pick:active{background:rgba(232,210,74,.08)}
+.waveform{width:100%;height:100%;display:block;pointer-events:none}
 .krow{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;flex:0 0 auto;
   border-top:.08em solid #3a3a34;background:#3a3a34}
 .kcell{background:var(--lcd);padding:.15em .25em .2em;min-width:0}
