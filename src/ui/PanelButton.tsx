@@ -7,10 +7,11 @@ interface Props {
   onClick?(): void;
   onPointerDown?(): void;
   onPointerUp?(): void;
+  onPointerLeave?(): void;
 }
 
 export function PanelButton({
-  label, sub, colour = 'grey', lit, htmlFor, onClick, onPointerDown, onPointerUp,
+  label, sub, colour = 'grey', lit, htmlFor, onClick, onPointerDown, onPointerUp, onPointerLeave,
 }: Props) {
   const className = `pb ${colour} ${lit ? 'lit' : ''}`;
   const body = (
@@ -34,6 +35,7 @@ export function PanelButton({
       onClick={onClick}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
+      onPointerLeave={onPointerLeave}
       type="button"
     >
       {body}

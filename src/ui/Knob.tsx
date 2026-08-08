@@ -11,9 +11,11 @@ interface Props {
    * the current value, the control has no authority.
    */
   softTakeover?: boolean;
+  /** Pixels of vertical drag for full travel; higher = slower. */
+  sensitivity?: number;
 }
 
-export function Knob({ value, onChange, size = 'md', label }: Props) {
+export function Knob({ value, onChange, size = 'md', label, sensitivity = 300 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, y: 0, v: 0 });
 
@@ -25,7 +27,7 @@ export function Knob({ value, onChange, size = 'md', label }: Props) {
   const move = useCallback((e: React.PointerEvent) => {
     if (!drag.current.active) return;
     const dy = drag.current.y - e.clientY;
-    const next = Math.max(0, Math.min(1, drag.current.v + dy / 180));
+    const next = Math.max(0, Math.min(1, drag.current.v + dy / sensitivity));
     onChange(next);
   }, [onChange]);
 
