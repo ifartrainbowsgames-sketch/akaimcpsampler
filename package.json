@@ -1,0 +1,36 @@
+{
+  "name": "akaimcpsampler",
+  "version": "0.1.0",
+  "description": "Akai-style MCP sampler: a Model Context Protocol server that models a pad-based audio sampler.",
+  "type": "module",
+  "bin": {
+    "akai-mcp-sampler": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "demo": "tsx scripts/demo.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
