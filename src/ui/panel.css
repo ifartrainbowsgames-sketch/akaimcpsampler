@@ -161,6 +161,18 @@ button{font:inherit}
   font-family:var(--mono);padding:.25em .35em}
 .keylink{color:var(--lcd-c)}
 .libpage{font-size:.75em;color:#a8a89e;align-self:center}
+.libpresets{max-height:3.2em;overflow-y:auto}
+.librarysetup{padding:.2em 0;display:flex;flex-direction:column;gap:.35em;font-size:.72em;color:#c8c8be}
+.setuplead{color:var(--lcd-y);line-height:1.4;margin:0}
+.setupsteps{margin:0;padding-left:1.2em;line-height:1.5;color:#a8a89e}
+.setupsteps a{color:var(--lcd-c)}
+.setupinput{
+  width:100%;background:#1e1e1c;border:.08em solid var(--orange);color:#e6e6dc;
+  font-family:var(--mono);font-size:.85em;padding:.45em .5em;border-radius:.12em}
+.setupbtn{
+  border:0;background:var(--orange);color:#111;font-family:var(--mono);font-weight:700;
+  font-size:.8em;padding:.5em;border-radius:.12em;cursor:pointer;touch-action:manipulation}
+.setupbtn:disabled{opacity:.4}
 .kitfilters{flex-wrap:wrap}
 .kitfilters button{flex:0 1 auto;min-width:2.8em}
 .chip{font-style:normal;border:.06em solid var(--lcd-c);color:var(--lcd-c);padding:0 .2em;margin-left:.15em}

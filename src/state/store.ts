@@ -545,7 +545,7 @@ export const useStore = create<UIState>((set, get) => ({
   async loadLibrarySound(sound) {
     set({ libraryLoading: true, libraryError: null });
     try {
-      const data = await fetchFreesoundPreview(sound.id);
+      const data = await fetchFreesoundPreview(sound.id, sound.previewUrl);
       const id = `fs-${sound.id}`;
       const buffer = await engine.loadSample(id, data);
       await writeSample(id, data);

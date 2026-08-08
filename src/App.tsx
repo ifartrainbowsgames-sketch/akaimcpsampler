@@ -261,8 +261,8 @@ function Panel() {
             )}
 
             <div className="grid2 gap">
-              <PanelButton label="SAMPLE SELECT" sub="KITS"
-                onClick={() => setScreen(shift ? 'project' : 'kits')} />
+              <PanelButton label="SAMPLE SELECT" sub="FREESOUND"
+                onClick={() => setScreen(shift ? 'project' : 'library')} />
               <PanelButton label="TAP TEMPO" sub="METRO" />
             </div>
 

@@ -1,5 +1,5 @@
 import type { LibrarySearchResult, LibrarySound } from './types';
-import { getFreesoundApiKey } from '../storage/libraryKeys';
+import { getFreesoundApiKey, hasFreesoundApiKey } from '../storage/libraryKeys';
 
 interface FreesoundPreviews {
   'preview-hq-mp3'?: string;
@@ -78,7 +78,10 @@ async function searchDirect(
     token,
   });
   const res = await fetch(`https://freesound.org/apiv2/search/?${params}`);
-  if (!res.ok) throw new Error(`Freesound search failed (${res.status})`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { detail?: string };
+    throw new Error(body.detail ?? `Freesound search failed (${res.status})`);
+  }
   const data = await res.json() as FreesoundSearchResponse;
   return {
     sounds: data.results.map(mapHit).filter((s): s is LibrarySound => s !== null),
@@ -93,25 +96,39 @@ export async function searchFreesound(
   page = 1,
   filter = 'duration:[0 TO 8]',
 ): Promise<LibrarySearchResult> {
+  const token = getFreesoundApiKey();
+  if (token) {
+    try {
+      return await searchDirect(query, page, filter, token);
+    } catch (e) {
+      // Fall through to server proxy if direct call fails (e.g. bad key).
+      if (!(e instanceof Error) || !e.message.includes('401')) throw e;
+    }
+  }
+
   const viaProxy = await searchViaProxy(query, page, filter);
   if (viaProxy) return viaProxy;
 
-  const token = getFreesoundApiKey();
-  if (!token) {
-    throw new Error(
-      'No Freesound API key. Add one below (free at freesound.org/apiv2/apply) or ask the site admin to set FREESOUND_API_KEY.',
-    );
-  }
-  return searchDirect(query, page, filter, token);
+  throw new Error(
+    'Connect Freesound: paste your free API key below, or ask the site admin to set FREESOUND_API_KEY on Vercel.',
+  );
 }
 
-/** Fetch preview audio bytes — uses proxy when available. */
-export async function fetchFreesoundPreview(soundId: string): Promise<ArrayBuffer> {
+/** Fetch preview audio bytes for loading onto a pad. */
+export async function fetchFreesoundPreview(
+  soundId: string,
+  previewUrl?: string,
+): Promise<ArrayBuffer> {
   const proxy = await fetch(`/api/freesound/preview?id=${encodeURIComponent(soundId)}`);
   if (proxy.ok) return proxy.arrayBuffer();
 
+  if (previewUrl) {
+    const audioRes = await fetch(previewUrl);
+    if (audioRes.ok) return audioRes.arrayBuffer();
+  }
+
   const token = getFreesoundApiKey();
-  if (!token) throw new Error('Cannot download preview — no API key');
+  if (!token) throw new Error('Cannot download preview — add a Freesound API key');
 
   const metaRes = await fetch(
     `https://freesound.org/apiv2/sounds/${soundId}/?fields=previews&token=${token}`,
@@ -129,6 +146,7 @@ export async function fetchFreesoundPreview(soundId: string): Promise<ArrayBuffe
 }
 
 export async function checkFreesoundProxy(): Promise<boolean> {
+  if (hasFreesoundApiKey()) return true;
   try {
     const res = await fetch('/api/freesound/status');
     if (!res.ok) return false;

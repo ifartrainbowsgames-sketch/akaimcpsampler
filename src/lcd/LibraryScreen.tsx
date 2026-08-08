@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { LIBRARY_PRESETS } from '../library/types';
-import { getFreesoundApiKey, setFreesoundApiKey } from '../storage/libraryKeys';
+import { checkFreesoundProxy } from '../library/freesound';
+import {
+  getFreesoundApiKey,
+  hasFreesoundApiKey,
+  setFreesoundApiKey,
+  usingBuiltInFreesoundKey,
+} from '../storage/libraryKeys';
 
 export function LibraryScreen() {
   const setScreen = useStore((s) => s.setScreen);
@@ -16,15 +22,19 @@ export function LibraryScreen() {
   const loading = useStore((s) => s.libraryLoading);
   const proxyReady = useStore((s) => s.libraryProxyReady);
 
-  const [input, setInput] = useState(query);
+  const [input, setInput] = useState('kick drum');
   const [apiKey, setApiKey] = useState(getFreesoundApiKey);
-  const [showKey, setShowKey] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>(LIBRARY_PRESETS[0].filter);
+  const [ready, setReady] = useState(hasFreesoundApiKey());
   const previewRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    void checkLibraryProxy();
-    void searchLibrary('kick drum', LIBRARY_PRESETS[0].filter);
+    void (async () => {
+      await checkLibraryProxy();
+      const canBrowse = (await checkFreesoundProxy()) || hasFreesoundApiKey();
+      setReady(canBrowse);
+      if (canBrowse) void searchLibrary('kick drum', LIBRARY_PRESETS[0].filter);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -34,6 +44,13 @@ export function LibraryScreen() {
     void searchLibrary(q, filter, p);
   };
 
+  const saveKeyAndSearch = () => {
+    setFreesoundApiKey(apiKey);
+    setReady(true);
+    void checkLibraryProxy();
+    void runSearch(input || 'kick drum');
+  };
+
   const preview = (url: string) => {
     if (!previewRef.current) previewRef.current = new Audio();
     const a = previewRef.current;
@@ -41,12 +58,59 @@ export function LibraryScreen() {
     void a.play();
   };
 
+  if (!ready) {
+    return (
+      <div className="lcdpanel librarypanel">
+        <div className="libraryhdr">
+          <span className="libbadge">Freesound.org</span>
+        </div>
+        <div className="librarysetup">
+          <p className="setuplead">
+            Browse thousands of free drum hits, bass, FX and more from Freesound.
+          </p>
+          <ol className="setupsteps">
+            <li>
+              <a href="https://freesound.org/apiv2/apply" target="_blank" rel="noreferrer">
+                Get a free API key
+              </a>
+              {' '}(takes ~1 min)
+            </li>
+            <li>Paste it below and tap CONNECT</li>
+            <li>Search, preview, and LOAD to your pad</li>
+          </ol>
+          <input
+            className="setupinput"
+            type="text"
+            value={apiKey}
+            placeholder="Paste Freesound API key here"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            onChange={(e) => setApiKey(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && apiKey.trim() && saveKeyAndSearch()}
+          />
+          <button
+            type="button"
+            className="setupbtn"
+            disabled={!apiKey.trim()}
+            onClick={saveKeyAndSearch}
+          >
+            CONNECT
+          </button>
+        </div>
+        <div className="lcdbtns">
+          <button type="button" onClick={() => setScreen('sample')}>BACK</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="lcdpanel librarypanel">
       <div className="libraryhdr">
         <span className="libbadge">Freesound.org</span>
         <span className="libstatus">
-          {proxyReady ? '● server' : '○ add API key'}
+          {usingBuiltInFreesoundKey() ? '● connected' : proxyReady ? '● server' : '● your key'}
         </span>
       </div>
 
@@ -63,7 +127,7 @@ export function LibraryScreen() {
         </button>
       </div>
 
-      <div className="kitfilters">
+      <div className="kitfilters libpresets">
         {LIBRARY_PRESETS.map((p) => (
           <button
             key={p.label}
@@ -77,41 +141,6 @@ export function LibraryScreen() {
       </div>
 
       {error && <div className="libraryerr">{error}</div>}
-
-      {!proxyReady && (
-        <div className="librarykey">
-          <button type="button" className="keytoggle" onClick={() => setShowKey(!showKey)}>
-            {showKey ? 'Hide' : 'Add'} Freesound API key
-          </button>
-          {showKey && (
-            <>
-              <input
-                type="password"
-                value={apiKey}
-                placeholder="Paste API key"
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setFreesoundApiKey(apiKey);
-                  void runSearch(input || 'kick drum');
-                }}
-              >
-                SAVE
-              </button>
-              <a
-                className="keylink"
-                href="https://freesound.org/apiv2/apply"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Get free key →
-              </a>
-            </>
-          )}
-        </div>
-      )}
 
       <div className="lcdlist browserlist librarylist">
         {loading && results.length === 0 && <div>Searching…</div>}
@@ -156,7 +185,7 @@ export function LibraryScreen() {
         </button>
       </div>
       <div className="hintline">
-        Tap name to preview · LOAD assigns to current pad. CC-licensed previews from Freesound.
+        Tap name to preview · LOAD → current pad · CC-licensed previews
       </div>
     </div>
   );

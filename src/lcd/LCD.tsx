@@ -102,11 +102,11 @@ export function LCD() {
           <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>
             BROWSE
           </button>
-          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('kits')}>
-            KITS
+          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('library')}>
+            FREESOUND
           </button>
-          <button type="button" className="lcd-btn" onClick={() => setScreen('library')}>
-            LIBRARY
+          <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>
+            KITS
           </button>
         </div>
 
@@ -210,7 +210,7 @@ export function LCD() {
 
 const SCREEN_TITLES: Record<string, string> = {
   seq: 'SEQUENCE', stepedit: 'STEP EDIT', song: 'SONG',
-  browser: 'BROWSER', kits: 'KITS', library: 'LIBRARY', smprec: 'SAMPLE REC',
+  browser: 'BROWSER', kits: 'KITS', library: 'FREESOUND', smprec: 'SAMPLE REC',
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
