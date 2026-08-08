@@ -1,0 +1,75 @@
+name: Build Android APK
+
+# Builds an installable APK on GitHub's runners, which have the Android SDK
+# preinstalled. Runs on every push to main, and can be triggered by hand from
+# the Actions tab — including from the GitHub mobile app or a phone browser.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Name the APK by run number
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             out/sampler-${{ github.run_number }}.apk
+
+      # Artifacts need a login to download, which is awkward on a phone.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sampler-apk
+          path: out/*.apk
+          retention-days: 30
+
+      # A release asset is a plain direct download — tap it on your phone and
+      # it installs. This is the one you actually want.
+      - name: Publish to a rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          body: |
+            Debug APK, build ${{ github.run_number }}, commit ${{ github.sha }}.
+
+            Download the .apk below on your phone and open it. You will need to
+            allow installing from unknown sources for whichever app you opened
+            it with.
+          files: out/*.apk
+          prerelease: true
