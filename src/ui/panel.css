@@ -184,12 +184,17 @@ button{font:inherit}
 .chip{font-style:normal;border:.06em solid var(--lcd-c);color:var(--lcd-c);padding:0 .2em;margin-left:.15em}
 .lanes{flex:1;min-height:0;padding:.15em .3em;display:flex;position:relative}
 .lanes--dual{flex-direction:column;gap:.12em;padding:.1em .25em}
-.waveblock{flex:1;min-height:0;display:flex;gap:.2em;min-width:0}
-.lcdmeters{display:flex;flex-direction:column;gap:.15em;flex:0 0 .55em;padding:.05em 0}
-.lcdmeter{display:flex;flex-direction:column;align-items:center;gap:.05em;flex:1;min-height:0}
-.lcdmeter__track{flex:1;width:.35em;background:#2a2a26;border-radius:.08em;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.waveblock{flex:1;min-height:0;display:flex;gap:.15em;min-width:0;align-items:stretch}
+.waveblock .lanes--dual{flex:1;min-width:0}
+.lcdmeters{display:flex;flex-direction:column;gap:.15em;flex:0 0 1.4em;padding:.05em 0;align-self:stretch}
+.lcdmeters--side{flex:0 0 1.1em}
+.lcdmeter{display:flex;flex-direction:column;align-items:center;gap:.05em;flex:1;min-height:0;width:100%}
+.lcdmeter__track{flex:1;width:.4em;background:#2a2a26;border-radius:.08em;position:relative;overflow:hidden;display:flex;align-items:flex-end}
 .lcdmeter__track i{display:block;width:100%;background:var(--lcd-y);border-radius:.08em;min-height:2px}
-.lcdmeter span{font-size:.45em;color:#8f8f86;letter-spacing:.04em}
+.lcdmeter__track--pan{align-items:stretch}
+.lcdmeter__center{position:absolute;left:0;right:0;top:50%;height:1px;margin-top:-.5px;background:#6a6a62;min-height:0;border-radius:0}
+.lcdmeter__pan{position:absolute;left:15%;right:15%;height:.55em;margin-bottom:-.28em;background:var(--lcd-c);border-radius:.08em;min-height:.55em}
+.lcdmeter span{font-size:.42em;color:#8f8f86;letter-spacing:.04em;font-weight:700}
 .lane{flex:1;min-height:0;position:relative;border-radius:.1em;background:rgba(0,0,0,.25)}
 .lane--overview{flex:0 0 28%;max-height:28%}
 .lane--detail{flex:1}
