@@ -13,6 +13,7 @@ import { TICKS_PER_16TH } from '../audio/types';
 import { FACTORY_KITS as FACTORY_KIT_LIST } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { HwSlider } from '../ui/HwSlider';
+import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -143,45 +144,49 @@ export function LCD() {
           </div>
         )}
 
-        <div className="lanes lanes--dual">
-          <div className="lane lane--overview">
-            <Waveform
-              buffer={buffer}
-              start={pad.start}
-              end={padEnd}
-              loopStart={pad.loopStart}
-              slices={pad.slices}
-              playhead={samplePh >= 0 ? samplePh : undefined}
-              zoomWindow={waveformZoom > 1 ? { start: viewStart, len: viewLen } : undefined}
-            />
+        <div className="waveblock">
+          <VolumeMeter gain={pad.gain} />
+          <div className="lanes lanes--dual">
+            <div className="lane lane--overview">
+              <Waveform
+                buffer={buffer}
+                start={pad.start}
+                end={padEnd}
+                loopStart={pad.loopStart}
+                slices={pad.slices}
+                playhead={samplePh >= 0 ? samplePh : undefined}
+                zoomWindow={waveformZoom > 1 ? { start: viewStart, len: viewLen } : undefined}
+              />
+            </div>
+            <div className="lane lane--detail">
+              <WaveformSurface
+                buffer={buffer}
+                start={pad.start}
+                end={padEnd}
+                loopStart={pad.loopStart}
+                slices={pad.slices}
+                playhead={
+                  samplePh >= 0
+                    ? Math.max(0, Math.min(1, (samplePh * sampleLen - viewStart) / viewLen))
+                    : playhead
+                }
+                zoom={waveformZoom}
+                chopActive={chopActive && pad.chopType === 'manual'}
+                onTrim={(s, e, l) => setTrimRegion(s, e, l)}
+                onPreview={(norm) => {
+                  const frame = viewStart + norm * viewLen;
+                  previewAtFrame(frame);
+                }}
+                onSliceTap={addManualChopPoint}
+              />
+              {!buffer && (
+                <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-load-cta">
+                  TAP TO LOAD
+                </label>
+              )}
+            </div>
           </div>
-          <div className="lane lane--detail">
-            <WaveformSurface
-              buffer={buffer}
-              start={pad.start}
-              end={padEnd}
-              loopStart={pad.loopStart}
-              slices={pad.slices}
-              playhead={
-                samplePh >= 0
-                  ? Math.max(0, Math.min(1, (samplePh * sampleLen - viewStart) / viewLen))
-                  : playhead
-              }
-              zoom={waveformZoom}
-              chopActive={chopActive && pad.chopType === 'manual'}
-              onTrim={(s, e, l) => setTrimRegion(s, e, l)}
-              onPreview={(norm) => {
-                const frame = viewStart + norm * viewLen;
-                previewAtFrame(frame);
-              }}
-              onSliceTap={addManualChopPoint}
-            />
-            {!buffer && (
-              <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-load-cta">
-                TAP TO LOAD
-              </label>
-            )}
-          </div>
+          <PanMeter pan={pad.pan} />
         </div>
 
         <Footline params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
