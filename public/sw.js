@@ -4,7 +4,7 @@
  * HTML is always network-first so deploys reach tablets without a hard reset.
  * Hashed /assets/* are also network-first.
  */
-const CACHE = 'sampler-v29';
+const CACHE = 'sampler-v30';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

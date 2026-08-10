@@ -10,7 +10,7 @@ export type NoteSource = 'touch' | 'mouse' | 'keyboard' | 'midi';
 
 type DisplayCallback = (patch: Partial<{
   lastNote: string;
-  velocity: number;
+  lastVelocity: number;
   sustain: boolean;
   audioStatus: string;
   loadProgress: number;
@@ -31,7 +31,7 @@ export class PianoEngine {
   private octave = 0;
   private transpose = 0;
   private releaseSec = 0.8;
-  private velocityScale = 0.82;
+  private velocitySetting = 100;
   private displayCb: DisplayCallback | null = null;
 
   /** Notes held by pointer/keyboard — separate from voice manager for glides. */
@@ -125,14 +125,14 @@ export class PianoEngine {
   noteOn(note: number, velocity: number, source: NoteSource, holderId?: string) {
     if (!this.sampler || !this.ready) return;
     const n = this.mapNote(note);
-    const vel = Math.max(1, Math.min(127, Math.round(velocity * this.velocityScale)));
+    const vel = Math.max(1, Math.min(127, Math.round(velocity)));
     const key = holderId ?? source;
     this.voices.noteOn(n, vel);
     this.held.set(key, n);
     const t = now();
     this.sampler.triggerAttack(midiToName(n), t, vel / 127);
     this.onNoteVisual?.(n, true);
-    this.displayCb?.({ lastNote: midiToName(n), velocity: vel });
+    this.displayCb?.({ lastNote: midiToName(n), lastVelocity: vel });
   }
 
   noteOff(note: number, source: NoteSource, holderId?: string) {
@@ -198,7 +198,11 @@ export class PianoEngine {
   }
 
   setVelocity(v: number) {
-    this.velocityScale = v;
+    this.velocitySetting = Math.max(1, Math.min(127, Math.round(v)));
+  }
+
+  getVelocity() {
+    return this.velocitySetting;
   }
 
   allNotesOff() {

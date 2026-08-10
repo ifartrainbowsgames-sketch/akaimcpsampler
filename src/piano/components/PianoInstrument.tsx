@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePianoStore } from '../store/pianoStore';
 import { pianoEngine } from '../audio/PianoEngine';
 import { pianoMidi } from '../audio/MidiEngine';
@@ -12,18 +13,16 @@ import {
   PIANO_SHORTCUTS,
 } from '../keyboard/computerKeys';
 
-export function PianoInstrument() {
+/** Full-screen piano overlay — opened from MPC PIANO button. */
+export function PianoOverlay() {
   const rootRef = useRef<HTMLElement>(null);
   const keysHeld = useRef(new Set<string>());
   const sustainKey = useRef(false);
   const [ready, setReady] = useState(false);
 
-  const collapsed = usePianoStore((s) => s.collapsed);
-  const setCollapsed = usePianoStore((s) => s.setCollapsed);
-  const focused = usePianoStore((s) => s.focused);
+  const open = usePianoStore((s) => s.open);
+  const setOpen = usePianoStore((s) => s.setOpen);
   const setFocused = usePianoStore((s) => s.setFocused);
-  const showMore = usePianoStore((s) => s.showMore);
-  const setShowMore = usePianoStore((s) => s.setShowMore);
   const initPiano = usePianoStore((s) => s.initPiano);
   const velocity = usePianoStore((s) => s.velocity);
   const volume = usePianoStore((s) => s.volume);
@@ -31,16 +30,30 @@ export function PianoInstrument() {
   const tone = usePianoStore((s) => s.tone);
   const release = usePianoStore((s) => s.release);
   const stereoWidth = usePianoStore((s) => s.stereoWidth);
+  const keyScale = usePianoStore((s) => s.keyScale);
   const setVelocity = usePianoStore((s) => s.setVelocity);
   const setVolume = usePianoStore((s) => s.setVolume);
   const setReverb = usePianoStore((s) => s.setReverb);
   const setTone = usePianoStore((s) => s.setTone);
   const setRelease = usePianoStore((s) => s.setRelease);
   const setStereoWidth = usePianoStore((s) => s.setStereoWidth);
+  const setKeyScale = usePianoStore((s) => s.setKeyScale);
   const setOctave = usePianoStore((s) => s.setOctave);
   const octave = usePianoStore((s) => s.octave);
   const setSustain = usePianoStore((s) => s.setSustain);
   const audioStatus = usePianoStore((s) => s.audioStatus);
+
+  useEffect(() => {
+    document.body.classList.toggle('piano-open', open);
+    return () => document.body.classList.remove('piano-open');
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      pianoEngine.allNotesOff();
+      setReady(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     return () => {
@@ -50,10 +63,13 @@ export function PianoInstrument() {
   }, []);
 
   useEffect(() => {
+    if (!open) return;
     const down = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return;
-      const pianoActive = focused || rootRef.current?.contains(document.activeElement);
-      if (!pianoActive && !rootRef.current?.contains(e.target as Node)) return;
+      if (e.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
 
       const k = e.key;
       if (PIANO_SHORTCUTS.octaveDown.includes(k)) {
@@ -66,7 +82,7 @@ export function PianoInstrument() {
         setOctave(octave + 1);
         return;
       }
-      if (PIANO_SHORTCUTS.sustain.includes(k) && pianoActive) {
+      if (PIANO_SHORTCUTS.sustain.includes(k)) {
         e.preventDefault();
         if (!sustainKey.current) {
           sustainKey.current = true;
@@ -101,38 +117,27 @@ export function PianoInstrument() {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, [focused, ready, velocity, octave, setOctave, setSustain]);
+  }, [open, ready, velocity, octave, setOctave, setSustain, setOpen]);
 
   const ensureReady = async () => {
     if (ready) return;
     await initPiano();
+    pianoEngine.setVelocity(usePianoStore.getState().velocity);
     setReady(true);
   };
 
-  if (collapsed) {
-    return (
-      <header className="piano-shell piano-shell--collapsed">
-        <button type="button" className="piano-expand-btn" onClick={() => setCollapsed(false)}>
-          ▲ PIANO
-        </button>
-      </header>
-    );
-  }
+  if (!open) return null;
 
-  return (
+  return createPortal(
     <section
       ref={rootRef}
-      className="piano-shell"
+      className="piano-fs"
       onPointerDown={() => { void ensureReady(); setFocused(true); }}
-      onFocus={() => setFocused(true)}
-      onBlur={(e) => {
-        if (!rootRef.current?.contains(e.relatedTarget as Node)) setFocused(false);
-      }}
     >
-      <div className="piano-shell__head">
-        <span className="piano-shell__title">WORKSTATION PIANO</span>
-        <button type="button" className="piano-collapse-btn" onClick={() => setCollapsed(true)} aria-label="Collapse piano">
-          ▼
+      <div className="piano-fs__head">
+        <span className="piano-fs__title">GRAND PIANO</span>
+        <button type="button" className="piano-fs__close" onClick={() => setOpen(false)} aria-label="Close piano">
+          ✕ MPC
         </button>
       </div>
 
@@ -144,24 +149,29 @@ export function PianoInstrument() {
 
       <PianoDisplay />
 
-      <div className="piano-params piano-params--main">
-        <PianoParameterBar label="VELOCITY" value={velocity} onChange={setVelocity} />
+      <div className="piano-mixer">
+        <div className="piano-mixer__hdr">MIXER</div>
+        <PianoParameterBar label="VELOCITY" value={velocity} onChange={setVelocity} max={127} />
         <PianoParameterBar label="VOLUME" value={Math.round(volume * 100)} onChange={(v) => setVolume(v / 100)} />
-      </div>
-
-      <div className={`piano-params piano-params--more${showMore ? ' piano-params--open' : ''}`}>
         <PianoParameterBar label="REVERB" value={Math.round(reverb * 100)} onChange={(v) => setReverb(v / 100)} />
         <PianoParameterBar label="TONE" value={Math.round(tone * 100)} onChange={(v) => setTone(v / 100)} />
         <PianoParameterBar label="RELEASE" value={Math.round(release * 100)} onChange={(v) => setRelease(v / 100)} />
         <PianoParameterBar label="WIDTH" value={Math.round(stereoWidth * 100)} onChange={(v) => setStereoWidth(v / 100)} />
+        <PianoParameterBar
+          label="KEY SIZE"
+          value={Math.round(keyScale * 100)}
+          onChange={(v) => setKeyScale(v / 100)}
+        />
       </div>
-
-      <button type="button" className="piano-more-toggle" onClick={() => setShowMore(!showMore)}>
-        {showMore ? '▲ LESS' : '▼ MORE'}
-      </button>
 
       <PianoControls />
       <PianoKeyboard />
-    </section>
+    </section>,
+    document.body,
   );
+}
+
+/** Opens the full-screen piano (call from MPC panel). */
+export function openPiano() {
+  usePianoStore.getState().setOpen(true);
 }

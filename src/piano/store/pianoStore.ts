@@ -7,13 +7,15 @@ import { PIANO_PRESETS } from '../audio/PianoPresets';
 import { engine } from '../../audio/engine';
 
 interface PianoState {
-  collapsed: boolean;
+  open: boolean;
   focused: boolean;
   quality: PianoQuality;
   presetId: string;
   octave: number;
   transpose: number;
   velocity: number;
+  lastVelocity: number;
+  keyScale: number;
   volume: number;
   reverb: number;
   tone: number;
@@ -32,7 +34,8 @@ interface PianoState {
   midiDeviceId: string | null;
   initPiano(): Promise<void>;
   setFocused(f: boolean): void;
-  setCollapsed(c: boolean): void;
+  setOpen(open: boolean): void;
+  setKeyScale(v: number): void;
   setPreset(id: string): void;
   setQuality(q: PianoQuality): void;
   setOctave(v: number): void;
@@ -56,22 +59,27 @@ export const usePianoStore = create<PianoState>((set, get) => {
 
   pianoEngine.setDisplayCallback((patch) => {
     set((s) => ({
-      ...s,
-      ...patch,
-      presetName: patch.loadLabel ? s.presetName : s.presetName,
+      lastNote: patch.lastNote ?? s.lastNote,
+      lastVelocity: patch.lastVelocity ?? s.lastVelocity,
+      sustain: patch.sustain ?? s.sustain,
+      audioStatus: patch.audioStatus ?? s.audioStatus,
+      loadProgress: patch.loadProgress ?? s.loadProgress,
+      loadLabel: patch.loadLabel ?? s.loadLabel,
     }));
   });
 
   pianoMidi.onStatusChange = (label) => set({ midiStatus: label });
 
   return {
-    collapsed: false,
+    open: false,
     focused: false,
     quality: 'standard',
     presetId: 'grand',
     octave: 0,
     transpose: 0,
-    velocity: 82,
+    velocity: 100,
+    lastVelocity: 0,
+    keyScale: 1,
     volume: 0.85,
     reverb: 0.38,
     tone: 0.55,
@@ -105,10 +113,12 @@ export const usePianoStore = create<PianoState>((set, get) => {
         release: preset.release,
         stereoWidth: preset.stereoWidth,
       });
+      pianoEngine.setVelocity(get().velocity);
     },
 
     setFocused(f) { set({ focused: f }); },
-    setCollapsed(c) { set({ collapsed: c }); },
+    setOpen(open) { set({ open }); },
+    setKeyScale(v) { set({ keyScale: Math.max(0.65, Math.min(1.6, v)) }); },
 
     setPreset(id) {
       pianoEngine.setPreset(id);
@@ -142,8 +152,9 @@ export const usePianoStore = create<PianoState>((set, get) => {
     },
 
     setVelocity(v) {
-      pianoEngine.setVelocity(v / 127);
-      set({ velocity: Math.round(v) });
+      const clamped = Math.max(1, Math.min(127, Math.round(v)));
+      pianoEngine.setVelocity(clamped);
+      set({ velocity: clamped });
     },
 
     setVolume(v) {

@@ -6,6 +6,7 @@ export function PianoDisplay() {
   const octave = usePianoStore((s) => s.octave);
   const transpose = usePianoStore((s) => s.transpose);
   const velocity = usePianoStore((s) => s.velocity);
+  const lastVelocity = usePianoStore((s) => s.lastVelocity);
   const sustain = usePianoStore((s) => s.sustain);
   const midiStatus = usePianoStore((s) => s.midiStatus);
   const audioStatus = usePianoStore((s) => s.audioStatus);
@@ -26,6 +27,7 @@ export function PianoDisplay() {
       </div>
       <div className="piano-lcd__row piano-lcd__row--sub">
         <span>VEL {velocity}</span>
+        {lastVelocity > 0 && <span>HIT {lastVelocity}</span>}
         <span className={sustain ? 'piano-lcd__on' : ''}>SUSTAIN {sustain ? 'ON' : 'OFF'}</span>
         <span className="piano-lcd__status">{status}</span>
       </div>

@@ -520,6 +520,7 @@ export const useStore = create<UIState>((set, get) => ({
   },
 
   hitPad(i, velocity = 100) {
+    const vel = Math.max(1, Math.min(127, velocity));
     const { padModes, project, bank, screen, eraseMode } = get();
 
     if (screen === 'flexbeat') {
@@ -564,8 +565,8 @@ export const useStore = create<UIState>((set, get) => ({
     }
 
     const recordPad = padModes.chop || padModes.levels ? get().selectedPad : i;
-    engine.trigger(i, velocity);
-    engine.recordHit(i, velocity, recordPad, bank);
+    engine.trigger(i, vel);
+    engine.recordHit(i, vel, recordPad, bank);
 
     if (get().padModes.chop) set({ selectedSlice: i });
     else if (!get().padModes.levels) {

@@ -208,6 +208,13 @@ export const GUIDE_TOPICS: Record<string, GuideTopic> = {
     body: 'Play samples, slices, or sequence slots depending on mode.',
     tips: ['Bottom row = Shift shortcuts.', 'Green = seq slot on SEQ screen.'],
   },
+  'piano.open': {
+    id: 'piano.open',
+    title: 'PIANO',
+    brief: 'Full-screen Salamander grand piano.',
+    body: 'FL-style mixer bars control velocity, reverb, tone, release, width, and key size. Use OCT ± and transpose like a workstation.',
+    tips: ['Tap ✕ MPC to return to pads.', 'Keys A–K on computer keyboard when piano is open.'],
+  },
   'lcd.upload': {
     id: 'lcd.upload',
     title: 'UPLOAD',

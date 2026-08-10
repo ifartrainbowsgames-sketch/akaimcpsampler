@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../state/store';
 import { getGuideTopic } from '../guide/topics';
 
@@ -23,7 +24,7 @@ export function GuideBubble() {
     restTips.length > 0 ||
     !!(topic.more && topic.more.length > 0);
 
-  return (
+  return createPortal(
     <>
       <div
         className={`guide-scrim${expanded ? ' guide-scrim--on' : ''}`}
@@ -101,17 +102,19 @@ export function GuideBubble() {
           INSERT COIN
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
 export function GuideBanner() {
   const guideMode = useStore((s) => s.guideMode);
   if (!guideMode) return null;
-  return (
+  return createPortal(
     <div className="guide-banner" role="status">
       <span className="guide-banner__tag">GUIDE</span>
-      Tap anything for tips · tap GUIDE to exit
-    </div>
+      Tap anything for tips · tap GUIDE again to exit
+    </div>,
+    document.body,
   );
 }

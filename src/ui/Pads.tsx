@@ -183,7 +183,7 @@ export function Pads() {
                   onPointerDown={(e) => {
                     e.currentTarget.setPointerCapture(e.pointerId);
                     const v = e.pressure > 0 && e.pressure < 1
-                      ? Math.max(20, Math.round(e.pressure * 127))
+                      ? Math.max(90, Math.round(e.pressure * 127))
                       : fullLevel ? 127 : 100;
                     trigger(i, v);
                     startPadNoteRepeat(i, v);

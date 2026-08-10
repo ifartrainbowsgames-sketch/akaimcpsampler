@@ -16,6 +16,7 @@ export function PianoKeyboard() {
   const viewportStart = usePianoStore((s) => s.viewportStart);
   const panViewport = usePianoStore((s) => s.panViewport);
   const velocity = usePianoStore((s) => s.velocity);
+  const keyScale = usePianoStore((s) => s.keyScale);
   const litNotes = usePianoStore((s) => s.litNotes);
   const setFocused = usePianoStore((s) => s.setFocused);
 
@@ -102,7 +103,7 @@ export function PianoKeyboard() {
     if (!isBlackKey(n)) whiteKeys.push({ midi: n, idx: whiteKeys.length });
   }
 
-  const whiteW = 100 / visibleWhites;
+  const whiteW = (100 / visibleWhites) * keyScale;
   const blackW = whiteW * 0.58;
 
   const blackKeys: { midi: number; left: number }[] = [];
@@ -131,7 +132,7 @@ export function PianoKeyboard() {
           }
         }}
       >
-        <div className="piano-kb__whites">
+        <div className="piano-kb__whites" style={{ width: `${100 * keyScale}%` }}>
           {whiteKeys.map(({ midi, idx }) => (
             <PianoWhiteKey
               key={midi}
@@ -145,7 +146,7 @@ export function PianoKeyboard() {
             />
           ))}
         </div>
-        <div className="piano-kb__blacks">
+        <div className="piano-kb__blacks" style={{ width: `${100 * keyScale}%` }}>
           {blackKeys.map(({ midi, left }) => (
             <PianoBlackKey
               key={midi}
