@@ -17,7 +17,7 @@
     <script>
       if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js?v=11').then((reg) => {
+          navigator.serviceWorker.register('/sw.js?v=12').then((reg) => {
             reg.update();
             setInterval(() => reg.update(), 60 * 60 * 1000);
           }).catch(() => {});
