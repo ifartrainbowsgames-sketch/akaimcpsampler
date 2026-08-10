@@ -1,10 +1,11 @@
-import { MAX_VOICES, NUM_PADS, PPQN } from './types';
+import { MAX_VOICES, NUM_PADS, PPQN, TICKS_PER_16TH } from './types';
 import type { Pad, Project, SeqEvent, Sequence } from './types';
 import { triggerVoice, voiceFrameAt, type Voice } from './voice';
 import { resolvePlayback as resolvePlaybackShared, reverseBuffer, warpRate as warpRateShared } from './playback';
 import { Scheduler, type TransportState, ticksPerBar } from './scheduler';
 import { KnobFX, type KnobFXId } from './fx/knobfx';
 import { PadFXRack, type PadFXId } from './fx/padfx';
+import { FlexBeat } from './fx/flexbeat';
 import { Recorder } from './recorder';
 import { midi } from '../midi/midi';
 import { dspWorkletUrl } from './worklets/dspSource';
@@ -25,8 +26,20 @@ export class Engine {
   private analyser!: AnalyserNode;
   knobFX!: KnobFX;
   padFX!: PadFXRack;
+  flexBeat!: FlexBeat;
   recorder!: Recorder;
   workletsReady = false;
+  private knobSends: GainNode[] = [];
+  private knobReturn!: GainNode;
+  private compBypass!: GainNode;
+  private compDry!: GainNode;
+  private colorDrive!: WaveShaperNode;
+  private colorMix!: GainNode;
+  private inBoostGain!: GainNode;
+  compressorBypass = false;
+  compressorColor = false;
+  knobFXRouting = Array.from({ length: 16 }, () => true);
+  knobFXBypass = false;
 
   private buffers = new Map<string, AudioBuffer>();
   private reversed = new Map<string, AudioBuffer>();
@@ -115,12 +128,38 @@ export class Engine {
 
     this.knobFX = new KnobFX(ctx);
     this.padFX = new PadFXRack(ctx);
+    this.flexBeat = new FlexBeat(ctx, this.workletsReady);
 
-    // kit -> compressor -> knobFX -> padFX -> master -> out
-    this.kitGain.connect(this.compressor);
-    this.compressor.connect(this.knobFX.input);
-    this.knobFX.output.connect(this.padFX.input);
-    this.padFX.output.connect(this.master);
+    this.inBoostGain = ctx.createGain();
+    this.inBoostGain.gain.value = 1;
+    this.compBypass = ctx.createGain();
+    this.compDry = ctx.createGain();
+    this.colorDrive = ctx.createWaveShaper();
+    this.colorDrive.curve = this.makeColorCurve(0);
+    this.colorMix = ctx.createGain();
+    this.colorMix.gain.value = 0;
+    this.knobReturn = ctx.createGain();
+    this.knobReturn.gain.value = 1;
+
+    // Per-pad knob FX sends (return adds to kit bus).
+    this.knobSends = Array.from({ length: NUM_PADS }, () => ctx.createGain());
+    for (const s of this.knobSends) {
+      s.connect(this.knobFX.input);
+    }
+    this.knobFX.output.connect(this.knobReturn);
+    this.knobReturn.connect(this.kitGain);
+
+    // kit -> inBoost -> compressor (+ color) -> padFX -> flexBeat -> master
+    this.kitGain.connect(this.inBoostGain);
+    this.inBoostGain.connect(this.compressor);
+    this.compressor.connect(this.compDry);
+    this.compDry.connect(this.compBypass);
+    this.compDry.connect(this.colorDrive);
+    this.colorDrive.connect(this.colorMix);
+    this.colorMix.connect(this.compBypass);
+    this.compBypass.connect(this.padFX.input);
+    this.padFX.output.connect(this.flexBeat.input);
+    this.flexBeat.output.connect(this.master);
     this.master.connect(this.analyser);
     this.master.connect(ctx.destination);
 
@@ -132,6 +171,7 @@ export class Engine {
       g.connect(this.kitGain);
       return g;
     });
+    this.syncKnobFXRouting();
 
     this.scheduler = new Scheduler({
       ctx,
@@ -589,15 +629,97 @@ export class Engine {
     this.master.gain.setTargetAtTime(Math.max(0, Math.min(1.2, v)), this.ctx.currentTime, 0.01);
   }
 
-  setCompressor(attackMs: number, releaseMs: number, amount: number) {
+  private makeColorCurve(amount: number): Float32Array<ArrayBuffer> {
+    const n = 1024;
+    const curve = new Float32Array(new ArrayBuffer(n * 4));
+    const k = Math.max(0.001, amount) * 80;
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+    }
+    return curve;
+  }
+
+  setCompressor(
+    attackMs: number,
+    releaseMs: number,
+    amount: number,
+    color = false,
+    bypass = false,
+    inBoost = 0,
+  ) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    this.compressorColor = color;
+    this.compressorBypass = bypass;
     this.compressor.attack.setTargetAtTime(attackMs / 1000, t, 0.01);
     this.compressor.release.setTargetAtTime(releaseMs / 1000, t, 0.01);
-    // Amount folds threshold and ratio into one control, as the hardware does.
     const n = Math.max(0, Math.min(100, amount)) / 100;
     this.compressor.threshold.setTargetAtTime(-6 - n * 40, t, 0.01);
     this.compressor.ratio.setTargetAtTime(1 + n * 19, t, 0.01);
+    this.colorDrive.curve = this.makeColorCurve(color ? 0.35 : 0);
+    this.colorMix.gain.setTargetAtTime(color ? 0.35 : 0, t, 0.01);
+    this.compBypass.gain.setTargetAtTime(bypass ? 1 : 1, t, 0.01);
+    if (bypass) {
+      this.compressor.threshold.setTargetAtTime(0, t, 0.01);
+      this.compressor.ratio.setTargetAtTime(1, t, 0.01);
+    }
+    this.inBoostGain.gain.setTargetAtTime(1 + inBoost * 2, t, 0.01);
+  }
+
+  syncKnobFXRouting() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bypass = this.knobFXBypass;
+    for (let i = 0; i < NUM_PADS; i++) {
+      const send = bypass || !this.knobFXRouting[i] ? 0 : 1;
+      this.knobSends[i]?.gain.setTargetAtTime(send, t, 0.01);
+      // Tap pad output into knob FX send bus.
+      try {
+        this.padGains[i]?.disconnect(this.knobSends[i]);
+      } catch { /* not connected */ }
+      if (send > 0) {
+        this.padGains[i]?.connect(this.knobSends[i]);
+      }
+    }
+  }
+
+  setKnobFXRouting(routing: boolean[], bypass: boolean) {
+    this.knobFXRouting = routing.slice(0, 16);
+    this.knobFXBypass = bypass;
+    this.syncKnobFXRouting();
+  }
+
+  // ---------------------------------------------------------------- note repeat
+
+  startNoteRepeat(pad: number, velocity: number, triplet: boolean) {
+    const interval = triplet
+      ? Math.round(PPQN / 6)
+      : Math.round(TICKS_PER_16TH);
+    this.scheduler.addNoteRepeat(pad, this.currentBank, velocity, interval);
+    // Fire first hit immediately.
+    this.trigger(pad, velocity);
+  }
+
+  stopNoteRepeat(pad: number) {
+    this.scheduler.removeNoteRepeat(pad);
+  }
+
+  // ---------------------------------------------------------------- flex beat
+
+  selectFlexBeatPad(pad: number) {
+    if (!this.project) return;
+    const bpm = this.project.bpmScope === 'global'
+      ? this.project.bpm
+      : this.activeSequence()?.bpm ?? this.project.bpm;
+    this.flexBeat.setTransport(bpm, this.project.timeSignature);
+    this.flexBeat.selectPad(pad);
+  }
+
+  setFlexBeat(opts: { mode?: 'oneshot' | 'loop'; quantize?: boolean; mix?: number }) {
+    if (opts.mode) this.flexBeat.mode = opts.mode;
+    if (opts.quantize !== undefined) this.flexBeat.quantize = opts.quantize;
+    if (opts.mix !== undefined) this.flexBeat.setMix(opts.mix);
   }
 
   // ------------------------------------------------------------------- fx

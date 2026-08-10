@@ -14,6 +14,8 @@ import { FACTORY_KITS as FACTORY_KIT_LIST } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
+import { resolveScreenParams } from './screenParams';
+import { FLEX_BEAT_EFFECTS } from '../audio/fx/flexbeat';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -202,7 +204,21 @@ export function LCD() {
       <div className="lanes">
         <ScreenBody screen={screen} />
       </div>
-      <KRow params={[]} onChange={() => {}} />
+      <KRow
+        params={resolveScreenParams({
+          screen,
+          bGroup,
+          bPage,
+          project,
+          bank,
+          selectedPad,
+          pad,
+          chopActive,
+          selectedSlice,
+          updatePad,
+        })}
+        onChange={(p, v) => p.set(v, updatePad, selectedPad)}
+      />
     </div>
   );
 }
@@ -210,7 +226,7 @@ export function LCD() {
 const SCREEN_TITLES: Record<string, string> = {
   seq: 'SEQUENCE', stepedit: 'STEP EDIT', song: 'SONG',
   browser: 'BROWSER', kits: 'KITS', library: 'FREESOUND', smprec: 'SAMPLE REC',
-  padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX',
+  padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX', 'knobfx-select': 'KNOB FX SELECT',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
 };
@@ -335,6 +351,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'knobfx':
       return <KnobFXScreen />;
+
+    case 'knobfx-select':
+      return <KnobFXSelectScreen />;
 
     case 'padfx':
       return <PadFXScreen />;
@@ -647,16 +666,28 @@ function MidiScreen() {
 function CompressorScreen() {
   const compressor = useStore((s) => s.compressor);
   const setCompressorSettings = useStore((s) => s.setCompressorSettings);
-  const { attack: a, release: r, amount: amt } = compressor;
+  const toggleCompressorColor = useStore((s) => s.toggleCompressorColor);
+  const toggleCompressorBypass = useStore((s) => s.toggleCompressorBypass);
+  const { attack: a, release: r, amount: amt, color, bypass, inBoost } = compressor;
 
   return (
     <div className="lcdpanel">
+      <div className="lcdrow">
+        <span>Color</span>
+        <button type="button" className={`lcd-mini ${color ? 'on' : ''}`} onClick={() => toggleCompressorColor()}>
+          {color ? 'ON' : 'OFF'}
+        </button>
+        <span>Bypass</span>
+        <button type="button" className={`lcd-mini ${bypass ? 'on' : ''}`} onClick={() => toggleCompressorBypass()}>
+          {bypass ? 'ON' : 'OFF'}
+        </button>
+      </div>
       <div className="lcdrow">
         <span>Attack</span>
         <input type="range" min={0} max={1000} value={a * 1000}
           onChange={(e) => {
             const v = Number(e.target.value) / 1000;
-            setCompressorSettings(v, r, amt);
+            setCompressorSettings(v, r, amt, color, bypass, inBoost);
           }} />
         <b>{(0.1 + a * 150).toFixed(1)}ms</b>
       </div>
@@ -665,7 +696,7 @@ function CompressorScreen() {
         <input type="range" min={0} max={1000} value={r * 1000}
           onChange={(e) => {
             const v = Number(e.target.value) / 1000;
-            setCompressorSettings(a, v, amt);
+            setCompressorSettings(a, v, amt, color, bypass, inBoost);
           }} />
         <b>{Math.round(3 + r * 297)}ms</b>
       </div>
@@ -674,11 +705,11 @@ function CompressorScreen() {
         <input type="range" min={0} max={1000} value={amt * 1000}
           onChange={(e) => {
             const v = Number(e.target.value) / 1000;
-            setCompressorSettings(a, r, v);
+            setCompressorSettings(a, r, v, color, bypass, inBoost);
           }} />
         <b>{Math.round(amt * 100)}%</b>
       </div>
-      <div className="hintline">Makeup gain is derived automatically.</div>
+      <div className="hintline">Shift+K3 = In Boost on physical knobs. Makeup gain is automatic.</div>
     </div>
   );
 }
@@ -686,6 +717,7 @@ function CompressorScreen() {
 function ProjectScreen() {
   const project = useStore((s) => s.project);
   const exportSequence = useStore((s) => s.exportSequence);
+  const newProject = useStore((s) => s.newProject);
   const setScreen = useStore((s) => s.setScreen);
   return (
     <div className="lcdpanel">
@@ -697,6 +729,7 @@ function ProjectScreen() {
         <button type="button" onClick={() => saveProject(project)}>SAVE</button>
         <button type="button" onClick={() => setScreen('loadproj')}>LOAD</button>
         <button type="button" onClick={() => void exportSequence()}>EXPORT SEQ</button>
+        <button type="button" onClick={() => newProject()}>NEW</button>
       </div>
     </div>
   );
@@ -704,14 +737,53 @@ function ProjectScreen() {
 
 function LoadProjectScreen() {
   const loadSavedProject = useStore((s) => s.loadSavedProject);
+  const loadFactoryKit = useStore((s) => s.loadFactoryKit);
+  const loadFactoryKitOnly = useStore((s) => s.loadFactoryKitOnly);
+  const category = useStore((s) => s.loadProjectCategory);
+  const setLoadProjectCategory = useStore((s) => s.setLoadProjectCategory);
   const setScreen = useStore((s) => s.setScreen);
   const [projects] = useState(() => listProjects());
 
+  const demoKit = FACTORY_KIT_LIST[0];
+
   return (
     <div className="lcdpanel">
+      <div className="lcdbtns lcdbtns--tabs">
+        {(['demos', 'kits', 'user'] as const).map((c) => (
+          <button
+            key={c}
+            type="button"
+            className={category === c ? 'on' : ''}
+            onClick={() => setLoadProjectCategory(c)}
+          >
+            {c.toUpperCase()}
+          </button>
+        ))}
+      </div>
       <div className="lcdlist browserlist">
-        {projects.length === 0 && <div>— no saved projects —</div>}
-        {projects.map((p) => (
+        {category === 'demos' && demoKit && (
+          <div onClick={() => void loadFactoryKit(demoKit.id).then(() => setScreen('sample'))}>
+            <b>Startup Demo</b>
+            <small>{demoKit.name} + default sequences</small>
+          </div>
+        )}
+        {category === 'kits' && FACTORY_KIT_LIST.map((k) => (
+          <div key={k.id}>
+            <div onClick={() => void loadFactoryKit(k.id).then(() => setScreen('sample'))}>
+              <b>{k.name}</b>
+              <small>{k.description} — kit + sequences</small>
+            </div>
+            <button
+              type="button"
+              className="lcd-mini"
+              onClick={() => void loadFactoryKitOnly(k.id)}
+            >
+              KIT ONLY
+            </button>
+          </div>
+        ))}
+        {category === 'user' && projects.length === 0 && <div>— no saved projects —</div>}
+        {category === 'user' && projects.map((p) => (
           <div key={p.id} onClick={() => void loadSavedProject(p.id).then(() => setScreen('sample'))}>
             <b>{p.name}</b>
             <small>{new Date(p.saved).toLocaleString()}</small>
@@ -931,14 +1003,23 @@ function StepEditScreen() {
 
 function FaderMenuScreen() {
   const faderParam = useStore((s) => s.faderParam);
+  const faderEnabled = useStore((s) => s.faderEnabled);
   const setFaderParam = useStore((s) => s.setFaderParam);
+  const toggleFaderEnabled = useStore((s) => s.toggleFaderEnabled);
   const setScreen = useStore((s) => s.setScreen);
   const params = [
-    'Pad Volume', 'Pad Pan', 'Pad Tune', 'Pad Filter Cutoff', 'Kit Volume',
+    'Pad Volume', 'Pad Pan', 'Pad Tune',
+    'Pad Amp Attack', 'Pad Amp Decay', 'Pad Filter Cutoff', 'Kit Volume',
   ];
 
   return (
     <div className="lcdpanel">
+      <div className="lcdrow">
+        <span>Fader</span>
+        <button type="button" className={`lcd-mini ${faderEnabled ? 'on' : ''}`} onClick={() => toggleFaderEnabled()}>
+          {faderEnabled ? 'ON' : 'OFF'}
+        </button>
+      </div>
       <div className="lcdlist">
         {params.map((p) => (
           <div
@@ -953,79 +1034,66 @@ function FaderMenuScreen() {
       <div className="lcdbtns">
         <button type="button" onClick={() => setScreen('sample')}>BACK</button>
       </div>
-      <div className="hintline">Tap to assign the fader.</div>
+      <div className="hintline">Pan/Tune: fader LED brightest at centre. Soft takeover applies.</div>
     </div>
   );
 }
 
 function TimeCorrectScreen() {
-  const project = useStore((s) => s.project);
-  const bank = useStore((s) => s.bank);
-  const seqSlot = useStore((s) => s.seqSlot);
-  const updateProject = useStore((s) => s.updateProject);
+  const timeCorrectPads = useStore((s) => s.timeCorrectPads);
+  const applyTimeCorrect = useStore((s) => s.applyTimeCorrect);
+  const selectAllTimeCorrectPads = useStore((s) => s.selectAllTimeCorrectPads);
   const setScreen = useStore((s) => s.setScreen);
-  const seq = project.sequences[bank][seqSlot];
-
-  const quantizeAll = () => {
-    const events = seq.events.map((e) => ({
-      ...e,
-      tick: Math.round(e.tick / project.quantize) * project.quantize,
-    }));
-    const banks = project.sequences.map((row, bi) =>
-      bi === bank
-        ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s))
-        : row
-    );
-    updateProject({ sequences: banks });
-  };
+  const selected = timeCorrectPads.filter(Boolean).length;
 
   return (
     <div className="lcdpanel">
       <div className="big">TIME CORRECT</div>
-      <div className="lcdrow">
-        <span>Grid</span>
-        <input
-          type="range" min={0} max={5} step={1}
-          value={[TICKS_PER_16TH, TICKS_PER_16TH / 2, TICKS_PER_16TH / 4, TICKS_PER_16TH / 8, TICKS_PER_16TH / 16, TICKS_PER_16TH / 32].indexOf(project.quantize)}
-          onChange={(e) => {
-            const divs = [TICKS_PER_16TH, TICKS_PER_16TH / 2, TICKS_PER_16TH / 4, TICKS_PER_16TH / 8, TICKS_PER_16TH / 16, TICKS_PER_16TH / 32];
-            updateProject({ quantize: divs[Number(e.target.value)] ?? TICKS_PER_16TH });
-          }}
-        />
-      </div>
+      <div className="lcdrow"><span>Pads selected</span><b>{selected}/16</b></div>
+      <div className="hintline">Tap pads to select. K1=Grid K2=Shift K3=Swing. Shift affects Note Repeat too.</div>
       <div className="lcdbtns">
-        <button type="button" onClick={quantizeAll}>QUANTIZE SEQ</button>
-        <button type="button" onClick={() => setScreen('seq')}>BACK</button>
+        <button type="button" onClick={() => selectAllTimeCorrectPads()}>ALL PADS</button>
+        <button type="button" onClick={() => applyTimeCorrect()}>DO IT!</button>
+        <button type="button" onClick={() => setScreen('seq')}>CANCEL</button>
       </div>
-      <div className="hintline">Snaps all events to the current Q grid.</div>
     </div>
   );
 }
 
 function InputConfigScreen() {
   const inputOpen = useStore((s) => s.inputOpen);
+  const inputConfig = useStore((s) => s.inputConfig);
+  const setInputConfig = useStore((s) => s.setInputConfig);
   const openInput = useStore((s) => s.openInput);
   const setScreen = useStore((s) => s.setScreen);
-  const [monitor, setMonitor] = useState(false);
 
   return (
     <div className="lcdpanel">
       <div className="lcdlist">
         <div className={inputOpen ? 'sel' : ''}>Input {inputOpen ? 'enabled' : 'off'}</div>
-        <div>Source: Microphone</div>
+        <div>Source: {inputConfig.source === 'mic' ? 'Microphone' : 'Resample'}</div>
+        <div>Rec Length: {inputConfig.recLength}</div>
+        <div>Rec FX: {inputConfig.recFx ? 'On' : 'Off'}</div>
+      </div>
+      <div className="lcdrow">
+        <span>Source</span>
+        <select
+          value={inputConfig.source}
+          onChange={(e) => setInputConfig({ source: e.target.value as 'mic' | 'resample' })}
+        >
+          <option value="mic">Mic</option>
+          <option value="resample">Resample</option>
+        </select>
       </div>
       <div className="lcdrow">
         <span>Monitor</span>
-        <input
-          type="range" min={0} max={1} step={1}
-          value={monitor ? 1 : 0}
-          onChange={(e) => {
-            const on = Number(e.target.value) === 1;
-            setMonitor(on);
-            engine.setInputMonitor(on);
-          }}
-        />
-        <b>{monitor ? 'ON' : 'OFF'}</b>
+        <button
+          type="button"
+          className={`lcd-mini ${inputConfig.monitor ? 'on' : ''}`}
+          onClick={() => setInputConfig({ monitor: !inputConfig.monitor })}
+        >
+          {inputConfig.monitor ? 'ON' : 'OFF'}
+        </button>
       </div>
       <div className="lcdbtns">
         {!inputOpen && (
@@ -1033,88 +1101,70 @@ function InputConfigScreen() {
         )}
         <button type="button" onClick={() => setScreen('sample')}>BACK</button>
       </div>
+      <div className="hintline">K1–K3: Threshold, Rec Length, Rec FX. Threshold gates auto-record.</div>
+    </div>
+  );
+}
+
+function KnobFXSelectScreen() {
+  const knobFXRouting = useStore((s) => s.knobFXRouting);
+  const knobFXBypass = useStore((s) => s.knobFXBypass);
+  const setAllKnobFXPads = useStore((s) => s.setAllKnobFXPads);
+  const toggleKnobFXBypass = useStore((s) => s.toggleKnobFXBypass);
+  const setScreen = useStore((s) => s.setScreen);
+
+  return (
+    <div className="lcdpanel">
+      <div className="hintline">Lit pads = Knob FX affected. Tap pads to toggle.</div>
+      <div className="fxgrid flexbeat-grid">
+        {Array.from({ length: 16 }, (_, i) => (
+          <div
+            key={i}
+            className={`fxpad-label ${knobFXRouting[i] ? 'on' : 'dim'}`}
+          >
+            {i + 1}
+          </div>
+        ))}
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => setAllKnobFXPads(true)}>ALL PADS</button>
+        <button type="button" className={knobFXBypass ? 'on' : ''} onClick={() => toggleKnobFXBypass()}>
+          {knobFXBypass ? 'BYPASS ON' : 'BYPASS'}
+        </button>
+        <button type="button" onClick={() => setScreen('knobfx')}>BACK</button>
+      </div>
     </div>
   );
 }
 
 function FlexBeatScreen() {
   const project = useStore((s) => s.project);
-  const bank = useStore((s) => s.bank);
-  const selectedPad = useStore((s) => s.selectedPad);
-  const updatePad = useStore((s) => s.updatePad);
+  const flexBeat = useStore((s) => s.flexBeat);
   const setScreen = useStore((s) => s.setScreen);
-  const pressPadFX = useStore((s) => s.pressPadFX);
-  const releasePadFX = useStore((s) => s.releasePadFX);
-  const active = useStore((s) => s.activePadFX);
-  const pad = project.banks[bank][selectedPad];
-
-  const FLEX_FX: { id: import('../audio/fx/padfx').PadFXId; name: string }[] = [
-    { id: 'beatRepeat', name: 'Beat Rpt' },
-    { id: 'halfSpeed', name: 'Half Spd' },
-    { id: 'granular', name: 'Granular' },
-    { id: 'revStepper', name: 'Rev Step' },
-    { id: 'delay', name: 'Delay' },
-    { id: 'reverb', name: 'Reverb' },
-    { id: 'lofi', name: 'Lo-Fi' },
-    { id: 'ringMod', name: 'Ring Mod' },
-    { id: 'chorus', name: 'Chorus' },
-    { id: 'flanger', name: 'Flanger' },
-    { id: 'phaser', name: 'Phaser' },
-    { id: 'lpFilter', name: 'LP Filt' },
-    { id: 'hpFilter', name: 'HP Filt' },
-    { id: 'comb', name: 'Comb' },
-    { id: 'color', name: 'Color' },
-  ];
+  const selectFlexBeatPad = useStore((s) => s.selectFlexBeatPad);
+  const setFlexBeat = useStore((s) => s.setFlexBeat);
 
   return (
     <div className="lcdpanel flexbeat-panel">
       <div className="lcdrow">
-        <span>Warp</span>
-        <select
-          value={String(pad.warpAmount)}
-          onChange={(e) => {
-            const v = e.target.value;
-            updatePad(selectedPad, {
-              warpAmount: v === 'off' || v === 'seq' ? v : Number(v),
-            });
-          }}
-        >
-          <option value="off">Off</option>
-          <option value="50">50%</option>
-          <option value="100">100%</option>
-          <option value="200">200%</option>
-          <option value="seq">Seq</option>
-        </select>
+        <span>Active</span>
+        <b>{flexBeat.activePad === 0 ? 'Empty' : FLEX_BEAT_EFFECTS[flexBeat.activePad]?.name ?? '—'}</b>
       </div>
-      <div className="lcdrow">
-        <span>Mode</span>
-        <button
-          type="button"
-          className="lcd-mini"
-          onClick={() => updatePad(selectedPad, {
-            warpMode: pad.warpMode === 'pitch' ? 'stretch' : 'pitch',
-          })}
-        >
-          {pad.warpMode === 'pitch' ? 'PITCH' : 'STRETCH'}
-        </button>
-        <span>Beats {pad.beats}</span>
-      </div>
-      <div className="hintline">Master beat FX — hold to engage (synced to {project.bpm} BPM)</div>
+      <div className="hintline">Pad 1 = Empty. Pads 2–16 = beat FX (synced to {project.bpm} BPM). K1/K3 on knobs.</div>
       <div className="fxgrid flexbeat-grid">
-        {FLEX_FX.map((f) => (
+        {FLEX_BEAT_EFFECTS.map((fx, i) => (
           <button
-            key={f.id}
+            key={fx.id}
             type="button"
-            className={active === f.id ? 'on' : ''}
-            onPointerDown={() => pressPadFX(f.id, 0.8)}
-            onPointerUp={() => releasePadFX(f.id)}
-            onPointerLeave={() => active === f.id && releasePadFX(f.id)}
+            className={flexBeat.activePad === i ? 'on' : ''}
+            onClick={() => selectFlexBeatPad(i)}
           >
-            {f.name}
+            {i === 0 ? 'Empty' : fx.name}
           </button>
         ))}
       </div>
       <div className="lcdbtns">
+        <button type="button" onClick={() => setFlexBeat({ activePad: 0 })}>EMPTY</button>
         <button type="button" onClick={() => setScreen('padfx')}>BACK</button>
       </div>
     </div>
