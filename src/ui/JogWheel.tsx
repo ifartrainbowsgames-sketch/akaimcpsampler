@@ -1,13 +1,15 @@
 import { useRef, useCallback } from 'react';
+import { guideClick } from '../guide/guideClick';
 
 interface Props {
   value: number;
   onChange(v: number): void;
   label?: string;
+  guideId?: string;
 }
 
 /** Large encoder — angle drag with gentle sensitivity for touch. */
-export function JogWheel({ value, onChange, label }: Props) {
+export function JogWheel({ value, onChange, label, guideId }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, angle: 0, v: 0 });
 
@@ -19,13 +21,14 @@ export function JogWheel({ value, onChange, label }: Props) {
   };
 
   const down = useCallback((e: React.PointerEvent) => {
+    if (guideId && guideClick(guideId)) return;
     drag.current = {
       active: true,
       angle: angleAt(e.clientX, e.clientY),
       v: value,
     };
     ref.current?.setPointerCapture(e.pointerId);
-  }, [value]);
+  }, [value, guideId]);
 
   const move = useCallback((e: React.PointerEvent) => {
     if (!drag.current.active) return;

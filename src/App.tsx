@@ -10,6 +10,8 @@ import { Fader } from './ui/Fader';
 import { PanelButton } from './ui/PanelButton';
 import { ChopModeModal } from './ui/ChopModeModal';
 import { UpdateBanner } from './ui/UpdateBanner';
+import { GuideBanner, GuideBubble } from './ui/GuideBubble';
+import { guideClick } from './guide/guideClick';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
 import { AkaiLogo, MpcWordmark } from './ui/AkaiLogo';
@@ -45,7 +47,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           {busy ? 'Starting…' : 'Tap to start'}
         </button>
         <p className="bootnote">
-          Select a pad, tap <b>KITS</b> or <b>UPLOAD</b> on the LCD, then play.
+          Tap <b>BEATS</b> for full songs, <b>LOOPS</b> to chop a loop, or <b>GUIDE</b> to learn each button.
         </p>
         <p className="bootver">v{APP_VERSION}</p>
       </div>
@@ -93,6 +95,8 @@ function Panel() {
   const stepEditTick = useStore((s) => s.stepEditTick);
   const stepEditEvent = useStore((s) => s.stepEditEvent);
   const seqSlot = useStore((s) => s.seqSlot);
+  const toggleGuideMode = useStore((s) => s.toggleGuideMode);
+  const guideMode = useStore((s) => s.guideMode);
 
   const faderEnabled = useStore((s) => s.faderEnabled);
   const kitVolume = useStore((s) => s.kitVolume);
@@ -178,6 +182,8 @@ function Panel() {
     <div className={`stage ${shift ? 'shifted' : ''}`}>
       <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
+      <GuideBubble />
+      <GuideBanner />
 
       <div className="unit">
         <div className="screw tl" /><div className="screw tr" />
@@ -219,23 +225,27 @@ function Panel() {
             <div className="sechead">MODE</div>
             <div className="grid2">
               <PanelButton label="SAMPLE" sub="INPUT CONFIG" lit={screen === 'sample'}
-                onClick={() => setScreen(shift ? 'inputcfg' : 'sample')} />
+                onClick={() => guideClick('mode.sample', () => setScreen(shift ? 'inputcfg' : 'sample'))} />
               <PanelButton label="SEQ" sub="STEP EDIT" lit={screen === 'seq' || screen === 'stepedit'}
-                onClick={() => setScreen(shift ? 'stepedit' : 'seq')} />
+                onClick={() => guideClick('mode.seq', () => setScreen(shift ? 'stepedit' : 'seq'))} />
               <PanelButton label="PAD FX" sub="FLEX BEAT" colour="orange"
                 lit={screen === 'padfx' || screen === 'flexbeat'}
-                onClick={() => setScreen(shift ? 'flexbeat' : 'padfx')} />
+                onClick={() => guideClick('mode.padfx', () => setScreen(shift ? 'flexbeat' : 'padfx'))} />
               <PanelButton label="KNOB FX" sub="FX SELECT" colour="orange"
                 lit={screen === 'knobfx' || screen === 'knobfx-select'}
-                onClick={() => setScreen(shift ? 'knobfx-select' : 'knobfx')} />
+                onClick={() => guideClick('mode.knobfx', () => setScreen(shift ? 'knobfx-select' : 'knobfx'))} />
             </div>
 
             <div className="grid2 gap">
               <PanelButton label="SHIFT" lit={shift}
-                onPointerDown={() => setShift(true)}
+                onPointerDown={() => guideClick('mode.shift', () => setShift(true))}
                 onPointerUp={() => setShift(false)}
                 onPointerLeave={() => setShift(false)} />
-              <PanelButton label="PAD BANK" onClick={() => setBank((bank + 1) % 8)} />
+              <PanelButton label="GUIDE" lit={guideMode}
+                onClick={() => toggleGuideMode()} />
+            </div>
+            <div className="grid2 gap">
+              <PanelButton label="PAD BANK" onClick={() => guideClick('mode.padbank', () => setBank((bank + 1) % 8))} />
             </div>
 
             <Fader
@@ -243,6 +253,7 @@ function Panel() {
               label={faderParam.toUpperCase().slice(0, 10)}
               enabled={faderEnabled}
               softTakeover
+              guideId="fader"
               centreBright={faderParam === 'Pad Pan' || faderParam === 'Pad Tune'}
               onChange={(v) => {
                 if (!faderEnabled) return;
@@ -267,10 +278,10 @@ function Panel() {
 
             <div className="grid2">
               <PanelButton label="ERASE" sub="COPY" lit={shift}
-                onClick={() => shift ? copySequence() : eraseSequence()} />
+                onClick={() => guideClick('erase', () => shift ? copySequence() : eraseSequence())} />
               <PanelButton label="NOTE REPEAT" sub="TRIPLET"
                 lit={noteRepeat || noteRepeatTriplet}
-                onClick={() => shift ? toggleTriplet() : toggleNoteRepeat()} />
+                onClick={() => guideClick('noterepeat', () => shift ? toggleTriplet() : toggleNoteRepeat())} />
             </div>
           </div>
 
@@ -284,20 +295,20 @@ function Panel() {
             <div className="grid2">
               <PanelButton label="CHOP" sub="NOTE ON" colour="blue"
                 lit={padModes.chop}
-                onClick={() => shift
+                onClick={() => guideClick('play.chop', () => shift
                   ? updatePad(selectedPad, { noteOn: !pad.noteOn })
-                  : togglePadMode('chop')} />
+                  : togglePadMode('chop'))} />
               <PanelButton label="MUTE" sub="UNMUTE ALL" colour="blue"
                 lit={padModes.mute}
-                onClick={() => shift ? unmuteAll() : togglePadMode('mute')} />
+                onClick={() => guideClick('play.mute', () => shift ? unmuteAll() : togglePadMode('mute'))} />
               <PanelButton label="LOOP" sub="REVERSE" colour="blue"
                 lit={pad.loop}
-                onClick={() => shift
+                onClick={() => guideClick('play.loop', () => shift
                   ? updatePad(selectedPad, { reverse: !pad.reverse })
-                  : updatePad(selectedPad, { loop: !pad.loop })} />
+                  : updatePad(selectedPad, { loop: !pad.loop }))} />
               <PanelButton label="16 LEVELS" sub="TYPE" colour="blue"
                 lit={padModes.levels}
-                onClick={() => shift ? cycleLevelsType() : togglePadMode('levels')} />
+                onClick={() => guideClick('play.levels', () => shift ? cycleLevelsType() : togglePadMode('levels'))} />
             </div>
 
             {padModes.chop && (
@@ -308,15 +319,16 @@ function Panel() {
 
             <div className="grid2 gap">
               <PanelButton label="SAMPLE SELECT" sub="BROWSE"
-                onClick={() => setScreen(shift ? 'browser' : 'kits')} />
+                onClick={() => guideClick('play.sampleselect', () => setScreen(shift ? 'browser' : 'kits'))} />
               <PanelButton label="TAP TEMPO" sub="METRO"
                 lit={metronome !== 'off'}
-                onClick={() => shift ? toggleMetronome() : tapTempo()} />
+                onClick={() => guideClick('play.taptempo', () => shift ? toggleMetronome() : tapTempo())} />
             </div>
 
             <div className="encblock">
               <JogWheel
                 value={screen === 'stepedit' ? stepEditTick / Math.max(1, stepCount - 1) : jog}
+                guideId="jog"
                 onChange={(v) => {
                   if (screen === 'stepedit') {
                     setStepEditTick(Math.round(v * Math.max(1, stepCount - 1)));
@@ -330,33 +342,33 @@ function Panel() {
             </div>
 
             <div className="grid2">
-              <PanelButton label="−" sub={screen === 'stepedit' ? 'EVENT' : 'UNDO'} onClick={() => {
+              <PanelButton label="−" sub={screen === 'stepedit' ? 'EVENT' : 'UNDO'} onClick={() => guideClick('transport.undo', () => {
                 if (screen === 'stepedit') {
                   if (shift) setStepEditEvent(Math.max(0, stepEditEvent - 1));
                   else setStepEditTick(Math.max(0, stepEditTick - 1));
                 } else undo();
-              }} />
-              <PanelButton label="+" sub={screen === 'stepedit' ? 'EVENT' : 'REDO'} onClick={() => {
+              })} />
+              <PanelButton label="+" sub={screen === 'stepedit' ? 'EVENT' : 'REDO'} onClick={() => guideClick('transport.redo', () => {
                 if (screen === 'stepedit') {
                   if (shift) setStepEditEvent(Math.min(Math.max(0, stepEvents.length - 1), stepEditEvent + 1));
                   else setStepEditTick(Math.min(stepCount - 1, stepEditTick + 1));
                 } else redo();
-              }} />
+              })} />
             </div>
 
             <div className="grid2">
               <PanelButton label="SAMPLE RECORD" sub="RECALL"
-                onClick={() => shift ? void recallSample() : setScreen('smprec')} />
+                onClick={() => guideClick('transport.samplerecord', () => shift ? void recallSample() : setScreen('smprec'))} />
               <PanelButton label="SEQ RECORD" sub="RECALL"
-                lit={transport.recording} onClick={toggleRecord} />
+                lit={transport.recording} onClick={() => guideClick('transport.record', toggleRecord)} />
             </div>
 
             <div className="grid2 transport">
-              <button type="button" className="pb tp stop" onClick={() => stop(shift)} aria-label="Stop">
+              <button type="button" className="pb tp stop" onClick={() => guideClick('transport.stop', () => stop(shift))} aria-label="Stop">
                 <span className="cap" />
                 <span className="sub">{shift ? 'RESET' : ''}</span>
               </button>
-              <button type="button" className={`pb tp play ${transport.playing ? 'lit' : ''}`} onClick={() => play(true)} aria-label="Play">
+              <button type="button" className={`pb tp play ${transport.playing ? 'lit' : ''}`} onClick={() => guideClick('transport.play', () => play(true))} aria-label="Play">
                 <span className="cap" />
                 <span className="sub">CONTINUE</span>
               </button>

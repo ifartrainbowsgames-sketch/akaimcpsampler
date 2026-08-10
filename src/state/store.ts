@@ -29,7 +29,6 @@ import {
 import type { LibrarySound } from '../library/types';
 import { fetchFreesoundPreview, searchFreesound, checkFreesoundProxy } from '../library/freesound';
 
-/** Load factory kit samples onto a specific pad bank (returns updated project). */
 async function applyFactoryKitToBank(
   project: Project,
   bankIndex: number,
@@ -70,6 +69,13 @@ async function applyFactoryKitToBank(
     ...project,
     banks: project.banks.map((b, bi) => (bi === bankIndex ? bank : b)),
   };
+}
+
+function chopTypeForSeconds(sec: number): Pad['chopType'] {
+  if (sec >= 20) return 'regions16';
+  if (sec >= 6) return 'regions8';
+  if (sec >= 2) return 'regions4';
+  return 'threshold';
 }
 
 export type ScreenId =
@@ -131,6 +137,12 @@ interface UIState {
   timeCorrectShift: number;
   inputConfig: InputConfigState;
   loadProjectCategory: 'demos' | 'kits' | 'user';
+
+  guideMode: boolean;
+  guideTopic: string | null;
+  toggleGuideMode(): void;
+  showGuide(topicId: string): void;
+  dismissGuide(): void;
 
   screen: ScreenId;
   /** Which B-button group is showing, and how far through its page cycle. */
@@ -219,6 +231,8 @@ interface UIState {
   levelsType: 'velocity' | 'filter' | 'tune';
   fullLevel: boolean;
   runChop(): void;
+  /** Split a pad’s sample into slices spread across pads 1–16. */
+  chopSongToPads(padIndex?: number): void;
   splitSelectedSlice(): void;
   mergeSelectedSlice(): void;
   extractSelectedSlice(): void;
@@ -335,6 +349,9 @@ export const useStore = create<UIState>((set, get) => ({
     recFx: false,
   },
   loadProjectCategory: 'user',
+
+  guideMode: false,
+  guideTopic: null,
 
   screen: 'sample',
   bGroup: 1,
@@ -601,6 +618,7 @@ export const useStore = create<UIState>((set, get) => ({
       return; // unsupported format
     }
     await writeSample(id, data);
+    const durationSec = buffer.duration;
     get().updatePad(padIndex, {
       sampleId: id,
       sampleName: file.name.replace(/\.[^.]+$/, '').slice(0, 24),
@@ -608,8 +626,9 @@ export const useStore = create<UIState>((set, get) => ({
       end: buffer.length,
       loopStart: 0,
       slices: [],
-      chopType: 'threshold',
-      polyphony: 'mono',
+      chopType: chopTypeForSeconds(durationSec),
+      polyphony: durationSec >= 6 ? 'poly' : 'mono',
+      loop: durationSec >= 6,
     });
     engine.selectedPad = padIndex;
     set({ selectedPad: padIndex, screen: 'sample' });
@@ -619,8 +638,8 @@ export const useStore = create<UIState>((set, get) => ({
       set({ pendingChopPad: padIndex });
       return;
     }
-    if (mode === 'auto') {
-      get().autoChopPad(padIndex, true);
+    if (mode === 'auto' && durationSec >= 2) {
+      queueMicrotask(() => get().chopSongToPads(padIndex));
     }
   },
 
@@ -628,7 +647,11 @@ export const useStore = create<UIState>((set, get) => ({
     const padIndex = get().pendingChopPad;
     set({ pendingChopPad: null });
     if (padIndex === null) return;
-    if (mode === 'auto') get().autoChopPad(padIndex, true);
+    if (mode === 'auto') {
+      set({ selectedPad: padIndex });
+      engine.selectedPad = padIndex;
+      get().chopSongToPads(padIndex);
+    }
   },
 
   autoChopPad(padIndex, sliceToPads) {
@@ -672,6 +695,20 @@ export const useStore = create<UIState>((set, get) => ({
       selectedPad: 0,
     });
     engine.selectedPad = 0;
+  },
+
+  chopSongToPads(padIndex) {
+    const { project, bank } = get();
+    const idx = padIndex ?? get().selectedPad;
+    const pad = project.banks[bank][idx];
+    const buffer = engine.getBuffer(pad.sampleId);
+    if (!buffer) return;
+    const sec = buffer.length / buffer.sampleRate;
+    const chopType = chopTypeForSeconds(sec);
+    get().updatePad(idx, { chopType, loop: false, polyphony: 'mono' });
+    engine.selectedPad = idx;
+    set({ selectedPad: idx });
+    get().autoChopPad(idx, true);
   },
 
   play(continueFromPaused = false) {
@@ -920,6 +957,21 @@ export const useStore = create<UIState>((set, get) => ({
 
   setLoadProjectCategory(c) {
     set({ loadProjectCategory: c });
+  },
+
+  toggleGuideMode() {
+    set((s) => {
+      const next = !s.guideMode;
+      return { guideMode: next, guideTopic: next ? 'guide.mode' : null };
+    });
+  },
+
+  showGuide(topicId) {
+    set({ guideTopic: topicId });
+  },
+
+  dismissGuide() {
+    set({ guideTopic: null });
   },
 
   newProject() {
@@ -1241,10 +1293,20 @@ export const useStore = create<UIState>((set, get) => ({
         end: buffer.length,
         loopStart: 0,
         loop: isLoop,
-        polyphony: isLoop ? 'poly' : undefined,
+        polyphony: isLoop ? 'poly' : 'mono',
+        chopType: chopTypeForSeconds(sound.duration),
         slices: [],
       });
-      set({ screen: 'sample', libraryLoading: false });
+      set({ screen: 'sample', libraryLoading: false, selectedPad });
+      engine.selectedPad = selectedPad;
+      if (sound.duration >= 2) {
+        const chopMode = getChopLoadMode();
+        if (chopMode === 'auto') {
+          queueMicrotask(() => get().chopSongToPads(selectedPad));
+        } else if (chopMode === null) {
+          set({ pendingChopPad: selectedPad });
+        }
+      }
     } catch (e) {
       set({
         libraryError: e instanceof Error ? e.message : 'Load failed',

@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { guideClick } from '../guide/guideClick';
 
 interface Props {
   value: number; // 0..1
@@ -8,6 +9,7 @@ interface Props {
   /** Centre-bright curve for Pan/Tune. */
   centreBright?: boolean;
   enabled?: boolean;
+  guideId?: string;
 }
 
 export function Fader({
@@ -17,6 +19,7 @@ export function Fader({
   softTakeover = false,
   centreBright = false,
   enabled = true,
+  guideId,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -48,6 +51,7 @@ export function Fader({
   }, [onChange, enabled, softTakeover, value]);
 
   const down = (e: React.PointerEvent) => {
+    if (guideId && guideClick(guideId)) return;
     if (!enabled) return;
     dragging.current = true;
     ref.current?.setPointerCapture(e.pointerId);

@@ -16,6 +16,7 @@ import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
 import { resolveScreenParams } from './screenParams';
 import { FLEX_BEAT_EFFECTS } from '../audio/fx/flexbeat';
+import { guideClick } from '../guide/guideClick';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -34,6 +35,7 @@ export function LCD() {
   const chopActive = useStore((s) => s.padModes.chop);
   const selectedSlice = useStore((s) => s.selectedSlice);
   const runChop = useStore((s) => s.runChop);
+  const chopSongToPads = useStore((s) => s.chopSongToPads);
   const sliceAllToPads = useStore((s) => s.sliceAllToPads);
   const splitSelectedSlice = useStore((s) => s.splitSelectedSlice);
   const mergeSelectedSlice = useStore((s) => s.mergeSelectedSlice);
@@ -90,6 +92,8 @@ export function LCD() {
     const { params } = resolveSamplePage(
       bGroup, bPage, chopActive, selectedSlice, pad, project,
     );
+    const sampleSec = buffer ? buffer.length / buffer.sampleRate : 0;
+    const canChopSong = sampleSec >= 2;
 
     return (
       <div className="lcd">
@@ -123,27 +127,40 @@ export function LCD() {
         </div>
 
         <div className="lcdmenu">
-          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">UPLOAD</label>
-          <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>BROWSE</button>
-          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('beats')}>BEATS</button>
-          <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>KITS</button>
-          <button type="button" className="lcd-btn" onClick={() => setScreen('library')}>LOOPS</button>
+          <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload" onClick={(e) => {
+            if (useStore.getState().guideMode) { e.preventDefault(); guideClick('lcd.upload'); }
+          }}>UPLOAD</label>
+          <button type="button" className="lcd-btn" onClick={() => guideClick('lcd.browse', () => setScreen('browser'))}>BROWSE</button>
+          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => guideClick('lcd.beats', () => setScreen('beats'))}>BEATS</button>
+          <button type="button" className="lcd-btn" onClick={() => guideClick('lcd.kits', () => setScreen('kits'))}>KITS</button>
+          <button type="button" className="lcd-btn" onClick={() => guideClick('lcd.loops', () => setScreen('library'))}>LOOPS</button>
         </div>
 
-        {chopActive && (
+        {(chopActive || canChopSong) && (
           <div className="lcdchop">
-            {pad.sampleId && (
-              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={runChop}>CHOP</button>
+            {canChopSong && (
+              <button type="button" className="lcd-btn lcd-btn--action" onClick={() => guideClick('lcd.chopsong', () => chopSongToPads())}>
+                CHOP SONG
+              </button>
             )}
-            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={splitSelectedSlice}>SPLIT</button>
-            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={mergeSelectedSlice}>MERGE</button>
-            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={extractSelectedSlice}>EXTRACT</button>
-            {pad.slices.length > 0 && (
-              <button type="button" className="lcd-btn lcd-btn--action" onClick={sliceAllToPads}>TO PADS</button>
+            {chopActive && pad.sampleId && (
+              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={() => guideClick('lcd.chop', () => runChop())}>CHOP</button>
             )}
-            {buffer && (pad.start > 0 || padEnd < sampleLen) && (
-              <button type="button" className="lcd-btn lcd-btn--action" onClick={trimSelected}>APPLY TRIM</button>
+            {chopActive && (
+              <>
+                <button type="button" className="lcd-btn lcd-btn--ghost" onClick={() => guideClick('lcd.split', () => splitSelectedSlice())}>SPLIT</button>
+                <button type="button" className="lcd-btn lcd-btn--ghost" onClick={() => guideClick('lcd.split', () => mergeSelectedSlice())}>MERGE</button>
+                <button type="button" className="lcd-btn lcd-btn--ghost" onClick={() => guideClick('lcd.split', () => extractSelectedSlice())}>EXTRACT</button>
+                {pad.slices.length > 0 && (
+                  <button type="button" className="lcd-btn lcd-btn--action" onClick={() => guideClick('lcd.topads', () => sliceAllToPads())}>TO PADS</button>
+                )}
+              </>
             )}
+          </div>
+        )}
+        {buffer && (pad.start > 0 || padEnd < sampleLen) && (
+          <div className="lcdchop">
+            <button type="button" className="lcd-btn lcd-btn--action" onClick={trimSelected}>APPLY TRIM</button>
           </div>
         )}
 

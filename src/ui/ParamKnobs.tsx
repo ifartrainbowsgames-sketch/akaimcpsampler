@@ -44,6 +44,7 @@ export function ParamKnobs() {
                 size="sm"
                 sensitivity={340}
                 softTakeover={useSoftTakeover}
+                guideId="knobs"
               />
             ) : (
               <div className="knob knob-k knob-k--dim" />

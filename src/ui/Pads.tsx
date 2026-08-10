@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { SHIFT_FUNCTIONS, SHIFT_SCREENS } from './shiftMap';
+import { guideClick } from '../guide/guideClick';
 
 const ROWS = [
   [12, 13, 14, 15],
@@ -97,6 +98,7 @@ export function Pads() {
   }, [shift, noteRepeat, noteRepeatTriplet, project.bpm]);
 
   function trigger(i: number, velocity: number) {
+    if (guideClick('pads')) return;
     if (shift) {
       switch (i) {
         case 0: toggleFullLevel(); return;

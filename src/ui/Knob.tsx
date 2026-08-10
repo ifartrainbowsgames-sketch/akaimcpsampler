@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { guideClick } from '../guide/guideClick';
 
 interface Props {
   value: number;
@@ -9,6 +10,7 @@ interface Props {
   sensitivity?: number;
   /** Blue position ring like the hardware MAIN VOLUME knob. */
   variant?: 'default' | 'volume';
+  guideId?: string;
 }
 
 /**
@@ -23,6 +25,7 @@ export function Knob({
   sensitivity = 300,
   variant = 'default',
   softTakeover = false,
+  guideId,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, y: 0, v: 0 });
@@ -41,10 +44,11 @@ export function Knob({
   }, [value, softTakeover]);
 
   const down = useCallback((e: React.PointerEvent) => {
+    if (guideId && guideClick(guideId)) return;
     drag.current = { active: true, y: e.clientY, v: value };
     if (!softTakeover) armed.current = true;
     ref.current?.setPointerCapture(e.pointerId);
-  }, [value, softTakeover]);
+  }, [value, softTakeover, guideId]);
 
   const move = useCallback((e: React.PointerEvent) => {
     if (!drag.current.active) return;
