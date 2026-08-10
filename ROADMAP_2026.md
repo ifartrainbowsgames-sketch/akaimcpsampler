@@ -267,11 +267,26 @@ not recalled/assumed knowledge, per an explicit ask to check.
    cache from 0 to 1 entries, proving the real algorithm ran. §2's table
    entry and the README's old "Still open" line were both stale — fixed.
    No code changed for this phase, only docs.
-4. **Q-Link parity.** Not started. Expand macro-knob assignment beyond
-   Knob FX, and add automation recording for at least one lane.
+4. ✅ **Q-Link parity — free K1-K3 assignment shipped, automation deferred.**
+   Real MPC has 16 Q-Link knobs; this app's chassis only has 3, so scaled
+   the *concept* (free reassignment) onto the existing 3 rather than adding
+   more physical controls (confirmed via AskUserQuestion). Tapping a
+   K-knob's label opens a picker over all 27 existing per-pad `KParam`s
+   (`src/lcd/pages.ts`'s 9 pages), reusing their get/set/display logic
+   verbatim — no duplicated parameter code. An assignment sticks across
+   every screen change, which is the actual point of Q-Link (verified at
+   runtime: assigned Filter Cutoff to K1, confirmed it survived a screen
+   switch to BEATS). Also extended the existing external-MIDI-CC-Learn
+   system with K1/K2/K3 Knob targets — CC-learn only acts once that knob
+   has an explicit Q-Link assignment (not whatever's screen-driven at the
+   time), which is safer and matches how hardware Q-Link learn actually
+   works. Automation recording (capturing knob moves into the sequencer)
+   was explicitly deferred per the AskUserQuestion decision earlier —
+   separate, substantial feature, not silently dropped.
 5. **Sample tool completeness.** Not started. Normalize, loop-to-end —
    small, low-risk additions once the bigger structural work above is
    settled.
 
-Phases 4-5 are not scheduled or approved for implementation — this is the
-list to work from once priorities are picked.
+Phase 5 and Q-Link's deferred automation-recording piece are not scheduled
+or approved for implementation — this is the list to work from once
+priorities are picked.

@@ -5,6 +5,7 @@ import { downloadBlob, encodeWav, renderToWav } from '../../audio/export';
 import { midi } from '../../midi/midi';
 import { getMidiConfig, saveMidiConfig } from '../../storage/midiConfig';
 import { history } from '../undo';
+import { resolveAssignedParam } from '../../lcd/assignableParams';
 import type { UIState } from '../store';
 
 export type MiscSlice = Pick<UIState,
@@ -155,6 +156,15 @@ export const createMiscSlice: StateCreator<UIState, [], [], MiscSlice> = (set, g
             case 'Pad Tune': s.updatePad(s.selectedPad, { semi: Math.round(norm * 48 - 24) }); break;
             case 'Kit Volume': s.setKitVolume(norm * 12 - 6); break;
             case 'Filter Cutoff': s.updatePad(s.selectedPad, { cutoff: Math.round(norm * 127) }); break;
+            case 'K1 Knob': case 'K2 Knob': case 'K3 Knob': {
+              const slotIndex = target === 'K1 Knob' ? 0 : target === 'K2 Knob' ? 1 : 2;
+              const assignedId = s.knobAssign[slotIndex];
+              if (!assignedId) break;
+              const pad = s.project.banks[s.bank][s.selectedPad];
+              const kparam = resolveAssignedParam(assignedId, pad, s.project);
+              kparam?.set(norm, s.updatePad, s.selectedPad);
+              break;
+            }
           }
         }
       };

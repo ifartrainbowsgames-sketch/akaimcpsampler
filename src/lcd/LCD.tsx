@@ -703,7 +703,10 @@ function MidiScreen() {
     if (typeof v === 'boolean') setMidiConfig({ ...midiConfig, [key]: !v });
   };
 
-  const LEARN_TARGETS = ['BPM', 'Pad Volume', 'Pad Pan', 'Pad Tune', 'Kit Volume', 'Filter Cutoff'];
+  const LEARN_TARGETS = [
+    'BPM', 'Pad Volume', 'Pad Pan', 'Pad Tune', 'Kit Volume', 'Filter Cutoff',
+    'K1 Knob', 'K2 Knob', 'K3 Knob',
+  ];
 
   return (
     <div className="lcdpanel">
@@ -765,6 +768,7 @@ function MidiScreen() {
         }
       </div>
       <div className="hintline">MIDI LEARN — tap a target then move a CC knob:</div>
+      <div className="hintline">K1-K3 Knob targets only respond once that knob is Q-Link assigned (tap its label).</div>
       <div className="lcdlist" style={{ maxHeight: '5em', overflowY: 'auto' }}>
         {LEARN_TARGETS.map((target) => {
           const mapped = midiMappings[target];
