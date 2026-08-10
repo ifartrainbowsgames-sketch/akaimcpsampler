@@ -10,7 +10,7 @@ import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
-import { FACTORY_KITS, FACTORY_KIT_COUNT } from '../audio/factory/kits';
+import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
@@ -751,14 +751,13 @@ function ProjectScreen() {
 
 function LoadProjectScreen() {
   const loadSavedProject = useStore((s) => s.loadSavedProject);
-  const loadFactoryKit = useStore((s) => s.loadFactoryKit);
+  const loadFactoryDemo = useStore((s) => s.loadFactoryDemo);
   const loadFactoryKitOnly = useStore((s) => s.loadFactoryKitOnly);
   const category = useStore((s) => s.loadProjectCategory);
   const setLoadProjectCategory = useStore((s) => s.setLoadProjectCategory);
   const setScreen = useStore((s) => s.setScreen);
   const [projects] = useState(() => listProjects());
-
-  const demoKit = FACTORY_KITS[0];
+  const [busy, setBusy] = useState<string | null>(null);
 
   return (
     <div className="lcdpanel">
@@ -774,26 +773,27 @@ function LoadProjectScreen() {
           </button>
         ))}
       </div>
-      <div className="lcdlist browserlist">
-        {category === 'demos' && demoKit && (
-          <div onClick={() => void loadFactoryKit(demoKit.id).then(() => setScreen('sample'))}>
-            <b>Startup Demo</b>
-            <small>{demoKit.name} + default sequences</small>
+      <div className="lcdlist browserlist kitlist">
+        {category === 'demos' && FACTORY_DEMOS.map((d) => (
+          <div
+            key={d.id}
+            className={busy === d.id ? 'sel' : ''}
+            onClick={() => {
+              if (busy) return;
+              setBusy(d.id);
+              void loadFactoryDemo(d.id).finally(() => setBusy(null));
+            }}
+          >
+            <b>{d.name}</b>
+            <small>{d.description} — {demoDurationSec(d).toFixed(0)}s loop · {d.bars} bars @ {d.bpm} BPM</small>
           </div>
-        )}
+        ))}
         {category === 'kits' && FACTORY_KITS.map((k) => (
           <div key={k.id}>
-            <div onClick={() => void loadFactoryKit(k.id).then(() => setScreen('sample'))}>
+            <div onClick={() => void loadFactoryKitOnly(k.id)}>
               <b>{k.name}</b>
-              <small>{k.description} — kit + sequences</small>
+              <small>{k.description} — samples only</small>
             </div>
-            <button
-              type="button"
-              className="lcd-mini"
-              onClick={() => void loadFactoryKitOnly(k.id)}
-            >
-              KIT ONLY
-            </button>
           </div>
         ))}
         {category === 'user' && projects.length === 0 && <div>— no saved projects —</div>}
@@ -806,6 +806,13 @@ function LoadProjectScreen() {
       </div>
       <div className="lcdbtns">
         <button type="button" onClick={() => setScreen('project')}>BACK</button>
+      </div>
+      <div className="hintline">
+        {category === 'demos'
+          ? `${FACTORY_DEMO_COUNT} beats — load → PLAY → jam on pads`
+          : category === 'kits'
+            ? 'Samples only — use DEMOS for full loops'
+            : 'Saved projects'}
       </div>
     </div>
   );
@@ -862,22 +869,35 @@ function BrowserScreen() {
 
 function KitsScreen() {
   const loadFactoryKit = useStore((s) => s.loadFactoryKit);
+  const loadFactoryDemo = useStore((s) => s.loadFactoryDemo);
   const setScreen = useStore((s) => s.setScreen);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('melodic');
+  const [filter, setFilter] = useState<'beats' | 'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('beats');
   const [query, setQuery] = useState('');
 
   const kits = FACTORY_KITS.filter((k) => {
-    if (filter !== 'all' && k.category !== filter) return false;
+    if (filter !== 'all' && filter !== 'beats' && k.category !== filter) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return k.name.toLowerCase().includes(q) || k.description.toLowerCase().includes(q);
   });
 
+  const demos = FACTORY_DEMOS.filter((d) => {
+    let ok = false;
+    if (filter === 'beats') ok = d.category === 'beats' || d.category === 'full';
+    else if (filter === 'melodic') ok = d.category === 'melodic' || d.category === 'full';
+    if (!ok) return false;
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    return d.name.toLowerCase().includes(q) || d.description.toLowerCase().includes(q);
+  });
+
+  const showDemos = filter === 'beats' || filter === 'melodic';
+
   return (
     <div className="lcdpanel">
       <div className="lcdrow">
-        <span>{FACTORY_KIT_COUNT} kits</span>
+        <span>{showDemos ? `${demos.length} beats` : `${FACTORY_KIT_COUNT} kits`}</span>
         <input
           type="search"
           className="kitsearch"
@@ -887,7 +907,7 @@ function KitsScreen() {
         />
       </div>
       <div className="kitfilters">
-        {(['melodic', 'all', 'drums', 'bass', 'perc', 'fx'] as const).map((f) => (
+        {(['beats', 'melodic', 'all', 'drums', 'bass', 'perc', 'fx'] as const).map((f) => (
           <button
             key={f}
             type="button"
@@ -899,8 +919,23 @@ function KitsScreen() {
         ))}
       </div>
       <div className="lcdlist browserlist kitlist">
-        {kits.length === 0 && <div>— no kits match —</div>}
-        {kits.map((kit) => (
+        {showDemos && demos.length === 0 && <div>— no beats match —</div>}
+        {showDemos && demos.map((demo) => (
+          <div
+            key={demo.id}
+            className={busy === demo.id ? 'sel' : ''}
+            onClick={() => {
+              if (busy) return;
+              setBusy(demo.id);
+              void loadFactoryDemo(demo.id).finally(() => setBusy(null));
+            }}
+          >
+            <b>{demo.name}</b>
+            <small>{demo.description} — {demoDurationSec(demo).toFixed(0)}s · PLAY to jam</small>
+          </div>
+        ))}
+        {!showDemos && kits.length === 0 && <div>— no kits match —</div>}
+        {!showDemos && kits.map((kit) => (
           <div
             key={kit.id}
             className={busy === kit.id ? 'sel' : ''}
@@ -919,7 +954,9 @@ function KitsScreen() {
         <button type="button" onClick={() => setScreen('sample')}>BACK</button>
       </div>
       <div className="hintline">
-        {busy ? 'Loading kit…' : `${kits.length} shown — WAV samples, all 16 pads.`}
+        {busy ? 'Loading…' : showDemos
+          ? 'Beats = full loop + sequence. Hit PLAY, then jam on pads.'
+          : `${kits.length} kits — samples only (use BEATS tab for songs)`}
       </div>
     </div>
   );

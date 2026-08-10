@@ -267,7 +267,7 @@ function synthKeys(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthPad(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 3.5;
+  const dur = 8.0;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
@@ -304,7 +304,7 @@ function synthLead(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthChord(ctx: SynthCtx, root: number, v: number, minor = false): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 1.1;
+  const dur = 2.4;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
@@ -359,7 +359,7 @@ function synthArp(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthStrings(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 2.8;
+  const dur = 8.0;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
@@ -376,7 +376,7 @@ function synthStrings(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthOrgan(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 2.2;
+  const dur = 6.0;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
@@ -432,7 +432,7 @@ function synthBrass(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthAmbient(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 4.0;
+  const dur = 10.0;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
