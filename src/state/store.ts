@@ -752,7 +752,7 @@ export const useStore = create<UIState>((set, get) => ({
     const ctx = engine.ctx;
     if (!ctx) return;
 
-    const kit = generateFactoryKit(ctx, kitId);
+    const kit = await generateFactoryKit(ctx, kitId);
     if (!kit) return;
 
     const meta = FACTORY_KITS.find((k) => k.id === kitId);

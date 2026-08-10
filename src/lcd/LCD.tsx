@@ -10,7 +10,7 @@ import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
-import { FACTORY_KITS as FACTORY_KIT_LIST } from '../audio/factory/kits';
+import { FACTORY_KITS, FACTORY_KIT_COUNT } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
@@ -778,30 +778,42 @@ function KitsScreen() {
   const loadFactoryKit = useStore((s) => s.loadFactoryKit);
   const setScreen = useStore((s) => s.setScreen);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'other'>('all');
+  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'perc' | 'synth' | 'fx'>('all');
+  const [query, setQuery] = useState('');
 
-  const kits = FACTORY_KIT_LIST.filter((k) => {
-    if (filter === 'all') return true;
-    if (filter === 'drums') return k.category === 'drums';
-    if (filter === 'bass') return k.category === 'bass';
-    return k.category === 'perc' || k.category === 'synth' || k.category === 'fx';
+  const kits = FACTORY_KITS.filter((k) => {
+    if (filter !== 'all' && k.category !== filter) return false;
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    return k.name.toLowerCase().includes(q) || k.description.toLowerCase().includes(q);
   });
 
   return (
     <div className="lcdpanel">
+      <div className="lcdrow">
+        <span>{FACTORY_KIT_COUNT} kits</span>
+        <input
+          type="search"
+          className="kitsearch"
+          placeholder="Search…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
       <div className="kitfilters">
-        {(['all', 'drums', 'bass', 'other'] as const).map((f) => (
+        {(['all', 'drums', 'bass', 'perc', 'synth', 'fx'] as const).map((f) => (
           <button
             key={f}
             type="button"
             className={filter === f ? 'on' : ''}
             onClick={() => setFilter(f)}
           >
-            {f === 'all' ? 'ALL' : f === 'other' ? 'FX/SYN' : f.toUpperCase()}
+            {f === 'all' ? 'ALL' : f.toUpperCase()}
           </button>
         ))}
       </div>
-      <div className="lcdlist browserlist">
+      <div className="lcdlist browserlist kitlist">
+        {kits.length === 0 && <div>— no kits match —</div>}
         {kits.map((kit) => (
           <div
             key={kit.id}
@@ -821,7 +833,7 @@ function KitsScreen() {
         <button type="button" onClick={() => setScreen('sample')}>BACK</button>
       </div>
       <div className="hintline">
-        {busy ? 'Loading kit…' : 'Loads all 16 pads on the current bank.'}
+        {busy ? 'Loading kit…' : `${kits.length} shown — WAV samples, all 16 pads.`}
       </div>
     </div>
   );
