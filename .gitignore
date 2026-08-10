@@ -7,6 +7,9 @@ dist/
 !.env.example
 .vite/
 
+# Graphify (commit graphify-out/; ignore local cost tracking)
+graphify-out/cost.json
+
 # Android
 android/.gradle/
 android/build/
