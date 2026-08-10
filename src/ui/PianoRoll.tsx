@@ -86,7 +86,6 @@ export function PianoRoll() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const totalTicks  = seq.bars * ticksPerBar(project.timeSignature);
-  const gridPixels  = totalTicks / ticksPerPx;
   const noteEvents  = seq.events.filter((e) => e.pad === selectedPad);
 
   // ── Helper: pixel → tick ──────────────────────────────────────────────────

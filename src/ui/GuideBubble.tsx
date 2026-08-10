@@ -6,7 +6,6 @@ import { getGuideTopic } from '../guide/topics';
 export function GuideBubble() {
   const topicId = useStore((s) => s.guideTopic);
   const dismissGuide = useStore((s) => s.dismissGuide);
-  const guideMode = useStore((s) => s.guideMode);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
