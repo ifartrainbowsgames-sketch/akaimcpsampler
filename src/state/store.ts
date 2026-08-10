@@ -74,7 +74,7 @@ async function applyFactoryKitToBank(
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
-  | 'browser' | 'kits' | 'library' | 'smprec'
+  | 'browser' | 'beats' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx' | 'knobfx-select'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj';
 
