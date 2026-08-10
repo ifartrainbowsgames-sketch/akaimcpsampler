@@ -54,19 +54,32 @@ export function Pads() {
   const [seqLit, setSeqLit] = useState<Record<number, boolean>>({});
   const [dropTarget, setDropTarget] = useState<number | null>(null);
   const held = useRef(new Set<number>());
-  const now = useRef(performance.now());
+  const litMask = useRef(0);
 
   useEffect(() => {
     let raf = 0;
-    const loop = () => {
-      const t = performance.now();
-      now.current = t;
-      const lit: Record<number, boolean> = {};
-      for (let i = 0; i < 16; i++) {
-        if (t - engine.telemetry.padActivity[i] < FLASH_MS) lit[i] = true;
-        if (t - engine.telemetry.seqPadLit[i] < SEQ_LIT_MS) lit[i] = true;
+    let lastFrame = 0;
+    const loop = (t: number) => {
+      if (t - lastFrame >= 32) {
+        lastFrame = t;
+        let mask = 0;
+        for (let i = 0; i < 16; i++) {
+          if (t - engine.telemetry.padActivity[i] < FLASH_MS) mask |= 1 << i;
+          if (t - engine.telemetry.seqPadLit[i] < SEQ_LIT_MS) mask |= 1 << i;
+        }
+        if (mask !== litMask.current) {
+          litMask.current = mask;
+          if (mask === 0) {
+            setSeqLit({});
+          } else {
+            const lit: Record<number, boolean> = {};
+            for (let i = 0; i < 16; i++) {
+              if (mask & (1 << i)) lit[i] = true;
+            }
+            setSeqLit(lit);
+          }
+        }
       }
-      setSeqLit(lit);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

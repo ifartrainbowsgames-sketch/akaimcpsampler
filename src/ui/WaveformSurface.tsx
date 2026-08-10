@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Waveform } from './Waveform';
 import type { Slice } from '../audio/types';
 
@@ -35,11 +35,15 @@ export function WaveformSurface({
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ handle: Handle; base: { start: number; end: number; loopStart: number } } | null>(null);
+  const pendingTrim = useRef<{ start: number; end: number; loopStart: number } | null>(null);
+  const [dragTrim, setDragTrim] = useState<{ start: number; end: number; loopStart: number } | null>(null);
 
   const len = buffer?.length ?? 1;
-  const viewEnd = end || len;
+  const viewEnd = dragTrim?.end ?? (end || len);
+  const trimStart = dragTrim?.start ?? start;
+  const trimLoop = dragTrim?.loopStart ?? loopStart;
   const viewStart = zoom > 1
-    ? Math.max(0, Math.min(start, len - Math.floor(len / zoom)))
+    ? Math.max(0, Math.min(trimStart, len - Math.floor(len / zoom)))
     : 0;
   const viewLen = zoom > 1 ? Math.floor(len / zoom) : len;
 
@@ -56,9 +60,9 @@ export function WaveformSurface({
     const toX = (f: number) => ((f - viewStart) / viewLen) * (ref.current?.clientWidth ?? 1);
     const px = clientX - (ref.current?.getBoundingClientRect().left ?? 0);
     const targets: { h: Handle; f: number }[] = [
-      { h: 'start', f: start },
+      { h: 'start', f: trimStart },
       { h: 'end', f: viewEnd },
-      { h: 'loop', f: loopStart },
+      { h: 'loop', f: trimLoop },
     ];
     let best: { h: Handle; d: number } | null = null;
     for (const t of targets) {
@@ -73,7 +77,7 @@ export function WaveformSurface({
     ref.current?.setPointerCapture(e.pointerId);
     const handle = pickHandle(e.clientX);
     if (handle) {
-      drag.current = { handle, base: { start, end: viewEnd, loopStart } };
+      drag.current = { handle, base: { start: trimStart, end: viewEnd, loopStart: trimLoop } };
       return;
     }
     const frame = Math.round(toNorm(e.clientX));
@@ -99,14 +103,22 @@ export function WaveformSurface({
     } else {
       nl = Math.max(ns, Math.min(ne - 1, frame));
     }
-    onTrim(ns, ne, nl);
+    const next = { start: ns, end: ne, loopStart: nl };
+    pendingTrim.current = next;
+    setDragTrim(next);
   };
 
-  const onPointerUp = () => { drag.current = null; };
+  const onPointerUp = () => {
+    const commit = pendingTrim.current;
+    if (commit) onTrim(commit.start, commit.end, commit.loopStart);
+    drag.current = null;
+    pendingTrim.current = null;
+    setDragTrim(null);
+  };
 
-  const displayStart = Math.max(0, start - viewStart);
+  const displayStart = Math.max(0, trimStart - viewStart);
   const displayEnd = Math.min(viewLen, (viewEnd || len) - viewStart);
-  const displayLoop = Math.max(0, loopStart - viewStart);
+  const displayLoop = Math.max(0, trimLoop - viewStart);
 
   return (
     <div

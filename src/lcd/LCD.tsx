@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { saveProject, listProjects } from '../storage/projects';
 import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
@@ -66,21 +66,39 @@ export function LCD() {
   const [samplePh, setSamplePh] = useState(-1);
   useEffect(() => {
     let raf = 0;
-    const loop = () => {
-      const frame = engine.telemetry.samplePlayhead[selectedPad];
-      if (frame >= 0 && sampleLen > 0) {
-        setSamplePh(frame / sampleLen);
-        setPlayhead(-1);
-      } else if (engine.telemetry.playing && screen !== 'sample') {
-        const seq = engine.activeSequence();
-        if (seq) {
-          const total = seq.bars * 4 * 960;
-          setPlayhead(engine.telemetry.positionTicks / total);
+    let lastSample = -999;
+    let lastSeq = -999;
+    let lastFrame = 0;
+    const loop = (t: number) => {
+      if (t - lastFrame >= 32) {
+        lastFrame = t;
+        const frame = engine.telemetry.samplePlayhead[selectedPad];
+        if (frame >= 0 && sampleLen > 0) {
+          const ph = frame / sampleLen;
+          if (Math.abs(ph - lastSample) > 0.003) {
+            lastSample = ph;
+            lastSeq = -999;
+            setSamplePh(ph);
+            setPlayhead(-1);
+          }
+        } else if (engine.telemetry.playing && screen !== 'sample') {
+          const seq = engine.activeSequence();
+          if (seq) {
+            const total = seq.bars * 4 * 960;
+            const p = engine.telemetry.positionTicks / total;
+            if (Math.abs(p - lastSeq) > 0.003) {
+              lastSeq = p;
+              lastSample = -999;
+              setPlayhead(p);
+              setSamplePh(-1);
+            }
+          }
+        } else if (lastSample !== -999 || lastSeq !== -999) {
+          lastSample = -999;
+          lastSeq = -999;
+          setPlayhead(-1);
+          setSamplePh(-1);
         }
-        setSamplePh(-1);
-      } else {
-        setPlayhead(-1);
-        setSamplePh(-1);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -546,14 +564,20 @@ function RecordScreen() {
   const stopSampleRecord = useStore((s) => s.stopSampleRecord);
   const inputReady = useStore((s) => s.inputOpen);
   const [rec, setRec] = useState(false);
-  const [level, setLevel] = useState(0);
+  const levelRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!inputReady) return;
     let raf = 0;
-    const loop = () => {
-      setLevel(engine.inputLevel);
+    let lastFrame = 0;
+    const loop = (t: number) => {
+      if (t - lastFrame >= 32) {
+        lastFrame = t;
+        const lv = engine.inputLevel;
+        const el = levelRef.current;
+        if (el) el.style.width = `${Math.round(lv * 100)}%`;
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -589,7 +613,7 @@ function RecordScreen() {
           <div className="lcdrow">
             <span>Input</span>
             <div className="recmeter">
-              <i style={{ width: `${Math.round(level * 100)}%` }} />
+              <i ref={levelRef} />
             </div>
           </div>
           <div className="lcdbtns">

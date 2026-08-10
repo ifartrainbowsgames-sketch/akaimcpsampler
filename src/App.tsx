@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from './state/store';
 import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
@@ -12,6 +12,7 @@ import { ChopModeModal } from './ui/ChopModeModal';
 import { UpdateBanner } from './ui/UpdateBanner';
 import { GuideBanner, GuideBubble } from './ui/GuideBubble';
 import { guideClick } from './guide/guideClick';
+import { useTransportMeter } from './ui/useTransportMeter';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
 import { AkaiLogo, MpcWordmark } from './ui/AkaiLogo';
@@ -109,27 +110,21 @@ function Panel() {
   const [volume, setVolume] = useState(0.8);
   const [faderValue, setFaderValue] = useState(0.75);
   const [jog, setJog] = useState(0.5);
-  const [meter, setMeter] = useState(0);
-  const [transport, setTransport] = useState({ playing: false, recording: false });
+  const speakerRef = useRef<HTMLDivElement>(null);
+  const transport = useTransportMeter(speakerRef);
+  const jogZoomRaf = useRef(0);
 
   useEffect(() => {
     if (screen === 'stepedit') return;
-    setWaveformZoom(1 + jog * 15);
-  }, [jog, screen, setWaveformZoom]);
-
-  useEffect(() => {
-    let raf = 0;
-    const loop = () => {
-      setMeter(engine.readLevel());
-      setTransport({
-        playing: engine.telemetry.playing,
-        recording: engine.telemetry.recording,
-      });
-      raf = requestAnimationFrame(loop);
+    if (jogZoomRaf.current) return;
+    jogZoomRaf.current = requestAnimationFrame(() => {
+      setWaveformZoom(1 + jog * 15);
+      jogZoomRaf.current = 0;
+    });
+    return () => {
+      if (jogZoomRaf.current) cancelAnimationFrame(jogZoomRaf.current);
     };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [jog, screen, setWaveformZoom]);
 
   useEffect(() => {
     engine.setMasterVolume(volume);
@@ -215,7 +210,7 @@ function Panel() {
             <div className="lcdframe"><LCD /></div>
 
             <div className="speakercol">
-              <div className={`speaker ${meter > 0.05 ? 'speaker--on' : ''}`} />
+              <div ref={speakerRef} className="speaker" />
             </div>
           </div>
         </div>
