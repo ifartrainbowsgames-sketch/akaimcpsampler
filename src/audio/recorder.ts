@@ -1,17 +1,26 @@
 import { encodeWav } from './export';
+import { recorderWorkletUrl } from './worklets/recorderSource';
 
 /**
  * Sample recording from mic. Maintains a rolling Recall buffer once open.
+ *
+ * Uses AudioWorkletNode (off main thread) instead of the deprecated
+ * ScriptProcessorNode. Falls back gracefully if the worklet fails to load.
  */
 const RECALL_SECONDS = 25;
+/** Cap active recording at 10 minutes to bound memory usage. */
+const MAX_RECORD_SECONDS = 600;
 
 export type RecordSource = 'mic' | 'resample';
+
+/** Track which AudioContexts have had the recorder worklet module loaded. */
+const registeredContexts = new WeakSet<BaseAudioContext>();
 
 export class Recorder {
   private ctx: AudioContext;
   private stream: MediaStream | null = null;
   private srcNode: MediaStreamAudioSourceNode | null = null;
-  private processor: ScriptProcessorNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private silentOut: GainNode | null = null;
   private monitorGain: GainNode;
 
@@ -19,9 +28,15 @@ export class Recorder {
   private ringWrite = 0;
   private ringSize = 0;
 
-  /** Stereo pairs [L0, R0, L1, R1, …] per audio callback. */
-  private capturing: Float32Array[] = [];
-  private capturingLength = 0;
+  /**
+   * Pre-allocated stereo capture buffers.
+   * Allocated once on start(), freed on stop()/close().
+   */
+  private captureL: Float32Array | null = null;
+  private captureR: Float32Array | null = null;
+  private capturePos = 0;
+  private maxCaptureFrames = 0;
+
   recording = false;
   level = 0;
 
@@ -34,6 +49,7 @@ export class Recorder {
     this.monitorGain.connect(monitorDestination);
     this.ringSize = Math.ceil(ctx.sampleRate * RECALL_SECONDS);
     this.ring = [new Float32Array(this.ringSize), new Float32Array(this.ringSize)];
+    this.maxCaptureFrames = Math.ceil(ctx.sampleRate * MAX_RECORD_SECONDS);
   }
 
   get permissionGranted() {
@@ -67,52 +83,78 @@ export class Recorder {
       return false;
     }
 
+    // Load the recorder worklet module if not already registered for this context.
+    try {
+      if (!registeredContexts.has(this.ctx)) {
+        const url = recorderWorkletUrl();
+        await this.ctx.audioWorklet.addModule(url);
+        URL.revokeObjectURL(url);
+        registeredContexts.add(this.ctx);
+      }
+    } catch (err) {
+      console.warn('[Recorder] AudioWorklet unavailable:', err);
+      this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null;
+      return false;
+    }
+
     this.srcNode = this.ctx.createMediaStreamSource(this.stream);
 
-    const bufSize = 4096;
-    this.processor = this.ctx.createScriptProcessor(bufSize, 1, 1);
-    this.processor.onaudioprocess = (e) => this.onAudio(e);
+    this.workletNode = new AudioWorkletNode(this.ctx, 'recorder-processor', {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    this.workletNode.port.onmessage = (e: MessageEvent<{
+      ch0: Float32Array;
+      ch1: Float32Array;
+      peak: number;
+    }>) => this.onAudio(e.data);
 
     this.silentOut = this.ctx.createGain();
     this.silentOut.gain.value = 0;
 
-    this.srcNode.connect(this.processor);
+    this.srcNode.connect(this.workletNode);
     this.srcNode.connect(this.monitorGain);
-    this.processor.connect(this.silentOut);
+    this.workletNode.connect(this.silentOut);
     this.silentOut.connect(this.ctx.destination);
 
     return true;
   }
 
-  private onAudio(e: AudioProcessingEvent) {
-    const input = e.inputBuffer;
-    const frames = input.length;
-    const ch0 = input.getChannelData(0);
-    const ch1 = input.numberOfChannels > 1 ? input.getChannelData(1) : ch0;
+  private onAudio(data: { ch0: Float32Array; ch1: Float32Array; peak: number }) {
+    const { ch0, ch1, peak } = data;
+    const frames = ch0.length;
 
-    let peak = 0;
+    // Update ring buffer (25-second rolling recall).
     for (let ch = 0; ch < 2; ch++) {
-      const data = ch === 0 ? ch0 : ch1;
+      const src = ch === 0 ? ch0 : ch1;
       const ring = this.ring[ch];
       let w = this.ringWrite;
       for (let i = 0; i < frames; i++) {
-        const s = data[i];
-        ring[w] = s;
+        ring[w] = src[i];
         w = (w + 1) % this.ringSize;
-        const a = Math.abs(s);
-        if (a > peak) peak = a;
       }
     }
     this.ringWrite = (this.ringWrite + frames) % this.ringSize;
 
     if (this.recording) {
-      this.capturing.push(new Float32Array(ch0), new Float32Array(ch1));
-      this.capturingLength += frames;
+      // Lazy-allocate the pre-allocated capture buffer on first audio chunk.
+      if (!this.captureL || !this.captureR) {
+        this.captureL = new Float32Array(this.maxCaptureFrames);
+        this.captureR = new Float32Array(this.maxCaptureFrames);
+        this.capturePos = 0;
+      }
+      const remaining = this.maxCaptureFrames - this.capturePos;
+      const n = Math.min(frames, remaining);
+      if (n > 0) {
+        this.captureL.set(ch0.subarray(0, n), this.capturePos);
+        this.captureR.set(ch1.subarray(0, n), this.capturePos);
+        this.capturePos += n;
+      }
     }
-    this.level = peak;
 
-    const out = e.outputBuffer.getChannelData(0);
-    out.fill(0);
+    this.level = peak;
   }
 
   setMonitor(on: boolean) {
@@ -120,44 +162,37 @@ export class Recorder {
   }
 
   start() {
-    this.capturing = [];
-    this.capturingLength = 0;
+    this.captureL = null;
+    this.captureR = null;
+    this.capturePos = 0;
     this.liveChops = [];
     this.recording = true;
   }
 
   markChop() {
-    if (this.recording) this.liveChops.push(this.capturingLength);
+    if (this.recording) this.liveChops.push(this.capturePos);
   }
 
   stop(): { buffer: AudioBuffer; chops: number[] } | null {
     if (!this.recording) return null;
     this.recording = false;
-    if (this.capturing.length === 0 || this.capturingLength === 0) {
-      this.capturing = [];
-      this.capturingLength = 0;
+
+    const frames = this.capturePos;
+    if (frames === 0 || !this.captureL || !this.captureR) {
+      this.captureL = null;
+      this.captureR = null;
+      this.capturePos = 0;
       return null;
     }
 
-    const frames = this.capturingLength;
     const out = this.ctx.createBuffer(2, frames, this.ctx.sampleRate);
-    const L = out.getChannelData(0);
-    const R = out.getChannelData(1);
-
-    let off = 0;
-    for (let i = 0; i < this.capturing.length; i += 2) {
-      const l = this.capturing[i];
-      const r = this.capturing[i + 1] ?? l;
-      const n = Math.min(l.length, frames - off);
-      if (n <= 0) break;
-      L.set(l.subarray(0, n), off);
-      R.set(r.subarray(0, n), off);
-      off += n;
-    }
+    out.getChannelData(0).set(this.captureL.subarray(0, frames));
+    out.getChannelData(1).set(this.captureR.subarray(0, frames));
 
     const chops = this.liveChops.slice();
-    this.capturing = [];
-    this.capturingLength = 0;
+    this.captureL = null;
+    this.captureR = null;
+    this.capturePos = 0;
     return { buffer: out, chops };
   }
 
@@ -180,15 +215,21 @@ export class Recorder {
   }
 
   close() {
+    this.recording = false; // reset flag before teardown
     try {
-      this.processor?.disconnect();
+      this.workletNode?.disconnect();
       this.silentOut?.disconnect();
       this.srcNode?.disconnect();
       this.stream?.getTracks().forEach((t) => t.stop());
-    } catch { /* noop */ }
+    } catch (err) {
+      console.warn('[Recorder] Error during close:', err);
+    }
     this.stream = null;
     this.srcNode = null;
-    this.processor = null;
+    this.workletNode = null;
     this.silentOut = null;
+    this.captureL = null;
+    this.captureR = null;
+    this.capturePos = 0;
   }
 }

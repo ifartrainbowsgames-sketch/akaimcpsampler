@@ -1,5 +1,5 @@
 import { PPQN, TICKS_PER_8TH, TICKS_PER_16TH } from './types';
-import type { Sequence, SeqEvent } from './types';
+import type { Sequence, SeqEvent, Project } from './types';
 
 /**
  * Lookahead scheduling, per "A Tale of Two Clocks".
@@ -40,7 +40,8 @@ export interface SchedulerHost {
   getBpm(): number;
   getSwing(): number;
   getTimeSignature(): [number, number];
-  playEvent(e: SeqEvent, when: number): void;
+  getHumanize(): Project['humanize'];
+  playEvent(e: SeqEvent, when: number, velocityOverride?: number): void;
   click?(when: number, accent: boolean): void;
   metronomeEnabled(): boolean;
   countInBars(): number;
@@ -213,10 +214,27 @@ export class Scheduler {
       }
 
       if (!inCountIn) {
+        const humanize = this.host.getHumanize();
+        const secPerTick = this.secPerTick();
         for (const e of seq.events) {
           const swung = applySwing(e.tick, swing);
           if (Math.round(swung) === tickInLoop) {
-            this.host.playEvent(e, this.timeForTick(this.nextTick));
+            // Probability gate: skip event if random roll exceeds probability
+            const prob = e.probability ?? 100;
+            if (prob < 100 && Math.random() * 100 > prob) continue;
+
+            let when = this.timeForTick(this.nextTick);
+            let velOverride: number | undefined;
+
+            if (humanize.timing > 0) {
+              when += (Math.random() - 0.5) * (humanize.timing / 100) * secPerTick * TICKS_PER_16TH;
+            }
+            if (humanize.velocity > 0) {
+              const scatter = Math.round((Math.random() - 0.5) * humanize.velocity * 0.5);
+              velOverride = Math.max(1, Math.min(127, e.velocity + scatter));
+            }
+
+            this.host.playEvent(e, when, velOverride);
           }
         }
 

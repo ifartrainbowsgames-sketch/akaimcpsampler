@@ -120,6 +120,79 @@ export function mergeSlice(slices: Slice[], index: number): Slice[] {
   return out;
 }
 
+/**
+ * Estimate the tempo of an AudioBuffer by analysing onset intervals.
+ *
+ * Algorithm:
+ *  1. Compute RMS envelope (reuses the existing helper).
+ *  2. Detect upward threshold crossings (onsets).
+ *  3. Build a histogram of inter-onset intervals (IOIs).
+ *  4. Pick the most common IOI → convert to BPM.
+ *  5. Fold into the 60–180 BPM range.
+ *
+ * Returns 0 if detection fails.
+ */
+export function detectBpm(buffer: AudioBuffer): number {
+  const data = buffer.getChannelData(0);
+  const env = rmsEnvelope(data);
+
+  let peak = 0;
+  for (const v of env) if (v > peak) peak = v;
+  if (peak === 0) return 0;
+
+  const level = peak * 0.3;
+  const refractoryFrames = Math.floor((0.08 * buffer.sampleRate) / HOP);
+  const onsets: number[] = [];
+  let above = false;
+  let lastOnset = -Infinity;
+
+  for (let f = 0; f < env.length; f++) {
+    if (!above && env[f] > level) {
+      above = true;
+      if (f - lastOnset > refractoryFrames) {
+        onsets.push(f);
+        lastOnset = f;
+      }
+    } else if (above && env[f] < level * 0.6) {
+      above = false;
+    }
+  }
+
+  if (onsets.length < 2) return 0;
+
+  const hopSec = HOP / buffer.sampleRate;
+  const intervals: number[] = [];
+  for (let i = 1; i < onsets.length; i++) {
+    intervals.push((onsets[i] - onsets[i - 1]) * hopSec);
+  }
+
+  // Histogram with 20ms bins over 0.25–2.0 s range.
+  const binWidth = 0.02;
+  const bins = new Map<number, number>();
+  for (const ioi of intervals) {
+    if (ioi < 0.25 || ioi > 2.0) continue;
+    const bin = Math.round(ioi / binWidth);
+    bins.set(bin, (bins.get(bin) ?? 0) + 1);
+  }
+
+  let bestBin = -1;
+  let bestCount = 0;
+  bins.forEach((count, bin) => {
+    if (count > bestCount) { bestCount = count; bestBin = bin; }
+  });
+
+  if (bestBin < 0) return 0;
+
+  const ioi = bestBin * binWidth;
+  let bpm = 60 / ioi;
+  // Fold into 60–180 BPM.
+  while (bpm < 60) bpm *= 2;
+  while (bpm > 180) bpm /= 2;
+  bpm = Math.round(bpm * 10) / 10;
+
+  return bpm >= 40 && bpm <= 200 ? bpm : 0;
+}
+
 /** Peak-per-pixel waveform summary for drawing. */
 export function waveformPeaks(
   buffer: AudioBuffer,

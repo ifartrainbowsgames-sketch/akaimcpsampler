@@ -29,6 +29,7 @@ export class Midi {
 
   onPadOn: ((pad: number, velocity: number) => void) | null = null;
   onPadOff: ((pad: number) => void) | null = null;
+  onCC: ((channel: number, cc: number, value: number) => void) | null = null;
 
   get available() {
     return typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator;
@@ -84,6 +85,14 @@ export class Midi {
 
     if (this.config.inChannel !== 'all' && channel !== this.config.inChannel) return;
     if (!this.config.padMidiIn) return;
+
+    // CC messages
+    if (status === 0xb0) {
+      const cc = data[1];
+      const value = data[2] ?? 0;
+      this.onCC?.(channel, cc, value);
+      return;
+    }
 
     const note = data[1];
     const velocity = data[2] ?? 0;

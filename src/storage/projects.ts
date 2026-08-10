@@ -3,6 +3,17 @@ import type { Project } from '../audio/types';
 const INDEX_KEY = 'sampler.projects';
 const CURRENT_KEY = 'sampler.current';
 
+function isValidProject(p: unknown): p is Project {
+  if (!p || typeof p !== 'object') return false;
+  const proj = p as Record<string, unknown>;
+  return (
+    typeof proj.id === 'string' &&
+    typeof proj.name === 'string' &&
+    Array.isArray(proj.banks) &&
+    Array.isArray(proj.sequences)
+  );
+}
+
 type Index = Record<string, { name: string; saved: number }>;
 
 function readIndex(): Index {
@@ -23,7 +34,9 @@ export function saveProject(p: Project): void {
 export function loadProject(id: string): Project | null {
   try {
     const raw = localStorage.getItem(`sampler.project.${id}`);
-    return raw ? (JSON.parse(raw) as Project) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isValidProject(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -57,7 +70,9 @@ export function autosave(p: Project): void {
 export function loadAutosave(): Project | null {
   try {
     const raw = localStorage.getItem(CURRENT_KEY);
-    return raw ? (JSON.parse(raw) as Project) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isValidProject(parsed) ? parsed : null;
   } catch {
     return null;
   }

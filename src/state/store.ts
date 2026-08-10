@@ -10,8 +10,8 @@ import {
 import { engine } from '../audio/engine';
 import { autosave, loadAutosave, loadProject } from '../storage/projects';
 import { readSample, writeSample } from '../storage/opfs';
-import { chopByRegions, chopByThreshold, mergeSlice, splitSlice } from '../audio/chop';
-import { downloadBlob, renderToWav } from '../audio/export';
+import { chopByRegions, chopByThreshold, detectBpm as detectBpmFromBuffer, mergeSlice, splitSlice } from '../audio/chop';
+import { downloadBlob, encodeWav, renderToWav } from '../audio/export';
 import type { KnobFXId } from '../audio/fx/knobfx';
 import type { PadFXId } from '../audio/fx/padfx';
 import { midi, type MidiConfig } from '../midi/midi';
@@ -82,7 +82,8 @@ export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
   | 'browser' | 'beats' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx' | 'knobfx-select'
-  | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj';
+  | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj'
+  | 'pianoroll';
 
 export type FlexBeatMode = 'oneshot' | 'loop';
 export type InputRecLength = 'FREE' | 'SEQ';
@@ -294,6 +295,30 @@ interface UIState {
   removeSongStep(i: number): void;
   exportSong(): Promise<void>;
   exportSequence(): Promise<void>;
+  exportStems(): Promise<void>;
+  exportProject(): void;
+  importProject(file: File): Promise<void>;
+
+  // ---- Piano Roll ----
+  pianoRollAddNote(tick: number, note: number, duration: number, velocity: number): void;
+  pianoRollDeleteNote(tick: number, note: number): void;
+  pianoRollMoveNote(fromTick: number, fromNote: number, toTick: number, toNote: number): void;
+  pianoRollResizeNote(tick: number, note: number, newDuration: number): void;
+  pianoRollSetVelocity(tick: number, note: number, velocity: number): void;
+
+  // ---- Theme ----
+  theme: 'dark' | 'light';
+  toggleTheme(): void;
+
+  // ---- MIDI Learn ----
+  midiLearn: { active: boolean; target: string | null };
+  midiMappings: Record<string, { channel: number; cc: number }>;
+  startMidiLearn(target: string): void;
+  stopMidiLearn(): void;
+  clearMidiMapping(target: string): void;
+
+  // ---- BPM Detection ----
+  detectBpm(): Promise<void>;
 
   // ---- Phase 8: recording, MIDI, undo ----
   inputOpen: boolean;
@@ -386,8 +411,13 @@ export const useStore = create<UIState>((set, get) => ({
   midiConfig: getMidiConfig(),
   midiInputs: [] as string[],
   midiOutputs: [] as string[],
+  theme: (localStorage.getItem('sampler.theme') as 'dark' | 'light') ?? 'dark',
+  midiLearn: { active: false, target: null },
+  midiMappings: {} as Record<string, { channel: number; cc: number }>,
 
   async boot() {
+    // Apply persisted theme
+    document.body.dataset.theme = get().theme;
     await engine.init();
     engine.setProject(get().project);
     engine.setSequenceSlot(get().seqSlot);
@@ -1673,6 +1703,101 @@ export const useStore = create<UIState>((set, get) => ({
     }
   },
 
+  async exportStems() {
+    const { project, bank } = get();
+    const pads = project.banks[bank];
+    for (let i = 0; i < pads.length; i++) {
+      const pad = pads[i];
+      if (!pad.sampleId) continue;
+      const buffer = engine.getBuffer(pad.sampleId);
+      if (!buffer) continue;
+      const blob = encodeWav(buffer);
+      const name = (pad.sampleName || `pad-${i + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+      downloadBlob(blob, `${name}.wav`);
+      // Small delay to avoid browser popup blockers for multiple downloads
+      await new Promise((r) => setTimeout(r, 80));
+    }
+  },
+
+  exportProject() {
+    const { project } = get();
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, `${project.name || 'project'}.json`);
+  },
+
+  async importProject(file: File) {
+    try {
+      const text = await file.text();
+      const parsed: unknown = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object') return;
+      const proj = parsed as Record<string, unknown>;
+      if (typeof proj.id !== 'string' || typeof proj.name !== 'string' ||
+          !Array.isArray(proj.banks) || !Array.isArray(proj.sequences)) {
+        return;
+      }
+      const p = migrateProject(parsed as Project);
+      history.push(get().project);
+      engine.setProject(p);
+      engine.setBank(0);
+      engine.setSequenceSlot(0);
+      // Re-hydrate samples
+      const seen = new Set<string>();
+      for (const b of p.banks) {
+        for (const pad of b) {
+          if (!pad.sampleId || seen.has(pad.sampleId)) continue;
+          seen.add(pad.sampleId);
+          const data = await readSample(pad.sampleId);
+          if (data) {
+            try { await engine.loadSample(pad.sampleId, data); } catch { /* skip */ }
+          }
+        }
+      }
+      scheduleAutosave(p);
+      set({ project: p, bank: 0, seqSlot: 0, selectedPad: 0, screen: 'sample' });
+    } catch {
+      /* invalid file — silently ignore */
+    }
+  },
+
+  // ---------------------------------------------- theme
+
+  toggleTheme() {
+    const next = get().theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('sampler.theme', next);
+    document.body.dataset.theme = next;
+    set({ theme: next });
+  },
+
+  // ---------------------------------------------- MIDI learn
+
+  startMidiLearn(target: string) {
+    set({ midiLearn: { active: true, target } });
+  },
+
+  stopMidiLearn() {
+    set({ midiLearn: { active: false, target: null } });
+  },
+
+  clearMidiMapping(target: string) {
+    const mappings = { ...get().midiMappings };
+    delete mappings[target];
+    set({ midiMappings: mappings });
+  },
+
+  // ---------------------------------------------- BPM detection
+
+  async detectBpm() {
+    const { project, bank, selectedPad } = get();
+    const pad = project.banks[bank][selectedPad];
+    const buffer = engine.getBuffer(pad.sampleId);
+    if (!buffer) return;
+
+    const bpm = detectBpmFromBuffer(buffer);
+    if (bpm > 0) {
+      get().updateProject({ bpm });
+    }
+  },
+
   // ---------------------------------------------- recording, MIDI, history
 
   async openInput() {
@@ -1744,6 +1869,29 @@ export const useStore = create<UIState>((set, get) => ({
     if (ok) {
       midi.onPadOn = (pad, velocity) => get().hitPad(pad, velocity);
       midi.onPadOff = (pad) => get().releasePad(pad);
+      midi.onCC = (channel, cc, value) => {
+        const { midiLearn, midiMappings } = get();
+        // MIDI Learn: capture CC and map to target
+        if (midiLearn.active && midiLearn.target) {
+          const next = { ...midiMappings, [midiLearn.target]: { channel, cc } };
+          set({ midiMappings: next, midiLearn: { active: false, target: null } });
+          return;
+        }
+        // Apply existing mappings
+        const norm = value / 127;
+        const s = get();
+        for (const [target, mapping] of Object.entries(midiMappings)) {
+          if (mapping.channel !== channel || mapping.cc !== cc) continue;
+          switch (target) {
+            case 'BPM': s.updateProject({ bpm: Math.round(40 + norm * 160) }); break;
+            case 'Pad Volume': s.updatePad(s.selectedPad, { gain: -Infinity + norm * (Infinity + 6) }); break;
+            case 'Pad Pan': s.updatePad(s.selectedPad, { pan: norm * 2 - 1 }); break;
+            case 'Pad Tune': s.updatePad(s.selectedPad, { semi: Math.round(norm * 48 - 24) }); break;
+            case 'Kit Volume': s.setKitVolume(norm * 12 - 6); break;
+            case 'Filter Cutoff': s.updatePad(s.selectedPad, { cutoff: Math.round(norm * 127) }); break;
+          }
+        }
+      };
     }
     set({
       midiConnected: ok,
@@ -1788,5 +1936,79 @@ export const useStore = create<UIState>((set, get) => ({
       engine.setProject({ ...get().project, quantize: get().project.quantize || TICKS_PER_16TH });
     }
     set({});
+  },
+
+  // ---- Piano Roll actions ----
+
+  pianoRollAddNote(tick, note, duration, velocity) {
+    const { project, bank, seqSlot, selectedPad } = get();
+    const seq = project.sequences[bank][seqSlot];
+    history.push(project);
+    const newEvent = { tick, pad: selectedPad, bank, velocity, duration, note };
+    const events = [...seq.events, newEvent].sort((a, b) => a.tick - b.tick);
+    const sequences = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences });
+  },
+
+  pianoRollDeleteNote(tick, note) {
+    const { project, bank, seqSlot, selectedPad } = get();
+    const seq = project.sequences[bank][seqSlot];
+    history.push(project);
+    const events = seq.events.filter(
+      (e) => !(e.pad === selectedPad && e.tick === tick && (e.note ?? 60) === note)
+    );
+    const sequences = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences });
+  },
+
+  pianoRollMoveNote(fromTick, fromNote, toTick, toNote) {
+    const { project, bank, seqSlot, selectedPad } = get();
+    const seq = project.sequences[bank][seqSlot];
+    history.push(project);
+    const events = seq.events
+      .map((e) =>
+        e.pad === selectedPad && e.tick === fromTick && (e.note ?? 60) === fromNote
+          ? { ...e, tick: toTick, note: toNote }
+          : e
+      )
+      .sort((a, b) => a.tick - b.tick);
+    const sequences = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences });
+  },
+
+  pianoRollResizeNote(tick, note, newDuration) {
+    const { project, bank, seqSlot, selectedPad } = get();
+    const seq = project.sequences[bank][seqSlot];
+    history.push(project);
+    const events = seq.events.map((e) =>
+      e.pad === selectedPad && e.tick === tick && (e.note ?? 60) === note
+        ? { ...e, duration: Math.max(1, newDuration) }
+        : e
+    );
+    const sequences = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences });
+  },
+
+  pianoRollSetVelocity(tick, note, velocity) {
+    const { project, bank, seqSlot, selectedPad } = get();
+    const seq = project.sequences[bank][seqSlot];
+    history.push(project);
+    const events = seq.events.map((e) =>
+      e.pad === selectedPad && e.tick === tick && (e.note ?? 60) === note
+        ? { ...e, velocity: Math.max(1, Math.min(127, velocity)) }
+        : e
+    );
+    const sequences = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences });
   },
 }));

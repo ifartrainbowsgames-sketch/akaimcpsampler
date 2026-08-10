@@ -14,9 +14,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const q = String(req.query.q ?? 'drum');
-  const page = String(req.query.page ?? '1');
-  const filter = String(req.query.filter ?? 'duration:[0 TO 8]');
+  // Sanitise caller-supplied inputs. The filter is locked server-side to prevent
+  // quota injection; only q and page are passed through (with bounds).
+  const rawQ = String(req.query.q ?? 'drum').slice(0, 200);
+  const rawPage = parseInt(String(req.query.page ?? '1'), 10);
+  const q = rawQ || 'drum';
+  const page = String(Number.isFinite(rawPage) ? Math.max(1, Math.min(rawPage, 100)) : 1);
+  const filter = 'duration:[0 TO 8]';
 
   const params = new URLSearchParams({
     query: q,

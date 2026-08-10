@@ -49,6 +49,7 @@ export function Pads() {
   const startPadNoteRepeat = useStore((s) => s.startPadNoteRepeat);
   const knobFXRouting = useStore((s) => s.knobFXRouting);
   const timeCorrectPads = useStore((s) => s.timeCorrectPads);
+  const flexBeatActivePad = useStore((s) => s.flexBeat?.activePad ?? -1);
 
   const [flash, setFlash] = useState<Record<number, boolean>>({});
   const [seqLit, setSeqLit] = useState<Record<number, boolean>>({});
@@ -60,7 +61,9 @@ export function Pads() {
     let raf = 0;
     let lastFrame = 0;
     const loop = (t: number) => {
-      if (t - lastFrame >= 32) {
+      // Poll faster when playing (~30fps), slower when stopped (~10fps) to save battery.
+      const interval = engine.telemetry.playing ? 32 : 100;
+      if (t - lastFrame >= interval) {
         lastFrame = t;
         let mask = 0;
         for (let i = 0; i < 16; i++) {
@@ -157,7 +160,7 @@ export function Pads() {
             const inKnobSelect = screen === 'knobfx-select';
             const inTimeCorr = screen === 'timecorr';
             const inFlexBeat = screen === 'flexbeat';
-            const isFlexActive = inFlexBeat && useStore.getState().flexBeat.activePad === i;
+            const isFlexActive = inFlexBeat && flexBeatActivePad === i;
             const knobRouted = inKnobSelect && knobFXRouting[i];
             const tcSelected = inTimeCorr && timeCorrectPads[i];
             return (

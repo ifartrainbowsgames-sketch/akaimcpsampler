@@ -37,6 +37,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    // Validate hostname to prevent SSRF via redirects from the Freesound CDN.
+    try {
+      const hostname = new URL(url).hostname;
+      if (!hostname.endsWith('.freesound.org') && hostname !== 'freesound.org') {
+        res.status(502).json({ error: 'Unexpected preview URL host' });
+        return;
+      }
+    } catch {
+      res.status(502).json({ error: 'Invalid preview URL' });
+      return;
+    }
+
     const audioRes = await fetch(url);
     if (!audioRes.ok) {
       res.status(502).json({ error: 'Preview fetch failed' });

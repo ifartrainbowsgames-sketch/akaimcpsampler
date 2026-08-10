@@ -13,6 +13,41 @@
   --f:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
+/* Light theme overrides */
+[data-theme="light"]{
+  --lcd:#e8e8e0; --lcd-y:#8a6000; --lcd-c:#006f80;
+}
+[data-theme="light"] body{
+  background:radial-gradient(120% 80% at 50% 0%,#b8d4e8,#7ba8c4 55%,#4a7a9b);
+}
+[data-theme="light"] .lcd{color:#1a1a14; background:var(--lcd)}
+[data-theme="light"] .tabs button{color:#5a5a52; background:transparent; border-bottom-color:#c0c0b8}
+[data-theme="light"] .tabs button.on{background:#d0d0c4; color:#1a1a14}
+[data-theme="light"] .infoline{color:var(--lcd-y)}
+[data-theme="light"] .lcd-btn{background:#d4d4cc; color:var(--lcd-y); border-color:#a0a098}
+[data-theme="light"] .lcd-btn--action{border-color:var(--orange); color:#b05000}
+[data-theme="light"] .lcd-btn--ghost{border-color:#b0b0a8; color:#606058}
+[data-theme="light"] .lcdpanel{color:#2a2a22}
+[data-theme="light"] .lcdrow{color:#484840}
+[data-theme="light"] .lcdrow b{color:#1a1a14}
+[data-theme="light"] .krow{background:#c0c0b8}
+[data-theme="light"] .kcell{background:var(--lcd)}
+[data-theme="light"] .kname{color:#606058}
+[data-theme="light"] .kval{color:#1a1a14}
+[data-theme="light"] .hintline{color:#808074}
+[data-theme="light"] .lcdlist{color:#484840}
+[data-theme="light"] .lcdlist .sel{background:var(--lcd-y); color:#fff}
+[data-theme="light"] .lcd-mini{background:#c0c0b8; color:#2a2a22; border-color:#888880}
+[data-theme="light"] .lcd-mini.on{background:#3FBF52; color:#111}
+[data-theme="light"] .lane{background:rgba(0,0,0,.08)}
+[data-theme="light"] .pending{color:#707068}
+[data-theme="light"] .stepgrid button{background:#c8c8c0; color:#484840; border-color:#a0a098}
+[data-theme="light"] .stepgrid button.on{background:var(--lcd-y); color:#fff}
+[data-theme="light"] .kitfilters button{background:#c8c8c0; color:#484840; border-color:#a0a098}
+[data-theme="light"] .kitfilters button.on{background:var(--lcd-y); color:#fff}
+[data-theme="light"] .lcdbtns button{background:#c8c8c0; color:#2a2a22; border-color:#a0a098}
+[data-theme="light"] .lcdbtns button:active{background:var(--lcd-y); color:#fff}
+
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%;width:100%;overflow-x:hidden}
 body{

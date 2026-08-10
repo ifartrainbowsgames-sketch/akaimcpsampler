@@ -156,6 +156,8 @@ function Panel() {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // Physical keyboard: Shift key is hold-to-activate (desktop only).
+      // Touch: SHIFT button is a toggle (click on / click off).
       if (e.key === 'Shift') setShift(true);
       if (e.code === 'Space') {
         e.preventDefault();
@@ -225,7 +227,7 @@ function Panel() {
             <div className="grid2">
               <PanelButton label="SAMPLE" sub="INPUT CONFIG" lit={screen === 'sample'}
                 onClick={() => guideClick('mode.sample', () => setScreen(shift ? 'inputcfg' : 'sample'))} />
-              <PanelButton label="SEQ" sub="STEP EDIT" lit={screen === 'seq' || screen === 'stepedit'}
+              <PanelButton label="SEQ" sub="STEP EDIT" lit={screen === 'seq' || screen === 'stepedit' || screen === 'pianoroll'}
                 onClick={() => guideClick('mode.seq', () => setScreen(shift ? 'stepedit' : 'seq'))} />
               <PanelButton label="PAD FX" sub="FLEX BEAT" colour="orange"
                 lit={screen === 'padfx' || screen === 'flexbeat'}
@@ -237,9 +239,7 @@ function Panel() {
 
             <div className="grid2 gap">
               <PanelButton label="SHIFT" lit={shift}
-                onPointerDown={() => guideClick('mode.shift', () => setShift(true))}
-                onPointerUp={() => setShift(false)}
-                onPointerLeave={() => setShift(false)} />
+                onClick={() => guideClick('mode.shift', () => setShift(!shift))} />
               <PanelButton label="GUIDE" lit={guideMode}
                 onClick={() => toggleGuideMode()} />
             </div>

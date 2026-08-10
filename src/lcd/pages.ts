@@ -230,6 +230,14 @@ export const PAGE_GROUPS: Page[][] = [
         },
       ],
     },
+    {
+      title: 'Send FX',
+      params: (pad) => [
+        int0to127('Reverb', pad.reverbSend ?? 0, (v) => ({ reverbSend: v })),
+        int0to127('Delay', pad.delaySend ?? 0, (v) => ({ delaySend: v })),
+        { name: '—', display: '—', norm: 0, set: () => {} },
+      ],
+    },
   ],
 ];
 

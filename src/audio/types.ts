@@ -80,6 +80,10 @@ export interface Pad {
   eqMid: number;
   eqHigh: number;
 
+  /** Send levels to global reverb/delay buses. 0–127, default 0. */
+  reverbSend: number;
+  delaySend: number;
+
   muted: boolean;
 }
 
@@ -90,6 +94,13 @@ export interface SeqEvent {
   bank: number;
   velocity: number; // 1-127
   duration: number; // ticks
+  /** 0–100. 100 = always fires, 0 = never fires. Default: 100. */
+  probability?: number;
+  /**
+   * MIDI note number 0–127. 60 = C4 = the pad's base pitch (no offset).
+   * When undefined or 60, the pad plays at its normal pitch.
+   */
+  note?: number;
 }
 
 export interface Sequence {
@@ -115,6 +126,8 @@ export interface Project {
   recordQuantize: boolean;
   countIn: boolean;
   metronome: 'off' | 'on' | 'record';
+  /** Humanize: adds random timing/velocity variation. Both 0–100, default 0. */
+  humanize: { timing: number; velocity: number };
 
   banks: Pad[][];        // [bank][pad]
   sequences: Sequence[][]; // [bank][slot]
@@ -159,6 +172,8 @@ export function makePad(): Pad {
     eqLow: 0,
     eqMid: 0,
     eqHigh: 0,
+    reverbSend: 0,
+    delaySend: 0,
     muted: false,
   };
 }
@@ -179,6 +194,7 @@ export function makeProject(name = 'New Project'): Project {
     recordQuantize: true,
     countIn: false,
     metronome: 'off',
+    humanize: { timing: 0, velocity: 0 },
     banks: Array.from({ length: NUM_BANKS }, () =>
       Array.from({ length: NUM_PADS }, makePad)
     ),
@@ -195,10 +211,28 @@ export function makeProject(name = 'New Project'): Project {
 export function migrateProject(p: Project): Project {
   return {
     ...p,
+    humanize: p.humanize ?? { timing: 0, velocity: 0 },
     banks: p.banks.map((bank) =>
-      bank.map((pad) =>
-        !pad.noteOn && pad.polyphony === 'poly' ? { ...pad, polyphony: 'mono' } : pad
-      )
+      bank.map((pad) => {
+        const migrated = !pad.noteOn && pad.polyphony === 'poly'
+          ? { ...pad, polyphony: 'mono' as const }
+          : pad;
+        return {
+          ...migrated,
+          reverbSend: migrated.reverbSend ?? 0,
+          delaySend: migrated.delaySend ?? 0,
+        };
+      })
+    ),
+    sequences: p.sequences.map((bank) =>
+      bank.map((seq) => ({
+        ...seq,
+        events: seq.events.map((e) => ({
+          ...e,
+          probability: e.probability ?? 100,
+          // note is optional — undefined means base pitch (same as note 60)
+        })),
+      }))
     ),
   };
 }

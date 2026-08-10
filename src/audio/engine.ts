@@ -41,6 +41,15 @@ export class Engine {
   knobFXRouting = Array.from({ length: 16 }, () => true);
   knobFXBypass = false;
 
+  // Send FX buses
+  private reverbConvolver!: ConvolverNode;
+  private reverbReturn!: GainNode;
+  private delayNode!: DelayNode;
+  private delayFeedback!: GainNode;
+  private delayReturn!: GainNode;
+  private padReverbSends: GainNode[] = [];
+  private padDelaySends: GainNode[] = [];
+
   private buffers = new Map<string, AudioBuffer>();
   private reversed = new Map<string, AudioBuffer>();
   private stretched = new Map<string, AudioBuffer>();
@@ -171,6 +180,54 @@ export class Engine {
       g.connect(this.kitGain);
       return g;
     });
+
+    // Reverb send: convolver with a synthetic impulse response
+    this.reverbConvolver = ctx.createConvolver();
+    this.reverbReturn = ctx.createGain();
+    this.reverbReturn.gain.value = 1;
+    const irLen = Math.floor(ctx.sampleRate * 2.0);
+    const ir = ctx.createBuffer(2, irLen, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = ir.getChannelData(ch);
+      for (let i = 0; i < irLen; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irLen, 2.5);
+      }
+    }
+    this.reverbConvolver.buffer = ir;
+    this.reverbConvolver.connect(this.reverbReturn);
+    this.reverbReturn.connect(this.kitGain);
+
+    // Delay send: delay + feedback loop
+    this.delayNode = ctx.createDelay(2.0);
+    this.delayNode.delayTime.value = 0.375; // 1/4 note at 160bpm default
+    this.delayFeedback = ctx.createGain();
+    this.delayFeedback.gain.value = 0.35;
+    this.delayReturn = ctx.createGain();
+    this.delayReturn.gain.value = 1;
+    this.delayNode.connect(this.delayFeedback);
+    this.delayFeedback.connect(this.delayNode);
+    this.delayNode.connect(this.delayReturn);
+    this.delayReturn.connect(this.kitGain);
+
+    // Per-pad send gains for reverb and delay (default to 0)
+    this.padReverbSends = Array.from({ length: NUM_PADS }, () => {
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.connect(this.reverbConvolver);
+      return g;
+    });
+    this.padDelaySends = Array.from({ length: NUM_PADS }, () => {
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.connect(this.delayNode);
+      return g;
+    });
+    // Connect pad outputs to their send buses
+    for (let i = 0; i < NUM_PADS; i++) {
+      this.padGains[i].connect(this.padReverbSends[i]);
+      this.padGains[i].connect(this.padDelaySends[i]);
+    }
+
     this.syncKnobFXRouting();
 
     this.scheduler = new Scheduler({
@@ -183,13 +240,14 @@ export class Engine {
       },
       getSwing: () => this.project?.swing ?? 50,
       getTimeSignature: () => this.project?.timeSignature ?? [4, 4],
+      getHumanize: () => this.project?.humanize ?? { timing: 0, velocity: 0 },
       metronomeEnabled: () => {
         const m = this.project?.metronome ?? 'off';
         return m === 'on' || (m === 'record' && this.telemetry.recording);
       },
       countInBars: () => (this.project?.countIn ? 1 : 0),
       click: (when, accent) => this.click(when, accent),
-      playEvent: (e, when) => this.playEvent(e, when),
+      playEvent: (e, when, velocityOverride) => this.playEvent(e, when, velocityOverride),
       onPosition: (s: TransportState) => {
         this.telemetry.playing = s.playing;
         this.telemetry.recording = s.recording;
@@ -206,6 +264,28 @@ export class Engine {
 
   setProject(p: Project) {
     this.project = p;
+    this.syncSendLevels(p);
+  }
+
+  private syncSendLevels(p: Project) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bank = p.banks[this.currentBank];
+    if (!bank) return;
+    for (let i = 0; i < NUM_PADS; i++) {
+      const pad = bank[i];
+      if (!pad) continue;
+      const rv = (pad.reverbSend ?? 0) / 127;
+      const dl = (pad.delaySend ?? 0) / 127;
+      this.padReverbSends[i]?.gain.setTargetAtTime(rv, t, 0.01);
+      this.padDelaySends[i]?.gain.setTargetAtTime(dl, t, 0.01);
+    }
+    // Update delay time from BPM
+    const bpm = p.bpmScope === 'global' ? p.bpm : p.bpm;
+    if (this.delayNode) {
+      const quarterSec = 60 / bpm;
+      this.delayNode.delayTime.setTargetAtTime(quarterSec, t, 0.01);
+    }
   }
 
   setBank(b: number) {
@@ -516,9 +596,96 @@ export class Engine {
     this.voices = [];
   }
 
-  private playEvent(e: SeqEvent, when: number) {
-    this.trigger(e.pad, e.velocity, when, undefined, e.bank);
+  private playEvent(e: SeqEvent, when: number, velocityOverride?: number) {
+    const vel = velocityOverride ?? e.velocity;
+    if (e.note !== undefined && e.note !== 60) {
+      // Apply pitch offset relative to base note C4 (MIDI 60)
+      this.triggerWithNote(e.pad, vel, when, e.note, e.bank);
+    } else {
+      this.trigger(e.pad, vel, when, undefined, e.bank);
+    }
     this.telemetry.seqPadLit[e.pad] = performance.now();
+  }
+
+  /**
+   * Trigger a pad with a MIDI note override. The semitone offset is
+   * calculated relative to C4 (note 60) and added on top of the pad's
+   * existing `semi` setting.
+   */
+  triggerWithNote(
+    padIndex: number,
+    velocity: number,
+    when: number,
+    midiNote: number,
+    bankIndex?: number,
+  ): void {
+    if (!this.ctx || !this.project) return;
+    const bank = bankIndex ?? this.currentBank;
+    const pad = this.activePad(padIndex, bank);
+    if (!pad || pad.muted || !pad.sampleId) return;
+
+    const semiOffset = midiNote - 60;
+    const effectivePad: typeof pad = { ...pad, semi: pad.semi + semiOffset };
+
+    const buffer = pad.reverse
+      ? this.getReversed(pad.sampleId)
+      : this.buffers.get(pad.sampleId);
+    if (!buffer) return;
+
+    const t = when;
+
+    if (pad.muteGroup !== null) {
+      for (const v of this.voices) {
+        if (v.muteGroup === pad.muteGroup) v.stop(t);
+      }
+    }
+    if (pad.polyphony === 'mono') {
+      for (let vi = this.voices.length - 1; vi >= 0; vi--) {
+        const v = this.voices[vi];
+        if (v.pad === padIndex && v.bank === bank) {
+          v.kill(t);
+          this.voices.splice(vi, 1);
+        }
+      }
+    }
+    while (this.voices.length >= MAX_VOICES) {
+      const oldest = this.voices.shift();
+      oldest?.stop(t);
+    }
+
+    let region: { start: number; end: number } | undefined;
+    if (pad.reverse) {
+      const L = buffer.length;
+      const s = pad.start;
+      const e = pad.end || L;
+      region = { start: L - e, end: L - s };
+    }
+
+    const resolved = this.resolvePlayback(effectivePad, buffer, region);
+    const playPad = resolved.padOverride
+      ? { ...effectivePad, ...resolved.padOverride }
+      : effectivePad;
+    const playRegion = resolved.padOverride ? undefined : region;
+
+    const voice = triggerVoice({
+      ctx: this.ctx,
+      buffer: resolved.buffer,
+      pad: playPad,
+      padIndex,
+      bankIndex: bank,
+      destination: this.padGains[padIndex],
+      when: t + (pad.offset / 100) * 0.25,
+      velocity,
+      slice: playRegion,
+      rate: resolved.rate,
+    });
+
+    this.voices.push(voice);
+    voice.source.addEventListener('ended', () => {
+      const i = this.voices.indexOf(voice);
+      if (i >= 0) this.voices.splice(i, 1);
+    });
+    this.telemetry.padActivity[padIndex] = performance.now();
   }
 
   private onSequenceLoopComplete() {

@@ -40,6 +40,10 @@ jobs:
         run: npx cap sync android
 
       - name: Build debug APK
+        # WARNING: debug builds are signed with a shared debug key and may
+        # enable WebView remote debugging on some devices. Do not distribute
+        # to end users as a production release. Use assembleRelease with a
+        # proper signing config for production distribution.
         run: |
           cd android
           chmod +x ./gradlew

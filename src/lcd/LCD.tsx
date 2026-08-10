@@ -17,6 +17,7 @@ import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
 import { resolveScreenParams } from './screenParams';
 import { FLEX_BEAT_EFFECTS } from '../audio/fx/flexbeat';
 import { guideClick } from '../guide/guideClick';
+import { PianoRoll } from '../ui/PianoRoll';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -105,6 +106,14 @@ export function LCD() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [selectedPad, sampleLen, screen]);
+
+  if (screen === 'pianoroll') {
+    return (
+      <div className="lcd" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <PianoRoll />
+      </div>
+    );
+  }
 
   if (screen === 'sample') {
     const { params } = resolveSamplePage(
@@ -265,6 +274,7 @@ const SCREEN_TITLES: Record<string, string> = {
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX', 'knobfx-select': 'KNOB FX SELECT',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
+  pianoroll: 'PIANO ROLL',
 };
 
 const TAB_INDICES = [0, 1, 2];
@@ -334,6 +344,7 @@ function KRow({
 function ScreenBody({ screen }: { screen: string }) {
   const project = useStore((s) => s.project);
   const updateProject = useStore((s) => s.updateProject);
+  const setScreen = useStore((s) => s.setScreen);
 
   switch (screen) {
     case 'seq': {
@@ -342,11 +353,17 @@ function ScreenBody({ screen }: { screen: string }) {
       const seq = project.sequences[bank][seqSlot];
       const countIn = project.countIn;
       const metro = project.metronome;
+      const humanize = project.humanize ?? { timing: 0, velocity: 0 };
       return (
         <div className="lcdpanel">
           <div className="big">Seq {seqSlot + 1}: {seq.name}</div>
           <div className="lcdrow"><span>Events</span><b>{seq.events.length}</b></div>
           <div className="lcdrow"><span>Length</span><b>{seq.bars} bars</b></div>
+          <div className="lcdbtns">
+            <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('pianoroll')}>
+              PIANO ROLL
+            </button>
+          </div>
           <Row label="Tempo">
             <input
               type="range" min={40} max={200} step={0.5}
@@ -362,6 +379,22 @@ function ScreenBody({ screen }: { screen: string }) {
               onChange={(e) => updateProject({ swing: Number(e.target.value) })}
             />
             <b>{project.swing.toFixed(1)}%</b>
+          </Row>
+          <Row label="Hmz Time">
+            <input
+              type="range" min={0} max={100} step={1}
+              value={humanize.timing}
+              onChange={(e) => updateProject({ humanize: { ...humanize, timing: Number(e.target.value) } })}
+            />
+            <b>{humanize.timing}%</b>
+          </Row>
+          <Row label="Hmz Vel">
+            <input
+              type="range" min={0} max={100} step={1}
+              value={humanize.velocity}
+              onChange={(e) => updateProject({ humanize: { ...humanize, velocity: Number(e.target.value) } })}
+            />
+            <b>{humanize.velocity}%</b>
           </Row>
           <div className="lcdrow">
             <span>Metro</span>
@@ -411,6 +444,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'stepedit':
       return <StepEditScreen />;
+
+    case 'pianoroll':
+      return <PianoRoll />;
 
     case 'fadermenu':
       return <FaderMenuScreen />;
@@ -656,11 +692,18 @@ function MidiScreen() {
   const setMidiConfig = useStore((s) => s.setMidiConfig);
   const inputs = useStore((s) => s.midiInputs);
   const outputs = useStore((s) => s.midiOutputs);
+  const midiLearn = useStore((s) => s.midiLearn);
+  const midiMappings = useStore((s) => s.midiMappings);
+  const startMidiLearn = useStore((s) => s.startMidiLearn);
+  const stopMidiLearn = useStore((s) => s.stopMidiLearn);
+  const clearMidiMapping = useStore((s) => s.clearMidiMapping);
 
   const toggle = (key: keyof typeof midiConfig) => {
     const v = midiConfig[key];
     if (typeof v === 'boolean') setMidiConfig({ ...midiConfig, [key]: !v });
   };
+
+  const LEARN_TARGETS = ['BPM', 'Pad Volume', 'Pad Pan', 'Pad Tune', 'Kit Volume', 'Filter Cutoff'];
 
   return (
     <div className="lcdpanel">
@@ -716,6 +759,36 @@ function MidiScreen() {
       ))}
       <div className="lcdbtns">
         <button type="button" onClick={() => void connectMidi()}>CONNECT</button>
+        {midiLearn.active
+          ? <button type="button" className="on" onClick={() => stopMidiLearn()}>CANCEL LEARN</button>
+          : null
+        }
+      </div>
+      <div className="hintline">MIDI LEARN — tap a target then move a CC knob:</div>
+      <div className="lcdlist" style={{ maxHeight: '5em', overflowY: 'auto' }}>
+        {LEARN_TARGETS.map((target) => {
+          const mapped = midiMappings[target];
+          const isLearning = midiLearn.active && midiLearn.target === target;
+          return (
+            <div key={target} style={{ display: 'flex', gap: '.4em', alignItems: 'center' }}>
+              <button
+                type="button"
+                className={`lcd-mini ${isLearning ? 'on' : ''}`}
+                onClick={() => isLearning ? stopMidiLearn() : startMidiLearn(target)}
+              >
+                {isLearning ? 'WAITING…' : 'LEARN'}
+              </button>
+              <span style={{ flex: 1 }}>{target}</span>
+              {mapped
+                ? <>
+                    <span style={{ fontSize: '.8em', color: '#a8a89e' }}>Ch{mapped.channel} CC{mapped.cc}</span>
+                    <button type="button" className="lcd-mini" onClick={() => clearMidiMapping(target)}>✕</button>
+                  </>
+                : <span style={{ fontSize: '.8em', color: '#6f6f66' }}>—</span>
+              }
+            </div>
+          );
+        })}
       </div>
       <div className="hintline">Pads map from C1 (note 36). Settings persist on this device.</div>
     </div>
@@ -776,8 +849,16 @@ function CompressorScreen() {
 function ProjectScreen() {
   const project = useStore((s) => s.project);
   const exportSequence = useStore((s) => s.exportSequence);
+  const exportStems = useStore((s) => s.exportStems);
+  const exportProject = useStore((s) => s.exportProject);
+  const importProject = useStore((s) => s.importProject);
   const newProject = useStore((s) => s.newProject);
   const setScreen = useStore((s) => s.setScreen);
+  const theme = useStore((s) => s.theme);
+  const toggleTheme = useStore((s) => s.toggleTheme);
+  const detectBpm = useStore((s) => s.detectBpm);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="lcdpanel">
       <div className="lcdlist">
@@ -790,6 +871,29 @@ function ProjectScreen() {
         <button type="button" onClick={() => void exportSequence()}>EXPORT SEQ</button>
         <button type="button" onClick={() => newProject()}>NEW</button>
       </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => void exportStems()}>STEMS</button>
+        <button type="button" onClick={() => exportProject()}>EXPORT JSON</button>
+        <button type="button" onClick={() => fileRef.current?.click()}>IMPORT JSON</button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json"
+          className="file-input-sr"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void importProject(f);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => void detectBpm()}>DETECT BPM</button>
+        <button type="button" onClick={() => toggleTheme()}>
+          THEME: {theme.toUpperCase()}
+        </button>
+      </div>
+      <div className="hintline">STEMS exports each pad as a separate WAV.</div>
     </div>
   );
 }
@@ -1141,25 +1245,46 @@ function StepEditScreen() {
         <b>1/{16 / (project.quantize / (TICKS_PER_16TH / 16))}</b>
       </div>
       {current && (
-        <div className="lcdrow">
-          <span>Vel</span>
-          <input
-            type="range" min={1} max={127} value={current.velocity}
-            onChange={(e) => {
-              const vel = Number(e.target.value);
-              const events = seq.events.map((ev) =>
-                ev === current ? { ...ev, velocity: vel } : ev
-              );
-              const banks = project.sequences.map((row, bi) =>
-                bi === bank
-                  ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s))
-                  : row
-              );
-              updateProject({ sequences: banks });
-            }}
-          />
-          <b>{current.velocity}</b>
-        </div>
+        <>
+          <div className="lcdrow">
+            <span>Vel</span>
+            <input
+              type="range" min={1} max={127} value={current.velocity}
+              onChange={(e) => {
+                const vel = Number(e.target.value);
+                const events = seq.events.map((ev) =>
+                  ev === current ? { ...ev, velocity: vel } : ev
+                );
+                const banks = project.sequences.map((row, bi) =>
+                  bi === bank
+                    ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s))
+                    : row
+                );
+                updateProject({ sequences: banks });
+              }}
+            />
+            <b>{current.velocity}</b>
+          </div>
+          <div className="lcdrow">
+            <span>Prob</span>
+            <input
+              type="range" min={0} max={100} value={current.probability ?? 100}
+              onChange={(e) => {
+                const probability = Number(e.target.value);
+                const events = seq.events.map((ev) =>
+                  ev === current ? { ...ev, probability } : ev
+                );
+                const banks = project.sequences.map((row, bi) =>
+                  bi === bank
+                    ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s))
+                    : row
+                );
+                updateProject({ sequences: banks });
+              }}
+            />
+            <b>{current.probability ?? 100}%</b>
+          </div>
+        </>
       )}
       <div className="lcdbtns">
         <button type="button" onClick={eraseStepEvent} disabled={!current}>ERASE</button>

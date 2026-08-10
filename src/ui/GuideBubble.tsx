@@ -39,7 +39,7 @@ export function GuideBubble() {
         aria-expanded={expanded}
       >
         <div className="guide-pop__chrome">
-          <span className="guide-pop__badge">{guideMode ? '◆ GUIDE' : '◆ TIP'}</span>
+          <span className="guide-pop__badge">◆ MPC GUIDE</span>
           <span className="guide-pop__coin">FREE PLAY</span>
           <button type="button" className="guide-pop__x" onClick={dismissGuide} aria-label="Close">
             ✕
@@ -113,7 +113,7 @@ export function GuideBanner() {
   return createPortal(
     <div className="guide-banner" role="status">
       <span className="guide-banner__tag">GUIDE</span>
-      Tap anything for tips · tap GUIDE again to exit
+      GUIDE ON — every button shows a tip · tap GUIDE again to exit
     </div>,
     document.body,
   );
