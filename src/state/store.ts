@@ -28,8 +28,27 @@ import { fetchFreesoundPreview, searchFreesound, checkFreesoundProxy } from '../
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
   | 'browser' | 'kits' | 'library' | 'smprec'
-  | 'padfx' | 'flexbeat' | 'knobfx'
+  | 'padfx' | 'flexbeat' | 'knobfx' | 'knobfx-select'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj';
+
+export type FlexBeatMode = 'oneshot' | 'loop';
+export type InputRecLength = 'FREE' | 'SEQ';
+export type InputSource = 'mic' | 'resample';
+
+interface FlexBeatState {
+  mode: FlexBeatMode;
+  quantize: boolean;
+  mix: number;
+  activePad: number;
+}
+
+interface InputConfigState {
+  source: InputSource;
+  monitor: boolean;
+  threshold: number;
+  recLength: InputRecLength;
+  recFx: boolean;
+}
 
 export type PadPlayMode = 'chop' | 'loop' | 'mute' | 'levels';
 
@@ -43,10 +62,27 @@ interface UIState {
   selectedPad: number;
   pausedAt: number;
   kitVolume: number;
-  compressor: { attack: number; release: number; amount: number };
+  compressor: {
+    attack: number;
+    release: number;
+    amount: number;
+    color: boolean;
+    bypass: boolean;
+    inBoost: number;
+  };
   noteRepeat: boolean;
   noteRepeatTriplet: boolean;
   eraseMode: boolean;
+  faderEnabled: boolean;
+
+  flexBeat: FlexBeatState;
+  knobFXParams: [number, number, number];
+  knobFXRouting: boolean[];
+  knobFXBypass: boolean;
+  timeCorrectPads: boolean[];
+  timeCorrectShift: number;
+  inputConfig: InputConfigState;
+  loadProjectCategory: 'demos' | 'kits' | 'user';
 
   screen: ScreenId;
   /** Which B-button group is showing, and how far through its page cycle. */
@@ -70,6 +106,7 @@ interface UIState {
 
   hitPad(i: number, velocity?: number): void;
   releasePad(i: number): void;
+  startPadNoteRepeat(i: number, velocity: number): void;
 
   updatePad(i: number, patch: Partial<Pad>): void;
   updateProject(patch: Partial<Project>): void;
@@ -93,7 +130,32 @@ interface UIState {
   recallSample(): Promise<void>;
   setFaderParam(p: string): void;
   setKitVolume(db: number): void;
-  setCompressorSettings(a: number, r: number, amt: number): void;
+  setCompressorSettings(
+    a: number, r: number, amt: number,
+    color?: boolean, bypass?: boolean, inBoost?: number,
+  ): void;
+  toggleCompressorColor(): void;
+  toggleCompressorBypass(): void;
+
+  setKnobFXParam(k: 0 | 1 | 2, v: number): void;
+  toggleKnobFXPad(i: number): void;
+  setAllKnobFXPads(on: boolean): void;
+  toggleKnobFXBypass(): void;
+
+  setFlexBeat(patch: Partial<FlexBeatState>): void;
+  selectFlexBeatPad(pad: number): void;
+
+  setStepEditVelocity(v: number): void;
+  setTimeCorrectShift(n: number): void;
+  toggleTimeCorrectPad(i: number): void;
+  selectAllTimeCorrectPads(): void;
+  applyTimeCorrect(): void;
+
+  setInputConfig(patch: Partial<InputConfigState>): void;
+  toggleFaderEnabled(): void;
+  loadFactoryKitOnly(kitId: string): Promise<void>;
+  newProject(): void;
+  setLoadProjectCategory(c: 'demos' | 'kits' | 'user'): void;
   loadSavedProject(id: string): Promise<void>;
   deleteBrowserSample(id: string): Promise<void>;
   selectStepEditPad(pad: number): void;
@@ -197,10 +259,26 @@ export const useStore = create<UIState>((set, get) => ({
   selectedPad: 0,
   pausedAt: 0,
   kitVolume: 0,
-  compressor: { attack: 0.1, release: 0.35, amount: 0.3 },
+  compressor: { attack: 0.1, release: 0.35, amount: 0.3, color: false, bypass: false, inBoost: 0 },
   noteRepeat: false,
   noteRepeatTriplet: false,
   eraseMode: false,
+  faderEnabled: true,
+
+  flexBeat: { mode: 'loop', quantize: true, mix: 0.75, activePad: 0 },
+  knobFXParams: [0.5, 0.5, 0.5],
+  knobFXRouting: Array.from({ length: 16 }, () => true),
+  knobFXBypass: false,
+  timeCorrectPads: Array.from({ length: 16 }, () => true),
+  timeCorrectShift: 0,
+  inputConfig: {
+    source: 'mic',
+    monitor: false,
+    threshold: -40,
+    recLength: 'FREE',
+    recFx: false,
+  },
+  loadProjectCategory: 'user',
 
   screen: 'sample',
   bGroup: 1,
@@ -244,7 +322,15 @@ export const useStore = create<UIState>((set, get) => ({
       0.1 + get().compressor.attack * 150,
       3 + get().compressor.release * 297,
       get().compressor.amount * 100,
+      get().compressor.color,
+      get().compressor.bypass,
+      get().compressor.inBoost,
     );
+    engine.setKnobFXRouting(get().knobFXRouting, get().knobFXBypass);
+    engine.setFlexBeat(get().flexBeat);
+    for (let k = 0; k < 3; k++) {
+      engine.setKnobFXParam(k as 0 | 1 | 2, get().knobFXParams[k]);
+    }
     engine.onRecordHit = () => {
       const { project, bank, seqSlot } = get();
       const banks = project.sequences.map((row, bi) =>
@@ -362,6 +448,21 @@ export const useStore = create<UIState>((set, get) => ({
   hitPad(i, velocity = 100) {
     const { padModes, project, bank, screen, eraseMode } = get();
 
+    if (screen === 'flexbeat') {
+      get().selectFlexBeatPad(i);
+      return;
+    }
+
+    if (screen === 'knobfx-select') {
+      get().toggleKnobFXPad(i);
+      return;
+    }
+
+    if (screen === 'timecorr') {
+      get().toggleTimeCorrectPad(i);
+      return;
+    }
+
     if (screen === 'seq' && engine.telemetry.playing) {
       get().queueSequenceSlot(i);
       return;
@@ -401,6 +502,14 @@ export const useStore = create<UIState>((set, get) => ({
 
   releasePad(i) {
     engine.release(i);
+    if (get().noteRepeat) {
+      engine.stopNoteRepeat(i);
+    }
+  },
+
+  startPadNoteRepeat(i: number, velocity: number) {
+    if (!get().noteRepeat) return;
+    engine.startNoteRepeat(i, velocity, get().noteRepeatTriplet);
   },
 
   updatePad(i, patch) {
@@ -616,9 +725,185 @@ export const useStore = create<UIState>((set, get) => ({
     set({ kitVolume: db });
   },
 
-  setCompressorSettings(a, r, amt) {
-    engine.setCompressor(0.1 + a * 150, 3 + r * 297, amt * 100);
-    set({ compressor: { attack: a, release: r, amount: amt } });
+  setCompressorSettings(a, r, amt, color, bypass, inBoost) {
+    const c = get().compressor;
+    const next = {
+      attack: a,
+      release: r,
+      amount: amt,
+      color: color ?? c.color,
+      bypass: bypass ?? c.bypass,
+      inBoost: inBoost ?? c.inBoost,
+    };
+    engine.setCompressor(
+      0.1 + next.attack * 150,
+      3 + next.release * 297,
+      next.amount * 100,
+      next.color,
+      next.bypass,
+      next.inBoost,
+    );
+    set({ compressor: next });
+  },
+
+  toggleCompressorColor() {
+    const c = get().compressor;
+    get().setCompressorSettings(c.attack, c.release, c.amount, !c.color, c.bypass, c.inBoost);
+  },
+
+  toggleCompressorBypass() {
+    const c = get().compressor;
+    get().setCompressorSettings(c.attack, c.release, c.amount, c.color, !c.bypass, c.inBoost);
+  },
+
+  setKnobFXParam(k, v) {
+    engine.setKnobFXParam(k, v);
+    const params = [...get().knobFXParams] as [number, number, number];
+    params[k] = v;
+    set({ knobFXParams: params });
+  },
+
+  toggleKnobFXPad(i) {
+    const routing = [...get().knobFXRouting];
+    routing[i] = !routing[i];
+    engine.setKnobFXRouting(routing, get().knobFXBypass);
+    set({ knobFXRouting: routing });
+  },
+
+  setAllKnobFXPads(on) {
+    const routing = Array.from({ length: 16 }, () => on);
+    engine.setKnobFXRouting(routing, get().knobFXBypass);
+    set({ knobFXRouting: routing });
+  },
+
+  toggleKnobFXBypass() {
+    const bypass = !get().knobFXBypass;
+    engine.setKnobFXRouting(get().knobFXRouting, bypass);
+    set({ knobFXBypass: bypass });
+  },
+
+  setFlexBeat(patch) {
+    const next = { ...get().flexBeat, ...patch };
+    engine.setFlexBeat(next);
+    set({ flexBeat: next });
+  },
+
+  selectFlexBeatPad(pad) {
+    engine.selectFlexBeatPad(pad);
+    set({ flexBeat: { ...get().flexBeat, activePad: pad } });
+  },
+
+  setStepEditVelocity(v) {
+    const { project, bank, seqSlot, stepEditTick, stepEditEvent } = get();
+    const seq = project.sequences[bank][seqSlot];
+    const atTick = stepEditTick * project.quantize;
+    const matches = seq.events
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => Math.abs(e.tick - atTick) < project.quantize / 2);
+    const target = matches[stepEditEvent];
+    if (!target) return;
+    const events = seq.events.map((ev) =>
+      ev === target.e ? { ...ev, velocity: Math.max(1, Math.min(127, v)) } : ev
+    );
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  setTimeCorrectShift(n) {
+    set({ timeCorrectShift: Math.max(-48, Math.min(48, n)) });
+  },
+
+  toggleTimeCorrectPad(i) {
+    const pads = [...get().timeCorrectPads];
+    pads[i] = !pads[i];
+    set({ timeCorrectPads: pads });
+  },
+
+  selectAllTimeCorrectPads() {
+    set({ timeCorrectPads: Array.from({ length: 16 }, () => true) });
+  },
+
+  applyTimeCorrect() {
+    const { project, bank, seqSlot, timeCorrectPads, timeCorrectShift } = get();
+    history.push(project);
+    const seq = project.sequences[bank][seqSlot];
+    const events = seq.events.map((e) => {
+      if (!timeCorrectPads[e.pad]) return e;
+      let tick = Math.round(e.tick / project.quantize) * project.quantize;
+      tick += timeCorrectShift;
+      tick = Math.max(0, tick);
+      return { ...e, tick };
+    });
+    const banks = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
+    );
+    get().updateProject({ sequences: banks });
+  },
+
+  setInputConfig(patch) {
+    const next = { ...get().inputConfig, ...patch };
+    if (patch.monitor !== undefined) {
+      engine.setInputMonitor(patch.monitor);
+    }
+    set({ inputConfig: next });
+  },
+
+  toggleFaderEnabled() {
+    set({ faderEnabled: !get().faderEnabled });
+  },
+
+  setLoadProjectCategory(c) {
+    set({ loadProjectCategory: c });
+  },
+
+  newProject() {
+    history.push(get().project);
+    const p = makeProject('New Project');
+    engine.setProject(p);
+    set({
+      project: p,
+      bank: 0,
+      seqSlot: 0,
+      selectedPad: 0,
+      screen: 'sample',
+    });
+  },
+
+  async loadFactoryKitOnly(kitId) {
+    if (!engine.ctx) await engine.init();
+    const ctx = engine.ctx;
+    if (!ctx) return;
+    const kit = await generateFactoryKit(ctx, kitId);
+    if (!kit) return;
+    const meta = FACTORY_KITS.find((k) => k.id === kitId);
+    const padDefaults = meta ? factoryKitPadDefaults(meta) : null;
+    history.push(get().project);
+    for (let i = 0; i < 16; i++) {
+      const buffer = kit.buffers[i];
+      if (!buffer) continue;
+      const id = crypto.randomUUID();
+      engine.putBuffer(id, buffer);
+      const wav = await engine.bufferToWav(buffer).arrayBuffer();
+      await writeSample(id, wav);
+      const label = meta?.padNames[i] ?? `Pad ${i + 1}`;
+      const loopStart = padDefaults?.loop
+        ? Math.floor(buffer.length * padDefaults.loopStartRatio)
+        : 0;
+      get().updatePad(i, {
+        sampleId: id,
+        sampleName: `${meta?.name ?? kit.name}-${label}`.slice(0, 24),
+        start: 0,
+        end: buffer.length,
+        loopStart,
+        loop: padDefaults?.loop ?? false,
+        slices: [],
+        gain: meta?.defaultGain ?? 0,
+        polyphony: padDefaults?.polyphony ?? 'mono',
+      });
+    }
+    set({ screen: 'sample' });
   },
 
   async loadSavedProject(id) {
@@ -951,13 +1236,19 @@ export const useStore = create<UIState>((set, get) => ({
 
   async resampleToPad(padIndex) {
     const p = get().project;
-    const { kitVolume, compressor } = get();
+    const { kitVolume, compressor, knobFX, knobFXParams, knobFXBypass, knobFXRouting } = get();
     const blob = await renderToWav({
       project: p,
       order: [{ bank: get().bank, slot: get().seqSlot }],
       getBuffer: (id) => engine.getBuffer(id),
       kitVolumeDb: kitVolume,
       compressor,
+      knobFX: knobFXBypass ? undefined : {
+        id: knobFX,
+        params: knobFXParams,
+        bypass: knobFXBypass,
+        routing: knobFXRouting,
+      },
     });
     if (!blob) return;
     const data = await blob.arrayBuffer();
@@ -987,7 +1278,8 @@ export const useStore = create<UIState>((set, get) => ({
 
   cycleFaderParam() {
     const order = [
-      'Pad Volume', 'Pad Pan', 'Pad Tune', 'Pad Filter Cutoff', 'Kit Volume',
+      'Pad Volume', 'Pad Pan', 'Pad Tune',
+      'Pad Amp Attack', 'Pad Amp Decay', 'Pad Filter Cutoff', 'Kit Volume',
     ];
     const i = order.indexOf(get().faderParam);
     set({ faderParam: order[(i + 1) % order.length] });
@@ -1114,6 +1406,9 @@ export const useStore = create<UIState>((set, get) => ({
   setKnobFX(id) {
     void engine.setKnobFX(id);
     set({ knobFX: id });
+    for (let k = 0; k < 3; k++) {
+      engine.setKnobFXParam(k as 0 | 1 | 2, get().knobFXParams[k]);
+    }
   },
 
   pressPadFX(id, amount) {
@@ -1140,7 +1435,7 @@ export const useStore = create<UIState>((set, get) => ({
 
   async exportSong() {
     const p = get().project;
-    const { kitVolume, compressor } = get();
+    const { kitVolume, compressor, knobFX, knobFXParams, knobFXBypass, knobFXRouting } = get();
     const order = p.song.length ? p.song : [{ bank: get().bank, slot: get().seqSlot }];
     const blob = await renderToWav({
       project: p,
@@ -1148,19 +1443,31 @@ export const useStore = create<UIState>((set, get) => ({
       getBuffer: (id) => engine.getBuffer(id),
       kitVolumeDb: kitVolume,
       compressor,
+      knobFX: knobFXBypass ? undefined : {
+        id: knobFX,
+        params: knobFXParams,
+        bypass: knobFXBypass,
+        routing: knobFXRouting,
+      },
     });
     if (blob) downloadBlob(blob, `${p.name || 'song'}.wav`);
   },
 
   async exportSequence() {
     const p = get().project;
-    const { kitVolume, compressor, bank, seqSlot } = get();
+    const { kitVolume, compressor, knobFX, knobFXParams, knobFXBypass, knobFXRouting, bank, seqSlot } = get();
     const blob = await renderToWav({
       project: p,
       order: [{ bank, slot: seqSlot }],
       getBuffer: (id) => engine.getBuffer(id),
       kitVolumeDb: kitVolume,
       compressor,
+      knobFX: knobFXBypass ? undefined : {
+        id: knobFX,
+        params: knobFXParams,
+        bypass: knobFXBypass,
+        routing: knobFXRouting,
+      },
     });
     if (blob) {
       const seq = p.sequences[get().bank][get().seqSlot];

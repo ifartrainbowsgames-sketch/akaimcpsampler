@@ -49,6 +49,15 @@ export interface SchedulerHost {
   onMidiClock?(): void;
 }
 
+export interface NoteRepeatSlot {
+  pad: number;
+  bank: number;
+  velocity: number;
+  /** Ticks between repeats. */
+  interval: number;
+  nextTick: number;
+}
+
 export class Scheduler {
   private host: SchedulerHost;
   private timer: number | null = null;
@@ -61,6 +70,7 @@ export class Scheduler {
   private countInTicks = 0;
   private countInDone = true;
   private lastLoopIndex = 0;
+  private noteRepeats = new Map<number, NoteRepeatSlot>();
 
   state: TransportState = {
     playing: false,
@@ -117,6 +127,29 @@ export class Scheduler {
     this.tick();
   }
 
+  /** Register a held-pad note repeat (keyed by pad index). */
+  addNoteRepeat(pad: number, bank: number, velocity: number, intervalTicks: number) {
+    const loopLen = this.loopLengthTicks || PPQN * 4;
+    const now = this.countInDone
+      ? Math.round((this.currentTick() - this.countInTicks) % loopLen)
+      : 0;
+    this.noteRepeats.set(pad, {
+      pad,
+      bank,
+      velocity,
+      interval: Math.max(1, intervalTicks),
+      nextTick: (now + intervalTicks) % loopLen,
+    });
+  }
+
+  removeNoteRepeat(pad: number) {
+    this.noteRepeats.delete(pad);
+  }
+
+  clearNoteRepeats() {
+    this.noteRepeats.clear();
+  }
+
   stop() {
     this.state.playing = false;
     this.state.recording = false;
@@ -125,6 +158,7 @@ export class Scheduler {
     this.state.currentStep = 0;
     this.countInTicks = 0;
     this.countInDone = true;
+    this.noteRepeats.clear();
     if (this.worker) this.worker.postMessage('stop');
     if (this.timer !== null) {
       clearInterval(this.timer);
@@ -183,6 +217,21 @@ export class Scheduler {
           const swung = applySwing(e.tick, swing);
           if (Math.round(swung) === tickInLoop) {
             this.host.playEvent(e, this.timeForTick(this.nextTick));
+          }
+        }
+
+        // Note repeat — scheduler-driven, transport-synced.
+        for (const slot of this.noteRepeats.values()) {
+          if (tickInLoop === slot.nextTick % this.loopLengthTicks) {
+            const ev: SeqEvent = {
+              tick: tickInLoop,
+              pad: slot.pad,
+              bank: slot.bank,
+              velocity: slot.velocity,
+              duration: TICKS_PER_16TH,
+            };
+            this.host.playEvent(ev, this.timeForTick(this.nextTick));
+            slot.nextTick = (tickInLoop + slot.interval) % this.loopLengthTicks;
           }
         }
       }

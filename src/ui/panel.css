@@ -240,6 +240,18 @@ button{font:inherit}
 .flexbeat-grid{max-height:8em;overflow-y:auto}
 .kitlist{max-height:9em}
 .kitsearch{flex:1;min-width:0;font-size:.75em;padding:.2em .35em;background:#111;color:#ccc;border:1px solid #333;border-radius:2px}
+.pad.flexon{box-shadow:0 0 0 2px #f80,0 0 12px rgba(255,136,0,.45)}
+.pad.knobfx-lit{opacity:1}
+.pad.knobfx-dim{opacity:.45}
+.pad.tcsel{box-shadow:0 0 0 2px #4af,0 0 8px rgba(68,170,255,.35)}
+.knob--takeover{opacity:.85}
+.knob-arrow{font-size:.45em;color:#4af;position:absolute;bottom:-2px}
+.faderwrap--off{opacity:.45}
+.fader--takeover .knobcap{opacity:.7}
+.fxpad-label{padding:.35em;text-align:center;border-radius:3px;font-size:.75em;background:#1a1a1a}
+.fxpad-label.on{background:#284028;color:#8f8}
+.fxpad-label.dim{opacity:.45}
+.lcdbtns--tabs{gap:.25em}
 .recmeter{flex:1;height:.55em;background:#2a2a28;border-radius:.1em;overflow:hidden}
 .recmeter i{display:block;height:100%;background:linear-gradient(90deg,#3FBF52,#E8D24A);transition:width .05s linear}
 .pending{color:#8f8f86}
