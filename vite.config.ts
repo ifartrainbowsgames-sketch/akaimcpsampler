@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { loadEnv, type Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import type { ServerResponse } from 'node:http';
 
@@ -86,5 +87,6 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), freesoundDevProxy(env)],
     server: { port: 5173 },
     build: { target: 'es2022' },
+    test: { environment: 'node' },
   };
 });
