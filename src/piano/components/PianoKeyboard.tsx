@@ -12,7 +12,7 @@ import { usePianoStore } from '../store/pianoStore';
 import { PianoWhiteKey } from './PianoWhiteKey';
 import { PianoBlackKey } from './PianoBlackKey';
 
-export function PianoKeyboard() {
+export function PianoKeyboard({ compact = false }: { compact?: boolean }) {
   const viewportStart = usePianoStore((s) => s.viewportStart);
   const panViewport = usePianoStore((s) => s.panViewport);
   const velocity = usePianoStore((s) => s.velocity);
@@ -116,7 +116,7 @@ export function PianoKeyboard() {
   }
 
   return (
-    <div className="piano-kb-wrap">
+    <div className={`piano-kb-wrap${compact ? ' piano-kb-wrap--compact' : ''}`}>
       <div className="piano-kb-nav">
         <button type="button" className="piano-nav-btn" onClick={() => panViewport(-3)} aria-label="Keyboard left">◀</button>
         <button type="button" className="piano-nav-btn" onClick={() => panViewport(3)} aria-label="Keyboard right">▶</button>

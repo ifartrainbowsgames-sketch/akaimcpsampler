@@ -7,6 +7,8 @@ import { PianoDisplay } from './PianoDisplay';
 import { PianoParameterBar } from './PianoParameterBar';
 import { PianoControls } from './PianoControls';
 import { PianoKeyboard } from './PianoKeyboard';
+import { PianoSongStudio } from './PianoSongStudio';
+import { bindPianoSongRecorder, usePianoSongStore } from '../store/pianoSongStore';
 import {
   COMPUTER_KEY_MAP,
   isTypingTarget,
@@ -42,6 +44,12 @@ export function PianoOverlay() {
   const octave = usePianoStore((s) => s.octave);
   const setSustain = usePianoStore((s) => s.setSustain);
   const audioStatus = usePianoStore((s) => s.audioStatus);
+  const tab = usePianoSongStore((s) => s.tab);
+  const setTab = usePianoSongStore((s) => s.setTab);
+
+  useEffect(() => {
+    bindPianoSongRecorder();
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle('piano-open', open);
@@ -136,6 +144,22 @@ export function PianoOverlay() {
     >
       <div className="piano-fs__head">
         <span className="piano-fs__title">GRAND PIANO</span>
+        <div className="piano-fs__tabs">
+          <button
+            type="button"
+            className={`piano-fs__tab${tab === 'play' ? ' piano-fs__tab--on' : ''}`}
+            onClick={() => setTab('play')}
+          >
+            PLAY
+          </button>
+          <button
+            type="button"
+            className={`piano-fs__tab${tab === 'song' ? ' piano-fs__tab--on' : ''}`}
+            onClick={() => setTab('song')}
+          >
+            SONG
+          </button>
+        </div>
         <button type="button" className="piano-fs__close" onClick={() => setOpen(false)} aria-label="Close piano">
           ✕ MPC
         </button>
@@ -147,25 +171,32 @@ export function PianoOverlay() {
         </button>
       )}
 
-      <PianoDisplay />
+      {tab === 'play' ? (
+        <>
+          <PianoDisplay />
 
-      <div className="piano-mixer">
-        <div className="piano-mixer__hdr">MIXER</div>
-        <PianoParameterBar label="VELOCITY" value={velocity} onChange={setVelocity} max={127} />
-        <PianoParameterBar label="VOLUME" value={Math.round(volume * 100)} onChange={(v) => setVolume(v / 100)} />
-        <PianoParameterBar label="REVERB" value={Math.round(reverb * 100)} onChange={(v) => setReverb(v / 100)} />
-        <PianoParameterBar label="TONE" value={Math.round(tone * 100)} onChange={(v) => setTone(v / 100)} />
-        <PianoParameterBar label="RELEASE" value={Math.round(release * 100)} onChange={(v) => setRelease(v / 100)} />
-        <PianoParameterBar label="WIDTH" value={Math.round(stereoWidth * 100)} onChange={(v) => setStereoWidth(v / 100)} />
-        <PianoParameterBar
-          label="KEY SIZE"
-          value={Math.round(keyScale * 100)}
-          onChange={(v) => setKeyScale(v / 100)}
-        />
-      </div>
+          <div className="piano-mixer">
+            <div className="piano-mixer__hdr">MIXER</div>
+            <PianoParameterBar label="VELOCITY" value={velocity} onChange={setVelocity} max={127} />
+            <PianoParameterBar label="VOLUME" value={Math.round(volume * 100)} onChange={(v) => setVolume(v / 100)} />
+            <PianoParameterBar label="REVERB" value={Math.round(reverb * 100)} onChange={(v) => setReverb(v / 100)} />
+            <PianoParameterBar label="TONE" value={Math.round(tone * 100)} onChange={(v) => setTone(v / 100)} />
+            <PianoParameterBar label="RELEASE" value={Math.round(release * 100)} onChange={(v) => setRelease(v / 100)} />
+            <PianoParameterBar label="WIDTH" value={Math.round(stereoWidth * 100)} onChange={(v) => setStereoWidth(v / 100)} />
+            <PianoParameterBar
+              label="KEY SIZE"
+              value={Math.round(keyScale * 100)}
+              onChange={(v) => setKeyScale(v / 100)}
+            />
+          </div>
 
-      <PianoControls />
-      <PianoKeyboard />
+          <PianoControls />
+        </>
+      ) : (
+        <PianoSongStudio />
+      )}
+
+      <PianoKeyboard compact={tab === 'song'} />
     </section>,
     document.body,
   );
