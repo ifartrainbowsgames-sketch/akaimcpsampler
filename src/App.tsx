@@ -88,6 +88,11 @@ function Panel() {
   const resolveChopChoice = useStore((s) => s.resolveChopChoice);
   const setWaveformZoom = useStore((s) => s.setWaveformZoom);
   const nudgeStepEvent = useStore((s) => s.nudgeStepEvent);
+  const setStepEditTick = useStore((s) => s.setStepEditTick);
+  const setStepEditEvent = useStore((s) => s.setStepEditEvent);
+  const stepEditTick = useStore((s) => s.stepEditTick);
+  const stepEditEvent = useStore((s) => s.stepEditEvent);
+  const seqSlot = useStore((s) => s.seqSlot);
 
   const faderEnabled = useStore((s) => s.faderEnabled);
   const kitVolume = useStore((s) => s.kitVolume);
@@ -104,8 +109,9 @@ function Panel() {
   const [transport, setTransport] = useState({ playing: false, recording: false });
 
   useEffect(() => {
+    if (screen === 'stepedit') return;
     setWaveformZoom(1 + jog * 15);
-  }, [jog, setWaveformZoom]);
+  }, [jog, screen, setWaveformZoom]);
 
   useEffect(() => {
     let raf = 0;
@@ -140,6 +146,12 @@ function Panel() {
     }
     setFaderValue(Math.max(0, Math.min(1, v)));
   }, [faderParam, selectedPad, bank, pad.gain, pad.pan, pad.semi, pad.ampEnv.attack, pad.ampEnv.decay, pad.cutoff, kitVolume, screen]);
+
+  const seq = project.sequences[bank][seqSlot];
+  const stepCount = Math.max(1, Math.min(16, seq.bars * 4));
+  const stepEvents = seq.events.filter(
+    (e) => Math.abs(e.tick - stepEditTick * project.quantize) < project.quantize / 2
+  );
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -303,13 +315,33 @@ function Panel() {
             </div>
 
             <div className="encblock">
-              <JogWheel value={jog} onChange={setJog} label="JOG" />
+              <JogWheel
+                value={screen === 'stepedit' ? stepEditTick / Math.max(1, stepCount - 1) : jog}
+                onChange={(v) => {
+                  if (screen === 'stepedit') {
+                    setStepEditTick(Math.round(v * Math.max(1, stepCount - 1)));
+                  } else {
+                    setJog(v);
+                  }
+                }}
+                label="JOG"
+              />
               <div className="micicon" aria-hidden>🎙</div>
             </div>
 
             <div className="grid2">
-              <PanelButton label="−" sub="UNDO" onClick={undo} />
-              <PanelButton label="+" sub="REDO" onClick={redo} />
+              <PanelButton label="−" sub={screen === 'stepedit' ? 'EVENT' : 'UNDO'} onClick={() => {
+                if (screen === 'stepedit') {
+                  if (shift) setStepEditEvent(Math.max(0, stepEditEvent - 1));
+                  else setStepEditTick(Math.max(0, stepEditTick - 1));
+                } else undo();
+              }} />
+              <PanelButton label="+" sub={screen === 'stepedit' ? 'EVENT' : 'REDO'} onClick={() => {
+                if (screen === 'stepedit') {
+                  if (shift) setStepEditEvent(Math.min(Math.max(0, stepEvents.length - 1), stepEditEvent + 1));
+                  else setStepEditTick(Math.min(stepCount - 1, stepEditTick + 1));
+                } else redo();
+              }} />
             </div>
 
             <div className="grid2">

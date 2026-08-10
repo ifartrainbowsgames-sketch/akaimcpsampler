@@ -732,6 +732,10 @@ export class Engine {
     this.knobFX?.setParam(k, v);
   }
 
+  setKnobFXShiftParam(k: 0 | 1 | 2, v: number) {
+    this.knobFX?.setShiftParam(k, v);
+  }
+
   pressPadFX(id: PadFXId, amount: number) {
     this.padFX?.press(id, amount);
   }

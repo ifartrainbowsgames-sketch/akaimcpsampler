@@ -4,6 +4,9 @@ import { triggerVoice, type Voice } from './voice';
 import { applySwing } from './scheduler';
 import { resolvePlayback, reverseBuffer, reverseRegion } from './playback';
 import { KnobFX, type KnobFXId } from './fx/knobfx';
+import { PadFXRack } from './fx/padfx';
+import { FlexBeat } from './fx/flexbeat';
+import { dspWorkletUrl } from './worklets/dspSource';
 
 export interface ExportCompressor {
   attack: number;
@@ -57,6 +60,17 @@ function sequenceSeconds(project: Project, seq: Sequence): number {
 
 function dbToGain(db: number): number {
   return db === -Infinity ? 0 : Math.pow(10, db / 20);
+}
+
+async function loadOfflineWorklets(ctx: OfflineAudioContext): Promise<boolean> {
+  try {
+    const url = dspWorkletUrl();
+    await ctx.audioWorklet.addModule(url);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 interface ActiveVoice {
@@ -173,6 +187,10 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
     sampleRate
   );
 
+  const workletsReady = await loadOfflineWorklets(ctx);
+  const padFX = new PadFXRack(ctx as unknown as AudioContext);
+  const flexBeat = new FlexBeat(ctx as unknown as AudioContext, workletsReady);
+
   const master = ctx.createGain();
   master.gain.value = opts.masterVolume ?? 1;
 
@@ -215,7 +233,9 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
     inBoost.connect(comp);
   }
 
-  comp.connect(master);
+  comp.connect(padFX.input);
+  padFX.output.connect(flexBeat.input);
+  flexBeat.output.connect(master);
   master.connect(ctx.destination);
 
   const padGains = Array.from({ length: 16 }, () => {

@@ -77,6 +77,7 @@ interface UIState {
 
   flexBeat: FlexBeatState;
   knobFXParams: [number, number, number];
+  knobFXShiftParams: [number, number, number];
   knobFXRouting: boolean[];
   knobFXBypass: boolean;
   timeCorrectPads: boolean[];
@@ -138,6 +139,7 @@ interface UIState {
   toggleCompressorBypass(): void;
 
   setKnobFXParam(k: 0 | 1 | 2, v: number): void;
+  setKnobFXShiftParam(k: 0 | 1 | 2, v: number): void;
   toggleKnobFXPad(i: number): void;
   setAllKnobFXPads(on: boolean): void;
   toggleKnobFXBypass(): void;
@@ -160,6 +162,10 @@ interface UIState {
   deleteBrowserSample(id: string): Promise<void>;
   selectStepEditPad(pad: number): void;
   erasePadFromStep(pad: number): void;
+  requestStepErase(pad: number): void;
+  confirmStepErase(): void;
+  cancelStepErase(): void;
+  togglePadFXLatch(id: PadFXId): void;
 
   // ---- Phase 4: sample editing ----
   selectedSlice: number;
@@ -198,6 +204,7 @@ interface UIState {
 
   stepEditTick: number;
   stepEditEvent: number;
+  stepErasePending: number | null;
   setStepEditTick(t: number): void;
   setStepEditEvent(i: number): void;
   eraseStepEvent(): void;
@@ -267,6 +274,7 @@ export const useStore = create<UIState>((set, get) => ({
 
   flexBeat: { mode: 'loop', quantize: true, mix: 0.75, activePad: 0 },
   knobFXParams: [0.5, 0.5, 0.5],
+  knobFXShiftParams: [0.5, 0.5, 0.5],
   knobFXRouting: Array.from({ length: 16 }, () => true),
   knobFXBypass: false,
   timeCorrectPads: Array.from({ length: 16 }, () => true),
@@ -303,6 +311,7 @@ export const useStore = create<UIState>((set, get) => ({
   libraryProxyReady: false,
   stepEditTick: 0,
   stepEditEvent: 0,
+  stepErasePending: null,
 
   knobFX: 'off',
   activePadFX: null,
@@ -475,7 +484,7 @@ export const useStore = create<UIState>((set, get) => ({
     }
 
     if (screen === 'stepedit' && get().shift && eraseMode) {
-      get().erasePadFromStep(i);
+      get().requestStepErase(i);
       return;
     }
 
@@ -763,6 +772,13 @@ export const useStore = create<UIState>((set, get) => ({
     set({ knobFXParams: params });
   },
 
+  setKnobFXShiftParam(k, v) {
+    engine.setKnobFXShiftParam(k, v);
+    const params = [...get().knobFXShiftParams] as [number, number, number];
+    params[k] = v;
+    set({ knobFXShiftParams: params });
+  },
+
   toggleKnobFXPad(i) {
     const routing = [...get().knobFXRouting];
     routing[i] = !routing[i];
@@ -960,6 +976,21 @@ export const useStore = create<UIState>((set, get) => ({
       bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, events } : s)) : row
     );
     get().updateProject({ sequences: banks });
+    set({ stepErasePending: null });
+  },
+
+  requestStepErase(pad) {
+    set({ stepErasePending: pad });
+  },
+
+  confirmStepErase() {
+    const pad = get().stepErasePending;
+    if (pad === null) return;
+    get().erasePadFromStep(pad);
+  },
+
+  cancelStepErase() {
+    set({ stepErasePending: null });
   },
 
   selectSlice(i) {
@@ -1419,6 +1450,10 @@ export const useStore = create<UIState>((set, get) => ({
   releasePadFX(id) {
     engine.releasePadFX(id);
     set({ activePadFX: null });
+  },
+
+  togglePadFXLatch(id) {
+    engine.togglePadFXLatch(id);
   },
 
   // ------------------------------------------------------- song and export
