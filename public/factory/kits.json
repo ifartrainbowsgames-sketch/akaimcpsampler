@@ -124,66 +124,6 @@
       "template": "house"
     },
     {
-      "id": "drums-techno-01",
-      "name": "Techno 1",
-      "category": "drums",
-      "template": "techno"
-    },
-    {
-      "id": "drums-techno-02",
-      "name": "Techno 2",
-      "category": "drums",
-      "template": "techno"
-    },
-    {
-      "id": "drums-techno-03",
-      "name": "Techno 3",
-      "category": "drums",
-      "template": "techno"
-    },
-    {
-      "id": "drums-techno-04",
-      "name": "Techno 4",
-      "category": "drums",
-      "template": "techno"
-    },
-    {
-      "id": "drums-techno-05",
-      "name": "Techno 5",
-      "category": "drums",
-      "template": "techno"
-    },
-    {
-      "id": "drums-vinyl-01",
-      "name": "Vinyl 1",
-      "category": "drums",
-      "template": "vinyl"
-    },
-    {
-      "id": "drums-vinyl-02",
-      "name": "Vinyl 2",
-      "category": "drums",
-      "template": "vinyl"
-    },
-    {
-      "id": "drums-vinyl-03",
-      "name": "Vinyl 3",
-      "category": "drums",
-      "template": "vinyl"
-    },
-    {
-      "id": "drums-vinyl-04",
-      "name": "Vinyl 4",
-      "category": "drums",
-      "template": "vinyl"
-    },
-    {
-      "id": "drums-vinyl-05",
-      "name": "Vinyl 5",
-      "category": "drums",
-      "template": "vinyl"
-    },
-    {
       "id": "drums-boom-01",
       "name": "Boom Bap 1",
       "category": "drums",
@@ -242,66 +182,6 @@
       "name": "DnB 5",
       "category": "drums",
       "template": "dnb"
-    },
-    {
-      "id": "drums-electro-01",
-      "name": "Electro 1",
-      "category": "drums",
-      "template": "electro"
-    },
-    {
-      "id": "drums-electro-02",
-      "name": "Electro 2",
-      "category": "drums",
-      "template": "electro"
-    },
-    {
-      "id": "drums-electro-03",
-      "name": "Electro 3",
-      "category": "drums",
-      "template": "electro"
-    },
-    {
-      "id": "drums-electro-04",
-      "name": "Electro 4",
-      "category": "drums",
-      "template": "electro"
-    },
-    {
-      "id": "drums-electro-05",
-      "name": "Electro 5",
-      "category": "drums",
-      "template": "electro"
-    },
-    {
-      "id": "drums-breakbeat-01",
-      "name": "Breakbeat 1",
-      "category": "drums",
-      "template": "breakbeat"
-    },
-    {
-      "id": "drums-breakbeat-02",
-      "name": "Breakbeat 2",
-      "category": "drums",
-      "template": "breakbeat"
-    },
-    {
-      "id": "drums-breakbeat-03",
-      "name": "Breakbeat 3",
-      "category": "drums",
-      "template": "breakbeat"
-    },
-    {
-      "id": "drums-breakbeat-04",
-      "name": "Breakbeat 4",
-      "category": "drums",
-      "template": "breakbeat"
-    },
-    {
-      "id": "drums-breakbeat-05",
-      "name": "Breakbeat 5",
-      "category": "drums",
-      "template": "breakbeat"
     },
     {
       "id": "bass-808-01",
@@ -364,66 +244,6 @@
       "template": "sub"
     },
     {
-      "id": "bass-acid-01",
-      "name": "Acid 1",
-      "category": "bass",
-      "template": "acid"
-    },
-    {
-      "id": "bass-acid-02",
-      "name": "Acid 2",
-      "category": "bass",
-      "template": "acid"
-    },
-    {
-      "id": "bass-acid-03",
-      "name": "Acid 3",
-      "category": "bass",
-      "template": "acid"
-    },
-    {
-      "id": "bass-acid-04",
-      "name": "Acid 4",
-      "category": "bass",
-      "template": "acid"
-    },
-    {
-      "id": "bass-acid-05",
-      "name": "Acid 5",
-      "category": "bass",
-      "template": "acid"
-    },
-    {
-      "id": "bass-fm-01",
-      "name": "FM 1",
-      "category": "bass",
-      "template": "fm"
-    },
-    {
-      "id": "bass-fm-02",
-      "name": "FM 2",
-      "category": "bass",
-      "template": "fm"
-    },
-    {
-      "id": "bass-fm-03",
-      "name": "FM 3",
-      "category": "bass",
-      "template": "fm"
-    },
-    {
-      "id": "bass-fm-04",
-      "name": "FM 4",
-      "category": "bass",
-      "template": "fm"
-    },
-    {
-      "id": "bass-fm-05",
-      "name": "FM 5",
-      "category": "bass",
-      "template": "fm"
-    },
-    {
       "id": "perc-world-01",
       "name": "World 1",
       "category": "perc",
@@ -454,124 +274,304 @@
       "template": "world"
     },
     {
-      "id": "perc-latin-01",
-      "name": "Latin 1",
-      "category": "perc",
-      "template": "latin"
+      "id": "melodic-keys-01",
+      "name": "Keys 1",
+      "category": "melodic",
+      "template": "keys"
     },
     {
-      "id": "perc-latin-02",
-      "name": "Latin 2",
-      "category": "perc",
-      "template": "latin"
+      "id": "melodic-keys-02",
+      "name": "Keys 2",
+      "category": "melodic",
+      "template": "keys"
     },
     {
-      "id": "perc-latin-03",
-      "name": "Latin 3",
-      "category": "perc",
-      "template": "latin"
+      "id": "melodic-keys-03",
+      "name": "Keys 3",
+      "category": "melodic",
+      "template": "keys"
     },
     {
-      "id": "perc-latin-04",
-      "name": "Latin 4",
-      "category": "perc",
-      "template": "latin"
+      "id": "melodic-keys-04",
+      "name": "Keys 4",
+      "category": "melodic",
+      "template": "keys"
     },
     {
-      "id": "perc-latin-05",
-      "name": "Latin 5",
-      "category": "perc",
-      "template": "latin"
+      "id": "melodic-keys-05",
+      "name": "Keys 5",
+      "category": "melodic",
+      "template": "keys"
     },
     {
-      "id": "perc-electronic-perc-01",
-      "name": "E-Perc 1",
-      "category": "perc",
-      "template": "electronic-perc"
+      "id": "melodic-pads-01",
+      "name": "Pads 1",
+      "category": "melodic",
+      "template": "pads"
     },
     {
-      "id": "perc-electronic-perc-02",
-      "name": "E-Perc 2",
-      "category": "perc",
-      "template": "electronic-perc"
+      "id": "melodic-pads-02",
+      "name": "Pads 2",
+      "category": "melodic",
+      "template": "pads"
     },
     {
-      "id": "perc-electronic-perc-03",
-      "name": "E-Perc 3",
-      "category": "perc",
-      "template": "electronic-perc"
+      "id": "melodic-pads-03",
+      "name": "Pads 3",
+      "category": "melodic",
+      "template": "pads"
     },
     {
-      "id": "perc-electronic-perc-04",
-      "name": "E-Perc 4",
-      "category": "perc",
-      "template": "electronic-perc"
+      "id": "melodic-pads-04",
+      "name": "Pads 4",
+      "category": "melodic",
+      "template": "pads"
     },
     {
-      "id": "perc-electronic-perc-05",
-      "name": "E-Perc 5",
-      "category": "perc",
-      "template": "electronic-perc"
+      "id": "melodic-pads-05",
+      "name": "Pads 5",
+      "category": "melodic",
+      "template": "pads"
     },
     {
-      "id": "synth-stabs-01",
+      "id": "melodic-leads-01",
+      "name": "Leads 1",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-02",
+      "name": "Leads 2",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-03",
+      "name": "Leads 3",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-04",
+      "name": "Leads 4",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-05",
+      "name": "Leads 5",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-chords-01",
+      "name": "Chords 1",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-02",
+      "name": "Chords 2",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-03",
+      "name": "Chords 3",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-04",
+      "name": "Chords 4",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-05",
+      "name": "Chords 5",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-stabs-01",
       "name": "Stabs 1",
-      "category": "synth",
+      "category": "melodic",
       "template": "stabs"
     },
     {
-      "id": "synth-stabs-02",
+      "id": "melodic-stabs-02",
       "name": "Stabs 2",
-      "category": "synth",
+      "category": "melodic",
       "template": "stabs"
     },
     {
-      "id": "synth-stabs-03",
+      "id": "melodic-stabs-03",
       "name": "Stabs 3",
-      "category": "synth",
+      "category": "melodic",
       "template": "stabs"
     },
     {
-      "id": "synth-stabs-04",
+      "id": "melodic-stabs-04",
       "name": "Stabs 4",
-      "category": "synth",
+      "category": "melodic",
       "template": "stabs"
     },
     {
-      "id": "synth-stabs-05",
+      "id": "melodic-stabs-05",
       "name": "Stabs 5",
-      "category": "synth",
+      "category": "melodic",
       "template": "stabs"
     },
     {
-      "id": "synth-plucks-01",
+      "id": "melodic-plucks-01",
       "name": "Plucks 1",
-      "category": "synth",
+      "category": "melodic",
       "template": "plucks"
     },
     {
-      "id": "synth-plucks-02",
+      "id": "melodic-plucks-02",
       "name": "Plucks 2",
-      "category": "synth",
+      "category": "melodic",
       "template": "plucks"
     },
     {
-      "id": "synth-plucks-03",
+      "id": "melodic-plucks-03",
       "name": "Plucks 3",
-      "category": "synth",
+      "category": "melodic",
       "template": "plucks"
     },
     {
-      "id": "synth-plucks-04",
+      "id": "melodic-plucks-04",
       "name": "Plucks 4",
-      "category": "synth",
+      "category": "melodic",
       "template": "plucks"
     },
     {
-      "id": "synth-plucks-05",
+      "id": "melodic-plucks-05",
       "name": "Plucks 5",
-      "category": "synth",
+      "category": "melodic",
       "template": "plucks"
+    },
+    {
+      "id": "melodic-bells-01",
+      "name": "Bells 1",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-02",
+      "name": "Bells 2",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-03",
+      "name": "Bells 3",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-04",
+      "name": "Bells 4",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-05",
+      "name": "Bells 5",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-arp-01",
+      "name": "Arp 1",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-02",
+      "name": "Arp 2",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-03",
+      "name": "Arp 3",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-04",
+      "name": "Arp 4",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-05",
+      "name": "Arp 5",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-strings-01",
+      "name": "Strings 1",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-02",
+      "name": "Strings 2",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-03",
+      "name": "Strings 3",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-04",
+      "name": "Strings 4",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-05",
+      "name": "Strings 5",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-organ-01",
+      "name": "Organ 1",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-02",
+      "name": "Organ 2",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-03",
+      "name": "Organ 3",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-04",
+      "name": "Organ 4",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-05",
+      "name": "Organ 5",
+      "category": "melodic",
+      "template": "organ"
     },
     {
       "id": "fx-fx-01",

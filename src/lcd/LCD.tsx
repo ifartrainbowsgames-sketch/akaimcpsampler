@@ -778,7 +778,7 @@ function KitsScreen() {
   const loadFactoryKit = useStore((s) => s.loadFactoryKit);
   const setScreen = useStore((s) => s.setScreen);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'perc' | 'synth' | 'fx'>('all');
+  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('all');
   const [query, setQuery] = useState('');
 
   const kits = FACTORY_KITS.filter((k) => {
@@ -801,7 +801,7 @@ function KitsScreen() {
         />
       </div>
       <div className="kitfilters">
-        {(['all', 'drums', 'bass', 'perc', 'synth', 'fx'] as const).map((f) => (
+        {(['all', 'drums', 'bass', 'perc', 'melodic', 'fx'] as const).map((f) => (
           <button
             key={f}
             type="button"
