@@ -17,6 +17,8 @@ import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
 import { AkaiLogo, MpcWordmark } from './ui/AkaiLogo';
 import type { ChopLoadMode } from './storage/preferences';
+import { PianoInstrument } from './piano/components/PianoInstrument';
+import './piano/piano.css';
 
 export default function App() {
   const booted = useStore((s) => s.booted);
@@ -48,7 +50,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           {busy ? 'Starting…' : 'Tap to start'}
         </button>
         <p className="bootnote">
-          Tap <b>BEATS</b> for full songs, <b>LOOPS</b> to chop a loop, or <b>GUIDE</b> to learn each button.
+          Tap <b>BEATS</b> for full songs, <b>LOOPS</b> to chop a loop, <b>GUIDE</b> for help, or load the <b>PIANO</b> above the pads.
         </p>
         <p className="bootver">v{APP_VERSION}</p>
       </div>
@@ -174,7 +176,9 @@ function Panel() {
   const onChopChoice = (mode: ChopLoadMode) => resolveChopChoice(mode);
 
   return (
-    <div className={`stage ${shift ? 'shifted' : ''}`}>
+    <div className="app-stack">
+      <PianoInstrument />
+      <div className={`stage ${shift ? 'shifted' : ''}`}>
       <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
       <GuideBubble />
@@ -385,6 +389,7 @@ function Panel() {
           e.target.value = '';
         }}
       />
+    </div>
     </div>
   );
 }
