@@ -61,12 +61,15 @@ export function resolveScreenParams(ctx: ScreenParamContext): KParam[] {
 
     case 'knobfx': {
       const def = KNOB_FX.find((f) => f.id === s.knobFX) ?? KNOB_FX[0];
-      const vals = s.knobFXParams;
+      const vals = s.shift && def.shiftParams ? s.knobFXShiftParams : s.knobFXParams;
+      const labels = s.shift && def.shiftParams ? def.shiftParams : def.params;
       return [0, 1, 2].map((k) => ({
-        name: def.params[k],
-        display: def.params[k] === '—' ? '—' : `${Math.round(vals[k] * 100)}%`,
+        name: labels[k],
+        display: labels[k] === '—' ? '—' : `${Math.round(vals[k] * 100)}%`,
         norm: vals[k],
-        set: (n) => s.setKnobFXParam(k as 0 | 1 | 2, n),
+        set: (n) => (s.shift && def.shiftParams
+          ? s.setKnobFXShiftParam(k as 0 | 1 | 2, n)
+          : s.setKnobFXParam(k as 0 | 1 | 2, n)),
       }));
     }
 
@@ -125,22 +128,33 @@ export function resolveScreenParams(ctx: ScreenParamContext): KParam[] {
       }
       return [
         {
-          name: 'Step',
-          display: String(s.stepEditTick + 1),
-          norm: clamp01(s.stepEditTick / Math.max(1, seq.bars * 4 - 1)),
-          set: (n) => s.setStepEditTick(Math.round(n * Math.max(1, seq.bars * 4 - 1))),
+          name: 'Length',
+          display: `${seq.bars}b`,
+          norm: clamp01((seq.bars - 1) / 15),
+          set: (n) => {
+            const bars = Math.round(n * 15) + 1;
+            const banks = ctx.project.sequences.map((row, bi) =>
+              bi === ctx.bank
+                ? row.map((seqRow, si) => (si === s.seqSlot ? { ...seqRow, bars } : seqRow))
+                : row
+            );
+            s.updateProject({ sequences: banks });
+          },
+        },
+        {
+          name: 'Q',
+          display: `1/${16 / (ctx.project.quantize / (TICKS_PER_16TH / 16))}`,
+          norm: clamp01([TICKS_PER_16TH, TICKS_PER_16TH / 2, TICKS_PER_16TH / 4, TICKS_PER_16TH / 8, TICKS_PER_16TH / 16, TICKS_PER_16TH / 32].indexOf(ctx.project.quantize) / 5),
+          set: (n) => {
+            const divs = [TICKS_PER_16TH, TICKS_PER_16TH / 2, TICKS_PER_16TH / 4, TICKS_PER_16TH / 8, TICKS_PER_16TH / 16, TICKS_PER_16TH / 32];
+            s.updateProject({ quantize: divs[Math.round(n * 5)] ?? TICKS_PER_16TH });
+          },
         },
         {
           name: 'Velocity',
           display: current ? String(current.velocity) : '—',
           norm: current ? current.velocity / 127 : 0,
           set: (n) => { if (current) s.setStepEditVelocity(Math.round(n * 127)); },
-        },
-        {
-          name: 'Timing',
-          display: current ? String(current.tick) : '—',
-          norm: 0.5,
-          set: (n) => s.nudgeStepEvent(Math.round((n - 0.5) * 48)),
         },
       ];
     }

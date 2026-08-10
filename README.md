@@ -26,8 +26,7 @@ All phases of [BUILD_PLAN.md](./BUILD_PLAN.md) are implemented:
 - **Web MIDI** in/out, pads mapped from C1
 - Undo/redo, fader parameter assignment, project autosave, PWA install
 
-Still open: Step Edit UI, Flex Beat's full effect table, offline time-stretch
-(currently repitch only). See the plan for the specs.
+Still open: offline time-stretch (currently repitch only). See the plan for the specs.
 
 ## Running
 

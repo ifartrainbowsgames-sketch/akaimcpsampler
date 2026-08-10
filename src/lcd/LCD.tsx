@@ -449,10 +449,22 @@ function KnobFXScreen() {
 function PadFXScreen() {
   const pressPadFX = useStore((s) => s.pressPadFX);
   const releasePadFX = useStore((s) => s.releasePadFX);
+  const togglePadFXLatch = useStore((s) => s.togglePadFXLatch);
   const active = useStore((s) => s.activePadFX);
 
   return (
-    <div className="fxgrid">
+    <div className="lcdpanel">
+      <div className="lcdbtns">
+        <button
+          type="button"
+          className="lcd-mini"
+          onClick={() => active && togglePadFXLatch(active)}
+          disabled={!active}
+        >
+          LATCH
+        </button>
+      </div>
+      <div className="fxgrid">
       {PAD_FX.map((f) => (
         <button
           key={f.id}
@@ -471,6 +483,8 @@ function PadFXScreen() {
           {f.name}
         </button>
       ))}
+      </div>
+      <div className="hintline">Pressure = amount. LATCH holds the active effect.</div>
     </div>
   );
 }
@@ -921,6 +935,9 @@ function StepEditScreen() {
   const setStepEditTick = useStore((s) => s.setStepEditTick);
   const setStepEditEvent = useStore((s) => s.setStepEditEvent);
   const eraseStepEvent = useStore((s) => s.eraseStepEvent);
+  const stepErasePending = useStore((s) => s.stepErasePending);
+  const confirmStepErase = useStore((s) => s.confirmStepErase);
+  const cancelStepErase = useStore((s) => s.cancelStepErase);
   const seq = project.sequences[bank][seqSlot];
   const atTick = stepEditTick * project.quantize;
   const atEvents = seq.events
@@ -1008,7 +1025,14 @@ function StepEditScreen() {
       <div className="lcdbtns">
         <button type="button" onClick={eraseStepEvent} disabled={!current}>ERASE</button>
       </div>
-      <div className="hintline">Pad = select event. Shift+ERASE mode + pad = erase. Fader nudges timing.</div>
+      {stepErasePending !== null && (
+        <div className="lcdbtns">
+          <span>Erase pad {stepErasePending + 1}?</span>
+          <button type="button" onClick={() => cancelStepErase()}>CANCEL</button>
+          <button type="button" onClick={() => confirmStepErase()}>DO IT</button>
+        </div>
+      )}
+      <div className="hintline">Jog = step. Shift+± = event. Shift+ERASE + pad = erase confirm.</div>
     </div>
   );
 }
