@@ -215,7 +215,7 @@ not recalled/assumed knowledge, per an explicit ask to check.
 
 | Feature | Real MPC (hardware/software) | This app today | Priority |
 |---|---|---|---|
-| Time-stretch | Two distinct modes: **Warp** (real-time, small tempo changes, live during playback) and **Time Stretch** (batch/offline, bigger changes, cleaner artifacts) | Repitch only — **already flagged open** in README. The gap maps to the offline **Time Stretch** mode specifically | High |
+| Time-stretch | Two distinct modes: **Warp** (real-time, small tempo changes, live during playback) and **Time Stretch** (batch/offline, bigger changes, cleaner artifacts) | ✅ Not actually a gap — offline pitch-independent stretch (own WSOLA algorithm, not Rubber Band) has existed since v0.7.0, cached and wired into live playback + export. The README's "still open" line was stale; fixed in §3 | N/A — closed |
 | Keygroup Program | Pitches *one sample* across every key/pad — confirmed the simple case matches exactly what §1 proposes. Full parity also allows up to 128 keygroups × 4 velocity layers each (e.g. an 88-key sampled piano) | No keygroup concept at all — piano is a separate bolted-on instrument, MPC pads are single-shot only | High (this is §1) |
 | Drum Program velocity layers | Each of a Drum Program's pads can hold up to 4 velocity layers | Single sample per pad, no velocity layering | Low–Medium (separate from Keygroups) |
 | Q-Link macro knobs | **16** knobs, assignable to any parameter on the current track/pad/keygroup/insert, with MIDI Learn, adjustable min/max range, and a selectable response curve (linear/log/exponential) | 3 knobs (`K1–K3`), tied to Knob FX only, no Learn, no curve/range shaping | Medium — bigger gap than a rough guess would suggest (16 vs. 3, plus missing Learn/curve) |
@@ -254,14 +254,24 @@ not recalled/assumed knowledge, per an explicit ask to check.
    repurposing the PIANO button made `src/piano/` immediately unreachable,
    the cleanest move was deleting it in the same pass rather than leaving
    dead code — done, see §1.
-3. **Close the time-stretch gap.** Not started. Already scoped in `BUILD_PLAN.md`
-   (Rubber Band vs. SoundTouch tradeoff is already discussed there) — this
-   is a matter of picking it up, not re-deciding it.
+3. ✅ **Close the time-stretch gap — turned out already closed.** Checked
+   before implementing anything: `src/audio/stretch.ts` has had a full
+   offline WSOLA (not Rubber Band, but pitch-independent and artifact-aware)
+   time-stretch since **v0.7.0**, wired into both live playback
+   (`engine.trigger()`/`triggerWithNote()`) and offline export via
+   `resolvePlayback()` in `playback.ts` — cached exactly per
+   `BUILD_PLAN.md` §4.6's spec (render once, cache, replay). The mode
+   toggle (Shift+Pad 15) and amount fader (K3 "Warp" page) are both live
+   in the UI. Verified at runtime, not just read: setting
+   `warpMode: 'stretch'` and triggering a pad grew the engine's stretch
+   cache from 0 to 1 entries, proving the real algorithm ran. §2's table
+   entry and the README's old "Still open" line were both stale — fixed.
+   No code changed for this phase, only docs.
 4. **Q-Link parity.** Not started. Expand macro-knob assignment beyond
    Knob FX, and add automation recording for at least one lane.
 5. **Sample tool completeness.** Not started. Normalize, loop-to-end —
    small, low-risk additions once the bigger structural work above is
    settled.
 
-Phases 3-5 are not scheduled or approved for implementation — this is the
+Phases 4-5 are not scheduled or approved for implementation — this is the
 list to work from once priorities are picked.

@@ -25,8 +25,9 @@ All phases of [BUILD_PLAN.md](./BUILD_PLAN.md) are implemented:
   Recall buffer
 - **Web MIDI** in/out, pads mapped from C1
 - Undo/redo, fader parameter assignment, project autosave, PWA install
-
-Still open: offline time-stretch (currently repitch only). See the plan for the specs.
+- **Warp** — pitch mode (`playbackRate`) or pitch-independent Time Stretch
+  (offline WSOLA render, cached, zero realtime cost — see `BUILD_PLAN.md`
+  §4.6), toggled with Shift+Pad 15
 
 ## Running
 
