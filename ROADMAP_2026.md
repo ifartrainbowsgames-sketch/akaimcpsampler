@@ -1,8 +1,9 @@
 # Sampler — 2026 Roadmap
 
-This is a planning document, not an implementation log. Nothing in this file
-has been built yet — it exists to write down the direction before code
-changes start, per the "before we code" ask that prompted it.
+This started as a planning document written before any code changed. §1
+(piano unification) has since been implemented — see the status note at
+the top of that section. §2 (MPC feature gaps) and the rest of §3's phased
+plan remain unimplemented planning.
 
 Two problems triggered this: the piano module's UX has drifted away from
 what it's supposed to be, and the MPC side is missing real-hardware features
@@ -11,6 +12,20 @@ worth closing the gap on. Both are addressed below, plus a phased plan.
 ---
 
 ## 1. Why the piano feels wrong
+
+> **Status: implemented.** Turned out smaller than this section originally
+> scoped — engine plumbing for chromatic pitched playback and the live
+> keyboard were already fully working before this pass started, so the
+> real work was deletion + repointing one button, not new engine code.
+> The PIANO button now opens `PianoRoll.tsx` directly. `src/piano/`
+> (Tone.js, Salamander samples, the separate mixer/pattern-grid UI) is
+> deleted entirely, along with the `tone` dependency and its CSP
+> exception. Snap-to-scale and an empty-pad hint were added to
+> `PianoRoll.tsx`. Bundle dropped from 1047 to 85 transformed modules —
+> one 383.7KB/117.75KB gzip chunk, no separate piano chunk needed since
+> there's nothing left to split out (down from 664KB/189KB before any of
+> today's code-splitting or module-removal work). The rest of this
+> section is kept as the record of *why*, not a pending plan.
 
 **The complaint:** too many small menus, feels like a bolted-on synth-patch
 editor, not the "draw notes, they play like a sample" feel of an FL Studio
@@ -220,30 +235,33 @@ not recalled/assumed knowledge, per an explicit ask to check.
 
 ## 3. Phased plan
 
-1. **Unify the note-drawing story** — the biggest phase, broken into
-   verifiable sub-steps rather than one big cutover (mirrors how the
-   store-slice refactor was done this session: mechanical steps, each
-   checked before moving on):
-   1. Confirm the direction in §1 and the default-sound decision above.
-   2. Extend `voice.ts`/`chop.ts` so a pad can be assigned a keygroup-style
-      sample without touching the scheduler/engine core (non-goal above:
-      additive, not a rewrite).
-   3. Confirm `PianoRoll.tsx` already handles this correctly for a
-      keygroup-assigned pad (per the earlier finding, the note→pitch path
-      is already end-to-end) — this may already just work.
-   4. Add snap-to-scale to `PianoRoll.tsx`.
-   5. Verify: typecheck, tests, build, and a runtime smoke pass — draw a
-      melody, hear it played back through a pad — before phase 2 starts.
-2. **Retire the redundant piano UI.** Once (1) lands, fold `PianoSongStudio`
-   into the regular Song screen and drop the piano module's private mixer
-   down to what a keygroup program needs on `K1–K3`.
-3. **Close the time-stretch gap.** Already scoped in `BUILD_PLAN.md`
+1. ✅ **Unify the note-drawing story** — done. Turned out not to need the
+   `voice.ts`/`chop.ts` extension originally planned here (step 2 below)
+   — chromatic playback was already fully wired, so this collapsed into
+   deleting the redundant Tone.js module and repointing PIANO at the
+   existing `PianoRoll.tsx`, plus adding snap-to-scale and an empty-pad
+   hint. See the status note in §1 for the real numbers.
+   ~~1. Confirm the direction in §1 and the default-sound decision above.~~
+   ~~2. Extend `voice.ts`/`chop.ts` so a pad can be assigned a keygroup-style~~
+   ~~sample without touching the scheduler/engine core~~ — turned out
+   unnecessary; the engine already supported this.
+   ~~3. Confirm `PianoRoll.tsx` already handles this correctly~~ — confirmed,
+   see §1.
+   ~~4. Add snap-to-scale to `PianoRoll.tsx`.~~ — done.
+   ~~5. Verify: typecheck, tests, build, and a runtime smoke pass~~ — done,
+   all green.
+2. ✅ **Retire the redundant piano UI.** Folded into phase 1 above: since
+   repurposing the PIANO button made `src/piano/` immediately unreachable,
+   the cleanest move was deleting it in the same pass rather than leaving
+   dead code — done, see §1.
+3. **Close the time-stretch gap.** Not started. Already scoped in `BUILD_PLAN.md`
    (Rubber Band vs. SoundTouch tradeoff is already discussed there) — this
    is a matter of picking it up, not re-deciding it.
-4. **Q-Link parity.** Expand macro-knob assignment beyond Knob FX, and add
-   automation recording for at least one lane.
-5. **Sample tool completeness.** Normalize, loop-to-end — small, low-risk
-   additions once the bigger structural work above is settled.
+4. **Q-Link parity.** Not started. Expand macro-knob assignment beyond
+   Knob FX, and add automation recording for at least one lane.
+5. **Sample tool completeness.** Not started. Normalize, loop-to-end —
+   small, low-risk additions once the bigger structural work above is
+   settled.
 
-Nothing above is scheduled or approved for implementation — this is the
+Phases 3-5 are not scheduled or approved for implementation — this is the
 list to work from once priorities are picked.

@@ -27,6 +27,15 @@ function noteLabel(n: number) {
   return null;
 }
 
+// ─── Snap-to-scale ───────────────────────────────────────────────────────────
+// Visual guidance only (highlight/dim), not a hard constraint on drawing —
+// mirrors FL Studio's "Snap to Scale" grid highlighting.
+type ScaleType = 'off' | 'major' | 'minor';
+const SCALE_INTERVALS: Record<Exclude<ScaleType, 'off'>, number[]> = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+};
+
 // ─── Colour helpers ──────────────────────────────────────────────────────────
 const NOTE_COLOR        = 'hsl(210,70%,55%)';
 const NOTE_COLOR_SEL    = 'hsl(40,90%,60%)';
@@ -69,6 +78,14 @@ export function PianoRoll() {
   const [scrollNote,    setScrollNote]    = useState(128 - 60 - 10); // center C3
   const [selectedNote,  setSelectedNote]  = useState<NoteRef | null>(null);
   const [quantize, setQuantize]           = useState(TICKS_PER_16TH);
+  const [scaleRoot, setScaleRoot]         = useState(0);          // 0 = C
+  const [scaleType, setScaleType]         = useState<ScaleType>('off');
+
+  const isInScale = useCallback((note: number) => {
+    if (scaleType === 'off') return true;
+    const rel = ((note - scaleRoot) % 12 + 12) % 12;
+    return SCALE_INTERVALS[scaleType].includes(rel);
+  }, [scaleRoot, scaleType]);
 
   // Sizes – updated on resize
   const [gridW, setGridW] = useState(1);
@@ -167,6 +184,7 @@ export function PianoRoll() {
 
       const black = isBlack(note);
       const hover = pianoHover.current === note;
+      const inScale = isInScale(note);
 
       if (black) {
         ctx.fillStyle = hover ? '#3a3a44' : PIANO_BLACK_BG;
@@ -175,10 +193,15 @@ export function PianoRoll() {
         ctx.fillStyle = '#2a2a32';
         ctx.fillRect(W * 0.65, y, W * 0.35, ROW_HEIGHT);
       } else {
-        ctx.fillStyle = hover ? PIANO_WHITE_HOVER : PIANO_WHITE_BG;
+        ctx.fillStyle = hover ? PIANO_WHITE_HOVER : (inScale ? PIANO_WHITE_BG : '#c8c8bc');
         ctx.fillRect(0, y, W - 1, ROW_HEIGHT - 1);
         ctx.fillStyle = '#999';
         ctx.fillRect(0, y + ROW_HEIGHT - 1, W - 1, 1);
+      }
+      if (!inScale) {
+        // Faint dim overlay for out-of-scale keys, either color.
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.fillRect(0, y, W, ROW_HEIGHT - (black ? 0 : 1));
       }
 
       // Label C notes
@@ -195,7 +218,7 @@ export function PianoRoll() {
     // Separator line
     ctx.fillStyle = '#333338';
     ctx.fillRect(W - 1, 0, 1, H);
-  }, [scrollNote]);
+  }, [scrollNote, isInScale]);
 
   const drawGrid = useCallback((playheadTick: number) => {
     const canvas = gridCanvasRef.current;
@@ -212,7 +235,12 @@ export function PianoRoll() {
       const note = 127 - row;
       const y = (row - scrollNote) * ROW_HEIGHT;
       if (y + ROW_HEIGHT < 0 || y > H) continue;
-      ctx.fillStyle = isBlack(note) ? '#1e1e28' : '#242430';
+      const inScale = isInScale(note);
+      if (isBlack(note)) {
+        ctx.fillStyle = inScale ? '#1e1e28' : '#141419';
+      } else {
+        ctx.fillStyle = inScale ? '#242430' : '#1a1a22';
+      }
       ctx.fillRect(0, y, W, ROW_HEIGHT);
     }
 
@@ -294,7 +322,7 @@ export function PianoRoll() {
         ctx.fillRect(Math.round(phX), 0, 2, H);
       }
     }
-  }, [scrollTick, scrollNote, ticksPerPx, tickToPx, noteToPy, noteEvents, selectedNote, project.timeSignature]);
+  }, [scrollTick, scrollNote, ticksPerPx, tickToPx, noteToPy, noteEvents, selectedNote, project.timeSignature, isInScale]);
 
   const drawVelocity = useCallback(() => {
     const canvas = velCanvasRef.current;
@@ -581,6 +609,30 @@ export function PianoRoll() {
           ))}
         </select>
 
+        <select
+          className="pianoroll__select"
+          value={scaleType}
+          onChange={(e) => setScaleType(e.target.value as ScaleType)}
+          aria-label="Scale"
+        >
+          <option value="off">No scale</option>
+          <option value="major">Major</option>
+          <option value="minor">Minor</option>
+        </select>
+
+        {scaleType !== 'off' && (
+          <select
+            className="pianoroll__select"
+            value={scaleRoot}
+            onChange={(e) => setScaleRoot(Number(e.target.value))}
+            aria-label="Scale root"
+          >
+            {NOTE_NAMES.map((n, i) => (
+              <option key={n} value={i}>{n}</option>
+            ))}
+          </select>
+        )}
+
         <button
           className="pianoroll__btn pianoroll__btn--danger"
           type="button"
@@ -597,6 +649,13 @@ export function PianoRoll() {
           CLOSE
         </button>
       </div>
+
+      {!pad.sampleId && (
+        <div className="pianoroll__hint">
+          No sample loaded on {padName} — SAMPLE SELECT to add one, then come
+          back and draw notes.
+        </div>
+      )}
 
       {/* Main area: piano keyboard + note grid */}
       <div className="pianoroll__main">

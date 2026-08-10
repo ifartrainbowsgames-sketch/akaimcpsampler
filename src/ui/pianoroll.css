@@ -81,6 +81,15 @@
   cursor: pointer;
 }
 
+.pianoroll__hint {
+  padding: 6px 10px;
+  background: #241f14;
+  border-bottom: 1px solid #4a3d1e;
+  color: #d8b060;
+  font-size: 0.7em;
+  flex-shrink: 0;
+}
+
 /* Main canvas area */
 .pianoroll__main {
   display: flex;
