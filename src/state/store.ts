@@ -22,8 +22,55 @@ import { listSamples, deleteSample } from '../storage/opfs';
 import { ticksPerBar } from '../audio/scheduler';
 import { FACTORY_KITS, generateFactoryKit } from '../audio/factory/kits';
 import { factoryKitPadDefaults } from '../audio/factory/catalog';
+import {
+  demoHitsToEvents,
+  getFactoryDemo,
+} from '../audio/factory/demos';
 import type { LibrarySound } from '../library/types';
 import { fetchFreesoundPreview, searchFreesound, checkFreesoundProxy } from '../library/freesound';
+
+/** Load factory kit samples onto a specific pad bank (returns updated project). */
+async function applyFactoryKitToBank(
+  project: Project,
+  bankIndex: number,
+  kitId: string,
+  ctx: AudioContext,
+): Promise<Project> {
+  const kit = await generateFactoryKit(ctx, kitId);
+  if (!kit) return project;
+  const meta = FACTORY_KITS.find((k) => k.id === kitId);
+  const padDefaults = meta ? factoryKitPadDefaults(meta) : null;
+
+  const bank = project.banks[bankIndex].map((pad) => pad);
+  for (let i = 0; i < 16; i++) {
+    const buffer = kit.buffers[i];
+    const id = crypto.randomUUID();
+    engine.putBuffer(id, buffer);
+    const wav = await engine.bufferToWav(buffer).arrayBuffer();
+    await writeSample(id, wav);
+    const label = meta?.padNames[i] ?? `Pad ${i + 1}`;
+    const loopStart = padDefaults?.loop
+      ? Math.floor(buffer.length * padDefaults.loopStartRatio)
+      : 0;
+    bank[i] = {
+      ...bank[i],
+      sampleId: id,
+      sampleName: `${meta?.name ?? kit.name}-${label}`.slice(0, 24),
+      start: 0,
+      end: buffer.length,
+      loopStart,
+      loop: padDefaults?.loop ?? false,
+      slices: [],
+      gain: meta?.defaultGain ?? 0,
+      polyphony: padDefaults?.polyphony ?? 'mono',
+    };
+  }
+
+  return {
+    ...project,
+    banks: project.banks.map((b, bi) => (bi === bankIndex ? bank : b)),
+  };
+}
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
@@ -190,6 +237,7 @@ interface UIState {
   refreshBrowser(): Promise<void>;
   loadBrowserSample(id: string): Promise<void>;
   loadFactoryKit(kitId: string): Promise<void>;
+  loadFactoryDemo(demoId: string): Promise<void>;
 
   libraryResults: LibrarySound[];
   libraryPage: number;
@@ -1102,6 +1150,54 @@ export const useStore = create<UIState>((set, get) => ({
 
     set({ selectedPad: 0, screen: 'sample' });
     engine.selectedPad = 0;
+  },
+
+  async loadFactoryDemo(demoId) {
+    const demo = getFactoryDemo(demoId);
+    if (!demo) return;
+    if (!engine.ctx) await engine.init();
+    const ctx = engine.ctx;
+    if (!ctx) return;
+
+    history.push(get().project);
+    let project = get().project;
+    project = await applyFactoryKitToBank(project, 0, demo.kitId, ctx);
+    if (demo.melodyKitId) {
+      project = await applyFactoryKitToBank(project, 1, demo.melodyKitId, ctx);
+    }
+
+    const events = demoHitsToEvents(demo.hits);
+    const sequences = project.sequences.map((row, bi) =>
+      bi === 0
+        ? row.map((seq, si) =>
+            si === 0
+              ? { ...seq, name: demo.name, bars: demo.bars, events, bpm: demo.bpm }
+              : { ...seq, events: [] }
+          )
+        : row
+    );
+
+    const next: Project = {
+      ...project,
+      name: demo.name,
+      bpm: demo.bpm,
+      swing: demo.swing ?? project.swing,
+      sequences,
+      song: [],
+    };
+
+    engine.setProject(next);
+    engine.setBank(0);
+    engine.setSequenceSlot(0);
+    engine.selectedPad = 0;
+    set({
+      project: next,
+      bank: 0,
+      seqSlot: 0,
+      selectedPad: 0,
+      screen: 'seq',
+      queuedSeqSlot: null,
+    });
   },
 
   async checkLibraryProxy() {
