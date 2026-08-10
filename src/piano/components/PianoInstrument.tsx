@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import '../piano.css';
 import { usePianoStore } from '../store/pianoStore';
 import { pianoEngine } from '../audio/PianoEngine';
 import { pianoMidi } from '../audio/MidiEngine';

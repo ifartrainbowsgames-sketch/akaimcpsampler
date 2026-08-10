@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStore } from './state/store';
 import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
@@ -17,8 +17,16 @@ import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
 import { AkaiLogo, MpcWordmark } from './ui/AkaiLogo';
 import type { ChopLoadMode } from './storage/preferences';
-import { PianoOverlay, openPiano } from './piano/components/PianoInstrument';
-import './piano/piano.css';
+
+// Piano module (Tone.js + Salamander samples) is only needed once the user
+// taps PIANO, so it's split out of the initial bundle. usePianoStore itself
+// imports the Tone.js-backed piano engine at module scope, so `<PianoOverlay
+// />` must not even mount until the user has actually opened the piano —
+// otherwise React.lazy's import() fires on first render regardless of the
+// `open` flag PianoOverlay checks internally, defeating the split.
+const PianoOverlay = lazy(() =>
+  import('./piano/components/PianoInstrument').then((m) => ({ default: m.PianoOverlay })),
+);
 
 export default function App() {
   const booted = useStore((s) => s.booted);
@@ -112,6 +120,11 @@ function Panel() {
   const [volume, setVolume] = useState(0.8);
   const [faderValue, setFaderValue] = useState(0.75);
   const [jog, setJog] = useState(0.5);
+  const [pianoTouched, setPianoTouched] = useState(false);
+  const openPiano = () => {
+    setPianoTouched(true);
+    void import('./piano/components/PianoInstrument').then((m) => m.openPiano());
+  };
   const speakerRef = useRef<HTMLDivElement>(null);
   const transport = useTransportMeter(speakerRef);
   const jogZoomRaf = useRef(0);
@@ -179,7 +192,11 @@ function Panel() {
 
   return (
     <>
-      <PianoOverlay />
+      {pianoTouched && (
+        <Suspense fallback={null}>
+          <PianoOverlay />
+        </Suspense>
+      )}
       <div className={`stage ${shift ? 'shifted' : ''}`}>
       <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
