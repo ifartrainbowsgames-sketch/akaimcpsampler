@@ -49,7 +49,7 @@ export function Pads() {
   const startPadNoteRepeat = useStore((s) => s.startPadNoteRepeat);
   const knobFXRouting = useStore((s) => s.knobFXRouting);
   const timeCorrectPads = useStore((s) => s.timeCorrectPads);
-  const flexBeatActivePad = useStore((s) => s.flexBeat?.activePad ?? -1);
+  const flexBeatActivePad = useStore((s) => s.flexBeat.activePad);
 
   const [flash, setFlash] = useState<Record<number, boolean>>({});
   const [seqLit, setSeqLit] = useState<Record<number, boolean>>({});
