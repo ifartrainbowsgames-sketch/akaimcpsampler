@@ -412,28 +412,93 @@ button{font:inherit}
   border:0;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer;
   background:linear-gradient(180deg,#FF9A3D,var(--orange));color:#fff}
 
-.guide-backdrop{
-  position:fixed;inset:0;z-index:110;display:flex;align-items:flex-end;justify-content:center;
-  padding:12px 16px 24px;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
-.guide-card{
-  width:min(420px,100%);background:linear-gradient(180deg,#1e1e1c,#121210);
-  border:.08em solid var(--lcd-y);border-radius:.45em;padding:.85em 1em 1em;color:#e6e6dc;
-  box-shadow:0 .8em 2em rgba(0,0,0,.55)}
-.guide-card__hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.35em}
-.guide-badge{font-size:.65em;font-weight:700;letter-spacing:.12em;color:#111;background:var(--lcd-y);padding:.2em .55em;border-radius:.15em}
-.guide-close{border:0;background:transparent;color:#a8a89e;font-size:1.4em;line-height:1;cursor:pointer;padding:0 .2em}
-.guide-card__title{font-size:.95em;color:var(--lcd-y);margin:0 0 .35em;letter-spacing:.03em}
-.guide-card__body{font-size:.82em;line-height:1.45;color:#c8c8be;margin:0 0 .5em}
-.guide-card__tips{margin:0 0 .65em;padding-left:1.1em;font-size:.78em;line-height:1.4;color:#9a9a90}
-.guide-card__tips li{margin-bottom:.25em}
-.guide-ok{
-  width:100%;border:.08em solid #5a5a52;background:#252522;color:#e6e6dc;border-radius:.25em;
-  padding:.55em;cursor:pointer;font-weight:700;letter-spacing:.06em;touch-action:manipulation}
-.guide-ok:active,.guide-close:active{filter:brightness(1.15)}
+.guide-scrim{
+  position:fixed;inset:0;z-index:109;pointer-events:auto;
+  background:transparent;transition:background .2s ease}
+.guide-scrim--on{background:rgba(255,244,214,.4);backdrop-filter:blur(1px)}
+
+.guide-pop{
+  position:fixed;z-index:110;left:50%;bottom:max(14px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);width:min(320px,calc(100vw - 24px));
+  background:linear-gradient(180deg,#FFF9EB 0%,#FFEEC8 48%,#FFE4A8 100%);
+  border:3px solid #1a1a2e;border-radius:4px;
+  box-shadow:4px 4px 0 #1a1a2e,0 12px 32px rgba(26,26,46,.22);
+  padding:10px 12px 12px;color:#1a1a2e;font-family:var(--mono);
+  animation:guide-pop-in .28s cubic-bezier(.2,1.1,.3,1) both}
+.guide-pop--wide{width:min(400px,calc(100vw - 20px))}
+
+@keyframes guide-pop-in{
+  from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.94)}
+  to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+
+.guide-pop__chrome{
+  display:flex;align-items:center;gap:6px;margin-bottom:8px;
+  padding-bottom:6px;border-bottom:2px dashed #c4a574}
+.guide-pop__badge{
+  font-size:10px;font-weight:800;letter-spacing:.14em;color:#fff;
+  background:linear-gradient(180deg,#FF6B9D,#E0457A);padding:3px 7px;border-radius:2px;
+  border:2px solid #1a1a2e;box-shadow:2px 2px 0 #1a1a2e}
+.guide-pop__coin{
+  flex:1;font-size:9px;font-weight:700;letter-spacing:.18em;color:#6b5a3e;
+  text-align:center;opacity:.85}
+.guide-pop__x{
+  border:2px solid #1a1a2e;background:#fff;color:#1a1a2e;
+  width:26px;height:26px;border-radius:2px;cursor:pointer;font-size:12px;font-weight:800;
+  line-height:1;box-shadow:2px 2px 0 #1a1a2e;touch-action:manipulation}
+.guide-pop__x:active{transform:translate(1px,1px);box-shadow:1px 1px 0 #1a1a2e}
+
+.guide-pop__title{
+  font-size:15px;font-weight:800;letter-spacing:.06em;margin:0 0 4px;
+  color:#E0457A;text-shadow:1px 1px 0 #fff}
+.guide-pop__brief{
+  font-size:12px;line-height:1.45;margin:0 0 8px;color:#2d2d44;font-family:var(--f)}
+.guide-pop__quick{
+  margin:0 0 10px;padding:6px 8px 6px 1.2em;
+  background:rgba(255,255,255,.55);border:2px solid #1a1a2e;border-radius:2px;
+  font-size:11px;line-height:1.4;color:#333}
+.guide-pop__quick li{margin-bottom:3px}
+.guide-pop__quick li:last-child{margin-bottom:0}
+
+.guide-pop__scroll{
+  max-height:min(42vh,280px);overflow-y:auto;margin:0 0 10px;padding:8px;
+  background:#fff;border:2px solid #1a1a2e;border-radius:2px;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.06);-webkit-overflow-scrolling:touch}
+.guide-pop__body{font-size:12px;line-height:1.5;margin:0 0 8px;color:#2d2d44;font-family:var(--f)}
+.guide-pop__tips{margin:0 0 8px;padding-left:1.1em;font-size:11px;line-height:1.45;color:#444}
+.guide-pop__tips li{margin-bottom:4px}
+.guide-pop__block{margin-top:10px;padding-top:8px;border-top:2px dotted #c4a574}
+.guide-pop__block h4{
+  font-size:10px;font-weight:800;letter-spacing:.12em;margin:0 0 6px;color:#00A8B5}
+.guide-pop__block ul{margin:0;padding-left:1.1em;font-size:11px;line-height:1.45;color:#333}
+.guide-pop__block li{margin-bottom:4px}
+
+.guide-pop__actions{display:flex;gap:8px}
+.guide-pop__more,.guide-pop__ok{
+  flex:1;border:2px solid #1a1a2e;border-radius:2px;padding:8px 10px;
+  font-size:11px;font-weight:800;letter-spacing:.08em;cursor:pointer;
+  touch-action:manipulation;box-shadow:2px 2px 0 #1a1a2e;font-family:var(--mono)}
+.guide-pop__more{
+  flex:0 0 auto;min-width:88px;background:#fff;color:#1a1a2e}
+.guide-pop__ok{
+  background:linear-gradient(180deg,#57C8D8,#22A6E0);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+.guide-pop__more:active,.guide-pop__ok:active{
+  transform:translate(1px,1px);box-shadow:1px 1px 0 #1a1a2e}
+
+.guide-pop__blink{
+  margin-top:8px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.22em;
+  color:#E0457A;opacity:.55;animation:guide-blink 1.4s step-end infinite}
+@keyframes guide-blink{50%{opacity:.15}}
+
 .guide-banner{
-  position:fixed;top:0;left:0;right:0;z-index:105;padding:6px 12px;text-align:center;
-  font-size:11px;font-weight:600;letter-spacing:.04em;color:#111;background:var(--lcd-y);
-  box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  position:fixed;top:0;left:0;right:0;z-index:105;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:5px 12px;font-size:10px;font-weight:700;letter-spacing:.06em;
+  color:#1a1a2e;background:linear-gradient(180deg,#FFEEC8,#FFD93D);
+  border-bottom:3px solid #1a1a2e;font-family:var(--mono);
+  box-shadow:0 3px 0 rgba(26,26,46,.15)}
+.guide-banner__tag{
+  font-size:9px;color:#fff;background:#E0457A;padding:2px 6px;border-radius:2px;
+  border:2px solid #1a1a2e;box-shadow:2px 2px 0 #1a1a2e}
 
 .shifted .pb .cap{filter:hue-rotate(-20deg) saturate(1.3)}
 
