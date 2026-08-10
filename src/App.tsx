@@ -148,7 +148,7 @@ function Panel() {
   }, [faderParam, selectedPad, bank, pad.gain, pad.pan, pad.semi, pad.ampEnv.attack, pad.ampEnv.decay, pad.cutoff, kitVolume, screen]);
 
   const seq = project.sequences[bank][seqSlot];
-  const stepCount = Math.max(1, Math.min(16, seq.bars * 4));
+  const stepCount = Math.max(1, Math.min(128, seq.bars * 4));
   const stepEvents = seq.events.filter(
     (e) => Math.abs(e.tick - stepEditTick * project.quantize) < project.quantize / 2
   );

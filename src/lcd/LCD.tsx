@@ -10,7 +10,7 @@ import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
-import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec } from '../audio/factory/kits';
+import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec, isLongDemo } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
@@ -125,8 +125,9 @@ export function LCD() {
         <div className="lcdmenu">
           <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload">UPLOAD</label>
           <button type="button" className="lcd-btn" onClick={() => setScreen('browser')}>BROWSE</button>
+          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('beats')}>BEATS</button>
           <button type="button" className="lcd-btn" onClick={() => setScreen('kits')}>KITS</button>
-          <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('library')}>FREESOUND</button>
+          <button type="button" className="lcd-btn" onClick={() => setScreen('library')}>LOOPS</button>
         </div>
 
         {chopActive && (
@@ -225,7 +226,7 @@ export function LCD() {
 
 const SCREEN_TITLES: Record<string, string> = {
   seq: 'SEQUENCE', stepedit: 'STEP EDIT', song: 'SONG',
-  browser: 'BROWSER', kits: 'KITS', library: 'FREESOUND', smprec: 'SAMPLE REC',
+  browser: 'BROWSER', beats: 'BEAT LIBRARY', kits: 'KITS', library: 'LOOP LIBRARY', smprec: 'SAMPLE REC',
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX', 'knobfx-select': 'KNOB FX SELECT',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
@@ -363,6 +364,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'browser':
       return <BrowserScreen />;
+
+    case 'beats':
+      return <BeatsScreen />;
 
     case 'kits':
       return <KitsScreen />;
@@ -774,6 +778,11 @@ function LoadProjectScreen() {
         ))}
       </div>
       <div className="lcdlist browserlist kitlist">
+        {category === 'demos' && (
+          <div className="hintline" style={{ marginBottom: '0.3em' }}>
+            Same list as Sample → BEATS. Tap LONG tab there for 16–32 bar songs.
+          </div>
+        )}
         {category === 'demos' && FACTORY_DEMOS.map((d) => (
           <div
             key={d.id}
@@ -867,60 +876,56 @@ function BrowserScreen() {
   );
 }
 
-function KitsScreen() {
-  const loadFactoryKit = useStore((s) => s.loadFactoryKit);
+function BeatsScreen() {
   const loadFactoryDemo = useStore((s) => s.loadFactoryDemo);
   const setScreen = useStore((s) => s.setScreen);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'beats' | 'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('beats');
+  const [filter, setFilter] = useState<'beats' | 'long' | 'melodic' | 'all'>('beats');
   const [query, setQuery] = useState('');
-
-  const kits = FACTORY_KITS.filter((k) => {
-    if (filter !== 'all' && filter !== 'beats' && k.category !== filter) return false;
-    if (!query.trim()) return true;
-    const q = query.toLowerCase();
-    return k.name.toLowerCase().includes(q) || k.description.toLowerCase().includes(q);
-  });
 
   const demos = FACTORY_DEMOS.filter((d) => {
     let ok = false;
-    if (filter === 'beats') ok = d.category === 'beats' || d.category === 'full';
-    else if (filter === 'melodic') ok = d.category === 'melodic' || d.category === 'full';
+    if (filter === 'all') ok = true;
+    else if (filter === 'long') ok = isLongDemo(d);
+    else if (filter === 'beats') ok = (d.category === 'beats' || d.category === 'full') && !isLongDemo(d);
+    else if (filter === 'melodic') ok = (d.category === 'melodic' || d.category === 'full') && !isLongDemo(d);
     if (!ok) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return d.name.toLowerCase().includes(q) || d.description.toLowerCase().includes(q);
   });
 
-  const showDemos = filter === 'beats' || filter === 'melodic';
-
   return (
     <div className="lcdpanel">
+      <div className="libraryhdr">
+        <span className="libbadge">Factory songs</span>
+        <span className="libstatus">{FACTORY_DEMO_COUNT} ready-to-play loops</span>
+      </div>
       <div className="lcdrow">
-        <span>{showDemos ? `${demos.length} beats` : `${FACTORY_KIT_COUNT} kits`}</span>
+        <span>{demos.length} songs</span>
         <input
           type="search"
           className="kitsearch"
-          placeholder="Search…"
+          placeholder="Search beats…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
       <div className="kitfilters">
-        {(['beats', 'melodic', 'all', 'drums', 'bass', 'perc', 'fx'] as const).map((f) => (
+        {(['beats', 'long', 'melodic', 'all'] as const).map((f) => (
           <button
             key={f}
             type="button"
             className={filter === f ? 'on' : ''}
             onClick={() => setFilter(f)}
           >
-            {f === 'all' ? 'ALL' : f.toUpperCase()}
+            {f === 'beats' ? 'SHORT' : f.toUpperCase()}
           </button>
         ))}
       </div>
       <div className="lcdlist browserlist kitlist">
-        {showDemos && demos.length === 0 && <div>— no beats match —</div>}
-        {showDemos && demos.map((demo) => (
+        {demos.length === 0 && <div>— no songs match —</div>}
+        {demos.map((demo) => (
           <div
             key={demo.id}
             className={busy === demo.id ? 'sel' : ''}
@@ -931,11 +936,68 @@ function KitsScreen() {
             }}
           >
             <b>{demo.name}</b>
-            <small>{demo.description} — {demoDurationSec(demo).toFixed(0)}s · PLAY to jam</small>
+            <small>
+              {demo.description} — {demo.bars} bars · {demoDurationSec(demo).toFixed(0)}s
+              {isLongDemo(demo) ? ' · LONG' : ''}
+            </small>
           </div>
         ))}
-        {!showDemos && kits.length === 0 && <div>— no kits match —</div>}
-        {!showDemos && kits.map((kit) => (
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => setScreen('sample')}>BACK</button>
+      </div>
+      <div className="hintline">
+        {busy
+          ? 'Loading…'
+          : filter === 'long'
+            ? 'LONG = 16–32 bar songs. Tap one — it loads, plays, then jam on pads.'
+            : 'Tap a song — full sequence + kits load and play automatically.'}
+      </div>
+    </div>
+  );
+}
+
+function KitsScreen() {
+  const loadFactoryKit = useStore((s) => s.loadFactoryKit);
+  const setScreen = useStore((s) => s.setScreen);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('all');
+  const [query, setQuery] = useState('');
+
+  const kits = FACTORY_KITS.filter((k) => {
+    if (filter !== 'all' && k.category !== filter) return false;
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    return k.name.toLowerCase().includes(q) || k.description.toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="lcdpanel">
+      <div className="lcdrow">
+        <span>{kits.length} / {FACTORY_KIT_COUNT} kits</span>
+        <input
+          type="search"
+          className="kitsearch"
+          placeholder="Search kits…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      <div className="kitfilters">
+        {(['all', 'drums', 'bass', 'perc', 'melodic', 'fx'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            className={filter === f ? 'on' : ''}
+            onClick={() => setFilter(f)}
+          >
+            {f.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <div className="lcdlist browserlist kitlist">
+        {kits.length === 0 && <div>— no kits match —</div>}
+        {kits.map((kit) => (
           <div
             key={kit.id}
             className={busy === kit.id ? 'sel' : ''}
@@ -946,17 +1008,16 @@ function KitsScreen() {
             }}
           >
             <b>{kit.name}</b>
-            <small>{kit.description}</small>
+            <small>{kit.description} — one-shots only</small>
           </div>
         ))}
       </div>
       <div className="lcdbtns">
         <button type="button" onClick={() => setScreen('sample')}>BACK</button>
+        <button type="button" onClick={() => setScreen('beats')}>BEATS</button>
       </div>
       <div className="hintline">
-        {busy ? 'Loading…' : showDemos
-          ? 'Beats = full loop + sequence. Hit PLAY, then jam on pads.'
-          : `${kits.length} kits — samples only (use BEATS tab for songs)`}
+        {busy ? 'Loading…' : 'Kits = 16 pad samples. For full songs use BEATS.'}
       </div>
     </div>
   );
@@ -982,7 +1043,7 @@ function StepEditScreen() {
     .filter(({ e }) => Math.abs(e.tick - atTick) < project.quantize / 2);
   const current = atEvents[stepEditEvent]?.e;
 
-  const barSteps = Math.min(16, Math.max(4, seq.bars * 4));
+  const barSteps = Math.min(128, Math.max(4, seq.bars * 4));
 
   return (
     <div className="lcdpanel">
@@ -1013,7 +1074,7 @@ function StepEditScreen() {
       <div className="lcdrow">
         <span>Length</span>
         <input
-          type="range" min={1} max={16} step={1} value={seq.bars}
+          type="range" min={1} max={32} step={1} value={Math.min(32, seq.bars)}
           onChange={(e) => {
             const bars = Number(e.target.value);
             const banks = project.sequences.map((row, bi) =>

@@ -62,11 +62,11 @@ export function LibraryScreen() {
     return (
       <div className="lcdpanel librarypanel">
         <div className="libraryhdr">
-          <span className="libbadge">Freesound.org</span>
+          <span className="libbadge">Loop library · Freesound</span>
         </div>
         <div className="librarysetup">
           <p className="setuplead">
-            Browse thousands of free drum hits, bass, FX and more from Freesound.
+            Browse free one-shots and longer loops from Freesound. Use Loop / Beat / Song tabs for 8–90s grooves.
           </p>
           <ol className="setupsteps">
             <li>
@@ -108,7 +108,7 @@ export function LibraryScreen() {
   return (
     <div className="lcdpanel librarypanel">
       <div className="libraryhdr">
-        <span className="libbadge">Freesound.org</span>
+        <span className="libbadge">Loop library · Freesound</span>
         <span className="libstatus">
           {usingBuiltInFreesoundKey() ? '● connected' : proxyReady ? '● server' : '● your key'}
         </span>
@@ -185,7 +185,7 @@ export function LibraryScreen() {
         </button>
       </div>
       <div className="hintline">
-        Tap name to preview · LOAD → current pad · CC-licensed previews
+        One-shots OR tap Loop/Beat/Song · LOAD → pad · 6s+ auto-loops · For full songs use BEATS
       </div>
     </div>
   );

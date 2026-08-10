@@ -32,4 +32,7 @@ export const LIBRARY_PRESETS = [
   { label: 'Perc', query: 'percussion loop', filter: 'duration:[0 TO 5]' },
   { label: 'FX', query: 'sound effect', filter: 'duration:[0 TO 5]' },
   { label: 'Vocal', query: 'vocal chop', filter: 'duration:[0 TO 5]' },
+  { label: 'Loop', query: 'drum loop', filter: 'duration:[8 TO 20]' },
+  { label: 'Beat', query: 'hip hop beat loop', filter: 'duration:[15 TO 45]' },
+  { label: 'Song', query: 'instrumental music loop', filter: 'duration:[30 TO 90]' },
 ] as const;
