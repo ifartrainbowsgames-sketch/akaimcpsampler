@@ -241,8 +241,7 @@ function vinylCrackle(ctx: SynthCtx, v: number): SynthBuffer {
 export type Gen = (ctx: SynthCtx, variant: number) => SynthBuffer;
 
 const BASS_NOTES = [36, 38, 40, 41, 43, 45, 47, 48, 50, 52, 53, 55, 57, 59, 60, 62];
-const STAB_NOTES = [48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74];
-/** Two-octave melodic map for keys, pads, leads (C4–D5). */
+/** Two-octave melodic map for keys, pads, leads (C4–D6). */
 const MELODIC_NOTES = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86];
 
 function noteHz(n: number): number {
@@ -268,20 +267,20 @@ function synthKeys(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthPad(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 2.2;
+  const dur = 3.5;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
   const hz = noteHz(note);
   for (let i = 0; i < len; i++) {
     const t = i / sr;
-    const det = 1 + Math.sin(t * 0.7 + v) * 0.004;
+    const det = 1 + Math.sin(t * 0.5 + v) * 0.005;
     const s = Math.sin(2 * Math.PI * hz * det * t)
       + Math.sin(2 * Math.PI * hz * 1.01 * t) * 0.5
       + Math.sin(2 * Math.PI * hz * 0.99 * t) * 0.5;
-    d[i] = s * Math.min(1, t * 2) * Math.exp(-t * 0.35);
+    d[i] = s * Math.min(1, t * 1.5) * Math.exp(-t * 0.22);
   }
-  env(d, sr, 0.08, 1.2);
+  env(d, sr, 0.1, 1.8);
   return buf;
 }
 
@@ -303,22 +302,23 @@ function synthLead(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   return buf;
 }
 
-function synthChord(ctx: SynthCtx, root: number, v: number): SynthBuffer {
+function synthChord(ctx: SynthCtx, root: number, v: number, minor = false): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 0.9;
+  const dur = 1.1;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
-  const roots = [root, root + 4, root + 7].map(noteHz);
+  const third = minor ? 3 : 4;
+  const roots = [root, root + third, root + 7].map(noteHz);
   for (let i = 0; i < len; i++) {
     const t = i / sr;
     let s = 0;
     for (const hz of roots) {
       s += Math.sin(2 * Math.PI * hz * t);
     }
-    d[i] = (s / 3) * Math.exp(-t * (1.8 + v * 0.03));
+    d[i] = (s / 3) * Math.exp(-t * (1.6 + v * 0.03));
   }
-  env(d, sr, 0.01, 0.45);
+  env(d, sr, 0.008, 0.55);
   return buf;
 }
 
@@ -359,7 +359,7 @@ function synthArp(ctx: SynthCtx, note: number, v: number): SynthBuffer {
 
 function synthStrings(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 1.6;
+  const dur = 2.8;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
@@ -368,15 +368,15 @@ function synthStrings(ctx: SynthCtx, note: number, v: number): SynthBuffer {
     const t = i / sr;
     const ph = hz * t;
     const saw = 2 * (ph - Math.floor(ph + 0.5)) - 1;
-    d[i] = saw * Math.min(1, t * 3) * Math.exp(-t * (0.5 + v * 0.02)) * 0.6;
+    d[i] = saw * Math.min(1, t * 2.5) * Math.exp(-t * (0.35 + v * 0.015)) * 0.55;
   }
-  env(d, sr, 0.12, 0.9);
+  env(d, sr, 0.15, 1.4);
   return buf;
 }
 
 function synthOrgan(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 1.4;
+  const dur = 2.2;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
@@ -388,9 +388,82 @@ function synthOrgan(ctx: SynthCtx, note: number, v: number): SynthBuffer {
     for (const h of harmonics) {
       s += Math.sin(2 * Math.PI * hz * h * t) / h;
     }
-    d[i] = s * Math.exp(-t * (0.8 + v * 0.02));
+    d[i] = s * Math.exp(-t * (0.55 + v * 0.015));
   }
-  env(d, sr, 0.02, 0.7);
+  env(d, sr, 0.03, 1.1);
+  return buf;
+}
+
+function synthFlute(ctx: SynthCtx, note: number, v: number): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 0.85;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  const hz = noteHz(note);
+  const n = noise(ctx, dur, v + 40).getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const vibrato = Math.sin(t * 5 + v) * 0.006;
+    const f = hz * (1 + vibrato);
+    d[i] = (Math.sin(2 * Math.PI * f * t) * 0.75 + n[i] * 0.08) * Math.exp(-t * (1.8 + v * 0.04));
+  }
+  env(d, sr, 0.04, 0.45);
+  return buf;
+}
+
+function synthBrass(ctx: SynthCtx, note: number, v: number): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 0.55;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  const hz = noteHz(note);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const ph = hz * t;
+    const saw = 2 * (ph - Math.floor(ph + 0.5)) - 1;
+    const sq = saw >= 0 ? 0.6 : -0.6;
+    d[i] = (saw * 0.55 + sq * 0.45) * Math.exp(-t * (3.5 + v * 0.08));
+  }
+  env(d, sr, 0.006, 0.22);
+  return buf;
+}
+
+function synthAmbient(ctx: SynthCtx, note: number, v: number): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 4.0;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  const hz = noteHz(note);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const lfo = Math.sin(t * (0.3 + v * 0.02)) * 0.012;
+    const f = hz * (1 + lfo);
+    const s = Math.sin(2 * Math.PI * f * t)
+      + Math.sin(2 * Math.PI * f * 1.5 * t) * 0.35
+      + Math.sin(2 * Math.PI * f * 0.5 * t) * 0.25;
+    d[i] = s * Math.min(1, t * 0.8) * Math.exp(-t * 0.15);
+  }
+  env(d, sr, 0.2, 2.5);
+  return buf;
+}
+
+function synthPluck(ctx: SynthCtx, note: number, v: number): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 0.45;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  const hz = noteHz(note);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const s = Math.sin(2 * Math.PI * hz * t)
+      + Math.sin(2 * Math.PI * hz * 2 * t) * 0.3;
+    d[i] = s * Math.exp(-t * (8 + v * 0.4));
+  }
+  env(d, sr, 0.001, 0.12);
   return buf;
 }
 
@@ -521,14 +594,9 @@ export function recipeForTemplate(template: string, kitVariant: number): Gen[] {
         kick, snare, hat, rim, (c, v) => toneHit(c, 2000 + o * 50, 0.05, v), clap,
       ];
     case 'stabs':
-      return STAB_NOTES.map((n, i) => (c, v) => synthStab(c, n + o, i + v));
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthStab(c, n + o, i + v));
     case 'plucks':
-      return STAB_NOTES.map((n, i) => (c, v) => {
-        const b = synthStab(c, n + o, i + v);
-        const d = b.getChannelData(0);
-        for (let j = 0; j < d.length; j++) d[j] *= Math.exp(-j / b.sampleRate * 12);
-        return b;
-      });
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthPluck(c, n + o, i + v));
     case 'keys':
       return MELODIC_NOTES.map((n, i) => (c, v) => synthKeys(c, n + o, i + v));
     case 'pads':
@@ -536,15 +604,23 @@ export function recipeForTemplate(template: string, kitVariant: number): Gen[] {
     case 'leads':
       return MELODIC_NOTES.map((n, i) => (c, v) => synthLead(c, n + o, i + v));
     case 'chords':
-      return STAB_NOTES.map((n, i) => (c, v) => synthChord(c, n + o, i + v));
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthChord(c, n + o, i + v));
+    case 'minor':
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthChord(c, n + o, i + v, true));
     case 'bells':
       return MELODIC_NOTES.map((n, i) => (c, v) => synthBell(c, n + o, i + v));
+    case 'flute':
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthFlute(c, n + o, i + v));
+    case 'brass':
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthBrass(c, n + o, i + v));
     case 'arp':
       return MELODIC_NOTES.map((n, i) => (c, v) => synthArp(c, n + o, i + v));
     case 'strings':
       return MELODIC_NOTES.map((n, i) => (c, v) => synthStrings(c, n + o, i + v));
     case 'organ':
       return MELODIC_NOTES.map((n, i) => (c, v) => synthOrgan(c, n + o, i + v));
+    case 'ambient':
+      return MELODIC_NOTES.map((n, i) => (c, v) => synthAmbient(c, n + o, i + v));
     case 'fx':
       return [
         impact, (c, v) => impact(c, v + o + 3), riser, (c, v) => riser(c, v + o + 2),

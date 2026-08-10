@@ -3,6 +3,8 @@
  * Melodic kits are the largest slice — keys, pads, leads, chords, etc.
  */
 
+import type { Polyphony } from '../types';
+
 export interface FactoryKitMeta {
   id: string;
   name: string;
@@ -20,36 +22,37 @@ export interface FactoryKitMeta {
 const DRUM_PADS = ['Kick', 'Kick 2', 'Snare', 'Snare 2', 'Hat', 'Hat O', 'Hat C', 'Perc',
   'Clap', 'Clap 2', 'Tom L', 'Tom M', 'Tom H', 'Tom HH', 'Rim', 'Crash'];
 
+/** Core drum kits — melodic content gets the majority of slots. */
 const DRUM_TEMPLATES: { template: string; name: string; desc: string }[] = [
   { template: 'classic', name: 'Classic', desc: 'Punchy kicks, snares and hats' },
   { template: 'lofi', name: 'Lo-Fi', desc: 'Dusty warm drum machine' },
   { template: 'trap', name: 'Trap', desc: '808 kicks and snappy snares' },
-  { template: 'house', name: 'House', desc: 'Four-on-the-floor club drums' },
-  { template: 'boom', name: 'Boom Bap', desc: 'Sample-style hip-hop drums' },
-  { template: 'dnb', name: 'DnB', desc: 'Breakbeat kicks and tight snares' },
 ];
 
 const BASS_TEMPLATES: { template: string; name: string; desc: string }[] = [
   { template: '808', name: '808', desc: 'Sub bass tones C1–D3' },
-  { template: 'sub', name: 'Sub', desc: 'Deep sub bass one octave down' },
 ];
 
 const PERC_TEMPLATES: { template: string; name: string; desc: string }[] = [
   { template: 'world', name: 'World', desc: 'Congas, bells and hand percussion' },
 ];
 
-/** 10 melodic templates × 5 variants = 50 kits (half the library). */
+/** 14 melodic templates × 5 variants = 70 kits (70% of the library). */
 const MELODIC_TEMPLATES: { template: string; name: string; desc: string }[] = [
-  { template: 'keys', name: 'Keys', desc: 'Piano-style melodic tones C4–D5' },
-  { template: 'pads', name: 'Pads', desc: 'Lush sustained chord pads' },
+  { template: 'keys', name: 'Keys', desc: 'Piano-style melodic tones C4–D6' },
+  { template: 'pads', name: 'Pads', desc: 'Lush sustained pads — loop-ready' },
   { template: 'leads', name: 'Leads', desc: 'Bright mono synth leads' },
   { template: 'chords', name: 'Chords', desc: 'Major triad chord hits' },
+  { template: 'minor', name: 'Minor', desc: 'Minor triad chord hits' },
   { template: 'stabs', name: 'Stabs', desc: 'Short synth chord stabs' },
   { template: 'plucks', name: 'Plucks', desc: 'Plucked melodic synth tones' },
   { template: 'bells', name: 'Bells', desc: 'Mallet and bell tones' },
+  { template: 'flute', name: 'Flute', desc: 'Soft breathy flute tones' },
+  { template: 'brass', name: 'Brass', desc: 'Brass section stabs' },
   { template: 'arp', name: 'Arp', desc: 'Fast arpeggio plucks' },
-  { template: 'strings', name: 'Strings', desc: 'Slow-attack string pads' },
-  { template: 'organ', name: 'Organ', desc: 'Drawbar organ tones' },
+  { template: 'strings', name: 'Strings', desc: 'Slow-attack string pads — loop-ready' },
+  { template: 'organ', name: 'Organ', desc: 'Drawbar organ tones — loop-ready' },
+  { template: 'ambient', name: 'Ambient', desc: 'Evolving ambient textures — loop-ready' },
 ];
 
 const FX_TEMPLATE = { template: 'fx', name: 'FX', desc: 'Impacts, risers and transitions' };
@@ -112,7 +115,36 @@ function buildCatalog(): FactoryKitMeta[] {
   return kits;
 }
 
-export const FACTORY_KITS: FactoryKitMeta[] = buildCatalog();
+const CATEGORY_ORDER: Record<FactoryKitMeta['category'], number> = {
+  melodic: 0,
+  bass: 1,
+  drums: 2,
+  perc: 3,
+  fx: 4,
+};
+
+export const FACTORY_KITS: FactoryKitMeta[] = buildCatalog().sort(
+  (a, b) => CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category]
+    || a.name.localeCompare(b.name),
+);
+
+/** Pad defaults applied when loading a melodic factory kit. */
+export function factoryKitPadDefaults(meta: FactoryKitMeta): {
+  loop: boolean;
+  loopStartRatio: number;
+  polyphony: Polyphony;
+} {
+  if (meta.category !== 'melodic') {
+    return { loop: false, loopStartRatio: 0, polyphony: 'mono' };
+  }
+  const loopTemplates = new Set(['pads', 'strings', 'organ', 'ambient']);
+  const polyTemplates = new Set(['keys', 'chords', 'minor', 'stabs', 'plucks', 'bells', 'arp']);
+  return {
+    loop: loopTemplates.has(meta.template),
+    loopStartRatio: loopTemplates.has(meta.template) ? 0.28 : 0,
+    polyphony: polyTemplates.has(meta.template) ? 'poly' : 'mono',
+  };
+}
 
 export const FACTORY_KIT_COUNT = FACTORY_KITS.length;
 

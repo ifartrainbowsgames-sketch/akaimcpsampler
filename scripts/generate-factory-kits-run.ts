@@ -45,9 +45,9 @@ function encodeWav(buf: SynthBuffer): Buffer {
 
 function writeManifest() {
   const manifest = {
-    version: 3,
+    version: 4,
     count: FACTORY_KITS.length,
-    note: '100 WAV kits — 16 pads each under public/factory/wav/{id}/',
+    note: '100 WAV kits — 70 melodic, 16 pads each under public/factory/wav/{id}/',
     kits: FACTORY_KITS.map((k) => ({
       id: k.id,
       name: k.name,

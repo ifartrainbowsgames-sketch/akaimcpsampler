@@ -21,6 +21,7 @@ import { getChopLoadMode, type ChopLoadMode } from '../storage/preferences';
 import { listSamples, deleteSample } from '../storage/opfs';
 import { ticksPerBar } from '../audio/scheduler';
 import { FACTORY_KITS, generateFactoryKit } from '../audio/factory/kits';
+import { factoryKitPadDefaults } from '../audio/factory/catalog';
 import type { LibrarySound } from '../library/types';
 import { fetchFreesoundPreview, searchFreesound, checkFreesoundProxy } from '../library/freesound';
 
@@ -756,6 +757,7 @@ export const useStore = create<UIState>((set, get) => ({
     if (!kit) return;
 
     const meta = FACTORY_KITS.find((k) => k.id === kitId);
+    const padDefaults = meta ? factoryKitPadDefaults(meta) : null;
 
     for (let i = 0; i < 16; i++) {
       const id = crypto.randomUUID();
@@ -765,16 +767,20 @@ export const useStore = create<UIState>((set, get) => ({
       await writeSample(id, wav);
 
       const label = meta?.padNames[i] ?? `Pad ${i + 1}`;
+      const loopStart = padDefaults?.loop
+        ? Math.floor(buffer.length * padDefaults.loopStartRatio)
+        : 0;
 
       get().updatePad(i, {
         sampleId: id,
         sampleName: `${meta?.name ?? kit.name}-${label}`.slice(0, 24),
         start: 0,
         end: buffer.length,
-        loopStart: 0,
+        loopStart,
+        loop: padDefaults?.loop ?? false,
         slices: [],
         gain: meta?.defaultGain ?? 0,
-        polyphony: 'mono',
+        polyphony: padDefaults?.polyphony ?? 'mono',
       });
     }
 
