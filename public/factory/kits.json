@@ -1,16 +1,607 @@
 {
-  "version": 2,
-  "note": "Ten procedural kits built in-browser. Add WAV folders under public/factory/ later.",
+  "version": 4,
+  "count": 100,
+  "note": "100 WAV kits — 70 melodic, 16 pads each under public/factory/wav/{id}/",
   "kits": [
-    { "id": "classic-drums", "name": "Classic Drums", "category": "drums" },
-    { "id": "lofi-drums", "name": "Lo-Fi Drums", "category": "drums" },
-    { "id": "trap-drums", "name": "Trap Drums", "category": "drums" },
-    { "id": "house-drums", "name": "House Drums", "category": "drums" },
-    { "id": "techno-drums", "name": "Techno Drums", "category": "drums" },
-    { "id": "vinyl-drums", "name": "Vinyl Drums", "category": "drums" },
-    { "id": "808-bass", "name": "808 Bass", "category": "bass" },
-    { "id": "percussion", "name": "World Perc", "category": "perc" },
-    { "id": "synth-stabs", "name": "Synth Stabs", "category": "synth" },
-    { "id": "fx-hits", "name": "FX Hits", "category": "fx" }
+    {
+      "id": "melodic-ambient-01",
+      "name": "Ambient 1",
+      "category": "melodic",
+      "template": "ambient"
+    },
+    {
+      "id": "melodic-ambient-02",
+      "name": "Ambient 2",
+      "category": "melodic",
+      "template": "ambient"
+    },
+    {
+      "id": "melodic-ambient-03",
+      "name": "Ambient 3",
+      "category": "melodic",
+      "template": "ambient"
+    },
+    {
+      "id": "melodic-ambient-04",
+      "name": "Ambient 4",
+      "category": "melodic",
+      "template": "ambient"
+    },
+    {
+      "id": "melodic-ambient-05",
+      "name": "Ambient 5",
+      "category": "melodic",
+      "template": "ambient"
+    },
+    {
+      "id": "melodic-arp-01",
+      "name": "Arp 1",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-02",
+      "name": "Arp 2",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-03",
+      "name": "Arp 3",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-04",
+      "name": "Arp 4",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-arp-05",
+      "name": "Arp 5",
+      "category": "melodic",
+      "template": "arp"
+    },
+    {
+      "id": "melodic-bells-01",
+      "name": "Bells 1",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-02",
+      "name": "Bells 2",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-03",
+      "name": "Bells 3",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-04",
+      "name": "Bells 4",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-bells-05",
+      "name": "Bells 5",
+      "category": "melodic",
+      "template": "bells"
+    },
+    {
+      "id": "melodic-brass-01",
+      "name": "Brass 1",
+      "category": "melodic",
+      "template": "brass"
+    },
+    {
+      "id": "melodic-brass-02",
+      "name": "Brass 2",
+      "category": "melodic",
+      "template": "brass"
+    },
+    {
+      "id": "melodic-brass-03",
+      "name": "Brass 3",
+      "category": "melodic",
+      "template": "brass"
+    },
+    {
+      "id": "melodic-brass-04",
+      "name": "Brass 4",
+      "category": "melodic",
+      "template": "brass"
+    },
+    {
+      "id": "melodic-brass-05",
+      "name": "Brass 5",
+      "category": "melodic",
+      "template": "brass"
+    },
+    {
+      "id": "melodic-chords-01",
+      "name": "Chords 1",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-02",
+      "name": "Chords 2",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-03",
+      "name": "Chords 3",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-04",
+      "name": "Chords 4",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-chords-05",
+      "name": "Chords 5",
+      "category": "melodic",
+      "template": "chords"
+    },
+    {
+      "id": "melodic-flute-01",
+      "name": "Flute 1",
+      "category": "melodic",
+      "template": "flute"
+    },
+    {
+      "id": "melodic-flute-02",
+      "name": "Flute 2",
+      "category": "melodic",
+      "template": "flute"
+    },
+    {
+      "id": "melodic-flute-03",
+      "name": "Flute 3",
+      "category": "melodic",
+      "template": "flute"
+    },
+    {
+      "id": "melodic-flute-04",
+      "name": "Flute 4",
+      "category": "melodic",
+      "template": "flute"
+    },
+    {
+      "id": "melodic-flute-05",
+      "name": "Flute 5",
+      "category": "melodic",
+      "template": "flute"
+    },
+    {
+      "id": "melodic-keys-01",
+      "name": "Keys 1",
+      "category": "melodic",
+      "template": "keys"
+    },
+    {
+      "id": "melodic-keys-02",
+      "name": "Keys 2",
+      "category": "melodic",
+      "template": "keys"
+    },
+    {
+      "id": "melodic-keys-03",
+      "name": "Keys 3",
+      "category": "melodic",
+      "template": "keys"
+    },
+    {
+      "id": "melodic-keys-04",
+      "name": "Keys 4",
+      "category": "melodic",
+      "template": "keys"
+    },
+    {
+      "id": "melodic-keys-05",
+      "name": "Keys 5",
+      "category": "melodic",
+      "template": "keys"
+    },
+    {
+      "id": "melodic-leads-01",
+      "name": "Leads 1",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-02",
+      "name": "Leads 2",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-03",
+      "name": "Leads 3",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-04",
+      "name": "Leads 4",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-leads-05",
+      "name": "Leads 5",
+      "category": "melodic",
+      "template": "leads"
+    },
+    {
+      "id": "melodic-minor-01",
+      "name": "Minor 1",
+      "category": "melodic",
+      "template": "minor"
+    },
+    {
+      "id": "melodic-minor-02",
+      "name": "Minor 2",
+      "category": "melodic",
+      "template": "minor"
+    },
+    {
+      "id": "melodic-minor-03",
+      "name": "Minor 3",
+      "category": "melodic",
+      "template": "minor"
+    },
+    {
+      "id": "melodic-minor-04",
+      "name": "Minor 4",
+      "category": "melodic",
+      "template": "minor"
+    },
+    {
+      "id": "melodic-minor-05",
+      "name": "Minor 5",
+      "category": "melodic",
+      "template": "minor"
+    },
+    {
+      "id": "melodic-organ-01",
+      "name": "Organ 1",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-02",
+      "name": "Organ 2",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-03",
+      "name": "Organ 3",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-04",
+      "name": "Organ 4",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-organ-05",
+      "name": "Organ 5",
+      "category": "melodic",
+      "template": "organ"
+    },
+    {
+      "id": "melodic-pads-01",
+      "name": "Pads 1",
+      "category": "melodic",
+      "template": "pads"
+    },
+    {
+      "id": "melodic-pads-02",
+      "name": "Pads 2",
+      "category": "melodic",
+      "template": "pads"
+    },
+    {
+      "id": "melodic-pads-03",
+      "name": "Pads 3",
+      "category": "melodic",
+      "template": "pads"
+    },
+    {
+      "id": "melodic-pads-04",
+      "name": "Pads 4",
+      "category": "melodic",
+      "template": "pads"
+    },
+    {
+      "id": "melodic-pads-05",
+      "name": "Pads 5",
+      "category": "melodic",
+      "template": "pads"
+    },
+    {
+      "id": "melodic-plucks-01",
+      "name": "Plucks 1",
+      "category": "melodic",
+      "template": "plucks"
+    },
+    {
+      "id": "melodic-plucks-02",
+      "name": "Plucks 2",
+      "category": "melodic",
+      "template": "plucks"
+    },
+    {
+      "id": "melodic-plucks-03",
+      "name": "Plucks 3",
+      "category": "melodic",
+      "template": "plucks"
+    },
+    {
+      "id": "melodic-plucks-04",
+      "name": "Plucks 4",
+      "category": "melodic",
+      "template": "plucks"
+    },
+    {
+      "id": "melodic-plucks-05",
+      "name": "Plucks 5",
+      "category": "melodic",
+      "template": "plucks"
+    },
+    {
+      "id": "melodic-stabs-01",
+      "name": "Stabs 1",
+      "category": "melodic",
+      "template": "stabs"
+    },
+    {
+      "id": "melodic-stabs-02",
+      "name": "Stabs 2",
+      "category": "melodic",
+      "template": "stabs"
+    },
+    {
+      "id": "melodic-stabs-03",
+      "name": "Stabs 3",
+      "category": "melodic",
+      "template": "stabs"
+    },
+    {
+      "id": "melodic-stabs-04",
+      "name": "Stabs 4",
+      "category": "melodic",
+      "template": "stabs"
+    },
+    {
+      "id": "melodic-stabs-05",
+      "name": "Stabs 5",
+      "category": "melodic",
+      "template": "stabs"
+    },
+    {
+      "id": "melodic-strings-01",
+      "name": "Strings 1",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-02",
+      "name": "Strings 2",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-03",
+      "name": "Strings 3",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-04",
+      "name": "Strings 4",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "melodic-strings-05",
+      "name": "Strings 5",
+      "category": "melodic",
+      "template": "strings"
+    },
+    {
+      "id": "bass-808-01",
+      "name": "808 1",
+      "category": "bass",
+      "template": "808"
+    },
+    {
+      "id": "bass-808-02",
+      "name": "808 2",
+      "category": "bass",
+      "template": "808"
+    },
+    {
+      "id": "bass-808-03",
+      "name": "808 3",
+      "category": "bass",
+      "template": "808"
+    },
+    {
+      "id": "bass-808-04",
+      "name": "808 4",
+      "category": "bass",
+      "template": "808"
+    },
+    {
+      "id": "bass-808-05",
+      "name": "808 5",
+      "category": "bass",
+      "template": "808"
+    },
+    {
+      "id": "drums-classic-01",
+      "name": "Classic 1",
+      "category": "drums",
+      "template": "classic"
+    },
+    {
+      "id": "drums-classic-02",
+      "name": "Classic 2",
+      "category": "drums",
+      "template": "classic"
+    },
+    {
+      "id": "drums-classic-03",
+      "name": "Classic 3",
+      "category": "drums",
+      "template": "classic"
+    },
+    {
+      "id": "drums-classic-04",
+      "name": "Classic 4",
+      "category": "drums",
+      "template": "classic"
+    },
+    {
+      "id": "drums-classic-05",
+      "name": "Classic 5",
+      "category": "drums",
+      "template": "classic"
+    },
+    {
+      "id": "drums-lofi-01",
+      "name": "Lo-Fi 1",
+      "category": "drums",
+      "template": "lofi"
+    },
+    {
+      "id": "drums-lofi-02",
+      "name": "Lo-Fi 2",
+      "category": "drums",
+      "template": "lofi"
+    },
+    {
+      "id": "drums-lofi-03",
+      "name": "Lo-Fi 3",
+      "category": "drums",
+      "template": "lofi"
+    },
+    {
+      "id": "drums-lofi-04",
+      "name": "Lo-Fi 4",
+      "category": "drums",
+      "template": "lofi"
+    },
+    {
+      "id": "drums-lofi-05",
+      "name": "Lo-Fi 5",
+      "category": "drums",
+      "template": "lofi"
+    },
+    {
+      "id": "drums-trap-01",
+      "name": "Trap 1",
+      "category": "drums",
+      "template": "trap"
+    },
+    {
+      "id": "drums-trap-02",
+      "name": "Trap 2",
+      "category": "drums",
+      "template": "trap"
+    },
+    {
+      "id": "drums-trap-03",
+      "name": "Trap 3",
+      "category": "drums",
+      "template": "trap"
+    },
+    {
+      "id": "drums-trap-04",
+      "name": "Trap 4",
+      "category": "drums",
+      "template": "trap"
+    },
+    {
+      "id": "drums-trap-05",
+      "name": "Trap 5",
+      "category": "drums",
+      "template": "trap"
+    },
+    {
+      "id": "perc-world-01",
+      "name": "World 1",
+      "category": "perc",
+      "template": "world"
+    },
+    {
+      "id": "perc-world-02",
+      "name": "World 2",
+      "category": "perc",
+      "template": "world"
+    },
+    {
+      "id": "perc-world-03",
+      "name": "World 3",
+      "category": "perc",
+      "template": "world"
+    },
+    {
+      "id": "perc-world-04",
+      "name": "World 4",
+      "category": "perc",
+      "template": "world"
+    },
+    {
+      "id": "perc-world-05",
+      "name": "World 5",
+      "category": "perc",
+      "template": "world"
+    },
+    {
+      "id": "fx-fx-01",
+      "name": "FX 1",
+      "category": "fx",
+      "template": "fx"
+    },
+    {
+      "id": "fx-fx-02",
+      "name": "FX 2",
+      "category": "fx",
+      "template": "fx"
+    },
+    {
+      "id": "fx-fx-03",
+      "name": "FX 3",
+      "category": "fx",
+      "template": "fx"
+    },
+    {
+      "id": "fx-fx-04",
+      "name": "FX 4",
+      "category": "fx",
+      "template": "fx"
+    },
+    {
+      "id": "fx-fx-05",
+      "name": "FX 5",
+      "category": "fx",
+      "template": "fx"
+    }
   ]
 }

@@ -3,6 +3,23 @@ import type { Pad, Project, Sequence } from './types';
 import { triggerVoice, type Voice } from './voice';
 import { applySwing } from './scheduler';
 import { resolvePlayback, reverseBuffer, reverseRegion } from './playback';
+import { KnobFX, type KnobFXId } from './fx/knobfx';
+
+export interface ExportCompressor {
+  attack: number;
+  release: number;
+  amount: number;
+  color?: boolean;
+  bypass?: boolean;
+  inBoost?: number;
+}
+
+export interface ExportKnobFX {
+  id: KnobFXId;
+  params: [number, number, number];
+  bypass?: boolean;
+  routing?: boolean[];
+}
 
 /**
  * Render a sequence (or a whole song) to a WAV blob.
@@ -23,7 +40,8 @@ export interface ExportOptions {
   sampleRate?: number;
   kitVolumeDb?: number;
   masterVolume?: number;
-  compressor?: { attack: number; release: number; amount: number };
+  compressor?: ExportCompressor;
+  knobFX?: ExportKnobFX;
 }
 
 function ticksPerBar(project: Project): number {
@@ -159,19 +177,44 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
   master.gain.value = opts.masterVolume ?? 1;
 
   const comp = ctx.createDynamicsCompressor();
-  const c = opts.compressor ?? { attack: 0, release: 0, amount: 0 };
+  const c = opts.compressor ?? { attack: 0, release: 0, amount: 0, color: false, bypass: false, inBoost: 0 };
   const attackMs = 0.1 + c.attack * 150;
   const releaseMs = 3 + c.release * 297;
   comp.attack.value = attackMs / 1000;
   comp.release.value = releaseMs / 1000;
   const n = Math.max(0, Math.min(1, c.amount));
-  comp.threshold.value = -6 - n * 40;
-  comp.ratio.value = 1 + n * 19;
+  if (c.bypass) {
+    comp.threshold.value = 0;
+    comp.ratio.value = 1;
+  } else {
+    comp.threshold.value = -6 - n * 40;
+    comp.ratio.value = 1 + n * 19;
+  }
+
+  const inBoost = ctx.createGain();
+  inBoost.gain.value = 1 + (c.inBoost ?? 0) * 2;
+
+  const colorDrive = ctx.createWaveShaper();
+  if (c.color) {
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) {
+      const x = (i * 2) / 1024 - 1;
+      curve[i] = ((1 + 28) * x) / (1 + 28 * Math.abs(x));
+    }
+    colorDrive.curve = curve;
+  }
 
   const kitGain = ctx.createGain();
   kitGain.gain.value = dbToGain(opts.kitVolumeDb ?? 0);
 
-  kitGain.connect(comp);
+  kitGain.connect(inBoost);
+  if (c.color) {
+    inBoost.connect(colorDrive);
+    colorDrive.connect(comp);
+  } else {
+    inBoost.connect(comp);
+  }
+
   comp.connect(master);
   master.connect(ctx.destination);
 
@@ -180,6 +223,23 @@ export async function renderToWav(opts: ExportOptions): Promise<Blob | null> {
     g.connect(kitGain);
     return g;
   });
+
+  if (opts.knobFX && opts.knobFX.id !== 'off' && !opts.knobFX.bypass) {
+    const kfx = new KnobFX(ctx as unknown as AudioContext);
+    await kfx.setEffect(opts.knobFX.id);
+    kfx.setParam(0, opts.knobFX.params[0]);
+    kfx.setParam(1, opts.knobFX.params[1]);
+    kfx.setParam(2, opts.knobFX.params[2]);
+    const knobReturn = ctx.createGain();
+    kfx.output.connect(knobReturn);
+    knobReturn.connect(kitGain);
+    const routing = opts.knobFX.routing ?? Array.from({ length: 16 }, () => true);
+    for (let i = 0; i < 16; i++) {
+      if (routing[i]) {
+        padGains[i].connect(kfx.input);
+      }
+    }
+  }
 
   const copies = new Map<string, AudioBuffer>();
   const reversed = new Map<string, AudioBuffer>();
@@ -291,7 +351,7 @@ export async function resampleSequence(
   bank: number,
   slot: number,
   getBuffer: (id: string) => AudioBuffer | null,
-  mix?: Pick<ExportOptions, 'kitVolumeDb' | 'masterVolume' | 'compressor'>
+  mix?: Pick<ExportOptions, 'kitVolumeDb' | 'masterVolume' | 'compressor' | 'knobFX'>
 ): Promise<AudioBuffer | null> {
   const blob = await renderToWav({
     project,

@@ -45,12 +45,14 @@ export function Pads() {
   const noteRepeat = useStore((s) => s.noteRepeat);
   const noteRepeatTriplet = useStore((s) => s.noteRepeatTriplet);
   const fullLevel = useStore((s) => s.fullLevel);
+  const startPadNoteRepeat = useStore((s) => s.startPadNoteRepeat);
+  const knobFXRouting = useStore((s) => s.knobFXRouting);
+  const timeCorrectPads = useStore((s) => s.timeCorrectPads);
 
   const [flash, setFlash] = useState<Record<number, boolean>>({});
   const [seqLit, setSeqLit] = useState<Record<number, boolean>>({});
   const [dropTarget, setDropTarget] = useState<number | null>(null);
   const held = useRef(new Set<number>());
-  const repeatTimers = useRef<Record<number, number>>({});
   const now = useRef(performance.now());
 
   useEffect(() => {
@@ -77,12 +79,12 @@ export function Pads() {
       if (i === undefined || held.current.has(i)) return;
       held.current.add(i);
       trigger(i, 110);
+      startPadNoteRepeat(i, 110);
     };
     const up = (e: KeyboardEvent) => {
       const i = KEYMAP[e.key.toLowerCase()];
       if (i === undefined) return;
       held.current.delete(i);
-      stopRepeat(i);
       releasePad(i);
     };
     window.addEventListener('keydown', down);
@@ -93,29 +95,6 @@ export function Pads() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shift, noteRepeat, noteRepeatTriplet, project.bpm]);
-
-  function repeatIntervalMs() {
-    const beat = 60000 / project.bpm;
-    return noteRepeatTriplet ? beat / 6 : beat / 4;
-  }
-
-  function startRepeat(i: number, velocity: number) {
-    if (!noteRepeat) return;
-    stopRepeat(i);
-    repeatTimers.current[i] = window.setInterval(() => {
-      hitPad(i, fullLevel ? 127 : velocity);
-      setFlash((f) => ({ ...f, [i]: true }));
-      window.setTimeout(() => setFlash((f) => ({ ...f, [i]: false })), FLASH_MS);
-    }, repeatIntervalMs());
-  }
-
-  function stopRepeat(i: number) {
-    const id = repeatTimers.current[i];
-    if (id) {
-      clearInterval(id);
-      delete repeatTimers.current[i];
-    }
-  }
 
   function trigger(i: number, velocity: number) {
     if (shift) {
@@ -160,6 +139,12 @@ export function Pads() {
             const seq = project.sequences[bank][i];
             const seqHasEvents = seq.events.length > 0;
             const inSeqMode = screen === 'seq';
+            const inKnobSelect = screen === 'knobfx-select';
+            const inTimeCorr = screen === 'timecorr';
+            const inFlexBeat = screen === 'flexbeat';
+            const isFlexActive = inFlexBeat && useStore.getState().flexBeat.activePad === i;
+            const knobRouted = inKnobSelect && knobFXRouting[i];
+            const tcSelected = inTimeCorr && timeCorrectPads[i];
             return (
               <div className="padcell" key={i}>
                 <button
@@ -174,6 +159,9 @@ export function Pads() {
                     inSeqMode && !seqHasEvents ? 'seqempty' : '',
                     isSeqSlot ? 'seqslot' : '',
                     isSeqQueued ? 'seqqueued' : '',
+                    inKnobSelect ? (knobRouted ? 'knobfx-lit' : 'knobfx-dim') : '',
+                    inTimeCorr && tcSelected ? 'tcsel' : '',
+                    isFlexActive ? 'flexon' : '',
                     selected === i ? 'selected' : '',
                     dropTarget === i ? 'dropping' : '',
                   ].join(' ')}
@@ -183,15 +171,13 @@ export function Pads() {
                       ? Math.max(20, Math.round(e.pressure * 127))
                       : fullLevel ? 127 : 100;
                     trigger(i, v);
-                    startRepeat(i, v);
+                    startPadNoteRepeat(i, v);
                   }}
                   onPointerUp={(e) => {
                     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* */ }
-                    stopRepeat(i);
                     releasePad(i);
                   }}
                   onPointerCancel={() => {
-                    stopRepeat(i);
                     releasePad(i);
                   }}
                   onDragOver={(e) => { e.preventDefault(); setDropTarget(i); }}

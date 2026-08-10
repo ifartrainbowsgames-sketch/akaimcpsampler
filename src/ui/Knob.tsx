@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 interface Props {
   value: number;
@@ -11,31 +11,62 @@ interface Props {
   variant?: 'default' | 'volume';
 }
 
-export function Knob({ value, onChange, size = 'md', label, sensitivity = 300, variant = 'default' }: Props) {
+/**
+ * Hardware-style soft takeover: the knob ignores movement until the control
+ * crosses the stored parameter value, then tracks normally.
+ */
+export function Knob({
+  value,
+  onChange,
+  size = 'md',
+  label,
+  sensitivity = 300,
+  variant = 'default',
+  softTakeover = false,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, y: 0, v: 0 });
+  const armed = useRef(!softTakeover);
+  const lastValue = useRef(value);
+
+  useEffect(() => {
+    if (!softTakeover) {
+      armed.current = true;
+      return;
+    }
+    if (Math.abs(value - lastValue.current) > 0.02) {
+      armed.current = false;
+    }
+    lastValue.current = value;
+  }, [value, softTakeover]);
 
   const down = useCallback((e: React.PointerEvent) => {
     drag.current = { active: true, y: e.clientY, v: value };
+    if (!softTakeover) armed.current = true;
     ref.current?.setPointerCapture(e.pointerId);
-  }, [value]);
+  }, [value, softTakeover]);
 
   const move = useCallback((e: React.PointerEvent) => {
     if (!drag.current.active) return;
     const dy = drag.current.y - e.clientY;
     const next = Math.max(0, Math.min(1, drag.current.v + dy / sensitivity));
+    if (softTakeover && !armed.current) {
+      if (Math.abs(next - value) < 0.04) armed.current = true;
+      else return;
+    }
     onChange(next);
-  }, [onChange]);
+  }, [onChange, sensitivity, softTakeover, value]);
 
   const up = useCallback(() => { drag.current.active = false; }, []);
 
   const angle = -150 + value * 300;
+  const showArrow = softTakeover && !armed.current;
 
   return (
     <div className="knobwrap">
       <div
         ref={ref}
-        className={`knob knob-${size}${variant === 'volume' ? ' knob--vol' : ''}`}
+        className={`knob knob-${size}${variant === 'volume' ? ' knob--vol' : ''}${showArrow ? ' knob--takeover' : ''}`}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -52,6 +83,7 @@ export function Knob({ value, onChange, size = 'md', label, sensitivity = 300, v
           <span className="knob-blue" style={{ transform: `rotate(${angle}deg)` }} />
         )}
         <span className="knobtick" />
+        {showArrow && <span className="knob-arrow">◀▶</span>}
       </div>
       {label && <div className="knoblabel">{label}</div>}
     </div>

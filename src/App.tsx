@@ -89,6 +89,9 @@ function Panel() {
   const setWaveformZoom = useStore((s) => s.setWaveformZoom);
   const nudgeStepEvent = useStore((s) => s.nudgeStepEvent);
 
+  const faderEnabled = useStore((s) => s.faderEnabled);
+  const kitVolume = useStore((s) => s.kitVolume);
+
   const pad = project.banks[bank][selectedPad];
   const unmuteAll = () => {
     project.banks[bank].forEach((p, i) => { if (p.muted) updatePad(i, { muted: false }); });
@@ -121,6 +124,22 @@ function Panel() {
   useEffect(() => {
     engine.setMasterVolume(volume);
   }, [volume]);
+
+  /** Sync fader position when pad, param, or screen changes (soft takeover). */
+  useEffect(() => {
+    let v = 0.75;
+    switch (faderParam) {
+      case 'Pad Volume': v = (pad.gain + 74) / 80; break;
+      case 'Pad Pan': v = (pad.pan + 1) / 2; break;
+      case 'Pad Tune': v = (pad.semi + 24) / 48; break;
+      case 'Pad Amp Attack': v = pad.ampEnv.attack / 127; break;
+      case 'Pad Amp Decay': v = pad.ampEnv.decay / 127; break;
+      case 'Pad Filter Cutoff': v = pad.cutoff / 127; break;
+      case 'Kit Volume': v = (kitVolume + 74) / 80; break;
+      default: break;
+    }
+    setFaderValue(Math.max(0, Math.min(1, v)));
+  }, [faderParam, selectedPad, bank, pad.gain, pad.pan, pad.semi, pad.ampEnv.attack, pad.ampEnv.decay, pad.cutoff, kitVolume, screen]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -194,8 +213,9 @@ function Panel() {
               <PanelButton label="PAD FX" sub="FLEX BEAT" colour="orange"
                 lit={screen === 'padfx' || screen === 'flexbeat'}
                 onClick={() => setScreen(shift ? 'flexbeat' : 'padfx')} />
-              <PanelButton label="KNOB FX" sub="FX SELECT" colour="orange" lit={screen === 'knobfx'}
-                onClick={() => setScreen('knobfx')} />
+              <PanelButton label="KNOB FX" sub="FX SELECT" colour="orange"
+                lit={screen === 'knobfx' || screen === 'knobfx-select'}
+                onClick={() => setScreen(shift ? 'knobfx-select' : 'knobfx')} />
             </div>
 
             <div className="grid2 gap">
@@ -209,7 +229,11 @@ function Panel() {
             <Fader
               value={faderValue}
               label={faderParam.toUpperCase().slice(0, 10)}
+              enabled={faderEnabled}
+              softTakeover
+              centreBright={faderParam === 'Pad Pan' || faderParam === 'Pad Tune'}
               onChange={(v) => {
+                if (!faderEnabled) return;
                 setFaderValue(v);
                 if (screen === 'stepedit') {
                   const delta = Math.round((v - 0.5) * 48);
@@ -220,6 +244,8 @@ function Panel() {
                   case 'Pad Volume': updatePad(selectedPad, { gain: v * 80 - 74 }); break;
                   case 'Pad Pan': updatePad(selectedPad, { pan: v * 2 - 1 }); break;
                   case 'Pad Tune': updatePad(selectedPad, { semi: Math.round(v * 48 - 24) }); break;
+                  case 'Pad Amp Attack': updatePad(selectedPad, { ampEnv: { ...pad.ampEnv, attack: Math.round(v * 127) } }); break;
+                  case 'Pad Amp Decay': updatePad(selectedPad, { ampEnv: { ...pad.ampEnv, decay: Math.round(v * 127) } }); break;
                   case 'Pad Filter Cutoff': updatePad(selectedPad, { cutoff: Math.round(v * 127) }); break;
                   case 'Kit Volume': useStore.getState().setKitVolume(v * 80 - 74); break;
                   default: break;
