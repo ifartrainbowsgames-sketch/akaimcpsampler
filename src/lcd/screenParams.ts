@@ -5,6 +5,7 @@ import type { Pad, Project } from '../audio/types';
 import { KNOB_FX } from '../audio/fx/knobfx';
 import { useStore } from '../state/store';
 import { TICKS_PER_16TH } from '../audio/types';
+import { resolveAssignedParam } from './assignableParams';
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
@@ -24,7 +25,21 @@ export interface ScreenParamContext {
 /** Resolve K1–K3 parameters for the active LCD screen. */
 export function resolveScreenParams(ctx: ScreenParamContext): KParam[] {
   const s = useStore.getState();
+  const params = resolveScreenDrivenParams(ctx, s);
 
+  // Q-Link: a knob explicitly assigned via the assign picker overrides
+  // whatever the current screen would otherwise put there.
+  for (let i = 0; i < 3; i++) {
+    const assignedId = s.knobAssign[i];
+    if (!assignedId) continue;
+    const resolved = resolveAssignedParam(assignedId, ctx.pad, ctx.project);
+    if (resolved) params[i] = resolved;
+  }
+
+  return params;
+}
+
+function resolveScreenDrivenParams(ctx: ScreenParamContext, s: ReturnType<typeof useStore.getState>): KParam[] {
   switch (ctx.screen) {
     case 'sample': {
       const { params } = resolveSamplePage(

@@ -5,9 +5,11 @@ import type { UIState } from '../store';
 export type FxSlice = Pick<UIState,
   | 'flexBeat' | 'knobFXParams' | 'knobFXShiftParams' | 'knobFXRouting' | 'knobFXBypass'
   | 'inputConfig' | 'knobFX' | 'activePadFX'
+  | 'knobAssign' | 'knobAssignPicker'
   | 'setKnobFXParam' | 'setKnobFXShiftParam' | 'toggleKnobFXPad' | 'setAllKnobFXPads'
   | 'toggleKnobFXBypass' | 'setFlexBeat' | 'selectFlexBeatPad' | 'setInputConfig' | 'setKnobFX'
   | 'pressPadFX' | 'releasePadFX' | 'togglePadFXLatch'
+  | 'setKnobAssign' | 'openKnobAssignPicker' | 'closeKnobAssignPicker'
 >;
 
 export const createFxSlice: StateCreator<UIState, [], [], FxSlice> = (set, get) => ({
@@ -25,6 +27,8 @@ export const createFxSlice: StateCreator<UIState, [], [], FxSlice> = (set, get) 
   },
   knobFX: 'off',
   activePadFX: null,
+  knobAssign: [null, null, null],
+  knobAssignPicker: null,
 
   setKnobFXParam(k, v) {
     engine.setKnobFXParam(k, v);
@@ -98,5 +102,19 @@ export const createFxSlice: StateCreator<UIState, [], [], FxSlice> = (set, get) 
 
   togglePadFXLatch(id) {
     engine.togglePadFXLatch(id);
+  },
+
+  setKnobAssign(slot, id) {
+    const next = [...get().knobAssign] as [string | null, string | null, string | null];
+    next[slot] = id;
+    set({ knobAssign: next, knobAssignPicker: null });
+  },
+
+  openKnobAssignPicker(slot) {
+    set({ knobAssignPicker: slot });
+  },
+
+  closeKnobAssignPicker() {
+    set({ knobAssignPicker: null });
   },
 });

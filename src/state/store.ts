@@ -224,6 +224,15 @@ export interface UIState {
   pressPadFX(id: PadFXId, amount: number): void;
   releasePadFX(id: PadFXId): void;
 
+  // ---- Q-Link: free K1-K3 assignment ----
+  /** Per-knob override id into ASSIGNABLE_PARAMS (assignableParams.ts), or null = screen-driven default. */
+  knobAssign: [string | null, string | null, string | null];
+  /** Which knob slot's assign picker is currently open, if any. */
+  knobAssignPicker: 0 | 1 | 2 | null;
+  setKnobAssign(slot: 0 | 1 | 2, id: string | null): void;
+  openKnobAssignPicker(slot: 0 | 1 | 2): void;
+  closeKnobAssignPicker(): void;
+
   // ---- Phase 7: song + export ----
   addSongStep(bank: number, slot: number): void;
   removeSongStep(i: number): void;

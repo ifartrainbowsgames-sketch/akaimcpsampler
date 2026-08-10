@@ -351,6 +351,11 @@ button{font:inherit}
 .kknobs--idle{opacity:.55}
 .kwrap{display:flex;flex-direction:column;align-items:center;position:relative}
 .klabel{font-size:.7em;font-weight:700;color:var(--ink);margin-top:.5em;letter-spacing:.06em}
+.klabel--assign{
+  background:none;border:none;padding:0;font:inherit;cursor:pointer;
+  display:flex;align-items:center;gap:.3em}
+.klabel--assigned{color:#d8b060}
+.klabel__dot{width:.35em;height:.35em;border-radius:50%;background:#d8b060;display:inline-block}
 .knob-k{width:3.5em;height:3.5em}
 .knob-k--dim{opacity:.35;pointer-events:none}
 .kspacer{text-align:center;font-size:.7em;font-weight:700;color:var(--ink);
@@ -602,3 +607,32 @@ button{font:inherit}
 .fxgrid button.on{background:var(--orange);border-color:var(--orange);color:#fff;font-weight:700}
 .songlist div{cursor:pointer;padding:0 .2em}
 .songlist div:active{background:var(--lcd-y);color:#111}
+
+/* Q-Link knob assign picker */
+.qlink-scrim{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55)}
+.qlink-picker{
+  position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(360px,calc(100vw - 32px));max-height:min(500px,calc(100vh - 64px));
+  display:flex;flex-direction:column;overflow:hidden;
+  background:#1a1a1e;color:#e0e0d8;border:2px solid #333338;border-radius:6px;
+  font-family:var(--mono);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.qlink-picker__head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.6em .8em;border-bottom:1px solid #333338;font-weight:700;
+  font-size:.8em;letter-spacing:.06em;background:#111114}
+.qlink-picker__close{
+  background:none;border:none;color:#e06060;font-size:1em;cursor:pointer;padding:0 .2em}
+.qlink-picker__clear{
+  margin:.6em .8em;background:#28282e;border:1px solid #404048;color:#d0d0c8;
+  font-family:var(--mono);font-size:.7em;font-weight:600;border-radius:3px;
+  padding:.5em;cursor:pointer;letter-spacing:.04em}
+.qlink-picker__clear:disabled{opacity:.35;cursor:default}
+.qlink-picker__list{overflow-y:auto;padding:0 .8em .8em}
+.qlink-picker__group-title{
+  font-size:.65em;font-weight:700;color:#7a7a86;letter-spacing:.08em;
+  margin:.6em 0 .3em;text-transform:uppercase}
+.qlink-picker__item{
+  display:block;width:100%;text-align:left;background:#222228;border:1px solid #333338;
+  color:#d0d0c8;font-family:var(--mono);font-size:.75em;padding:.45em .6em;
+  margin-bottom:.25em;border-radius:3px;cursor:pointer}
+.qlink-picker__item--on{background:#3a2f10;border-color:#d8b060;color:#f0d090}
