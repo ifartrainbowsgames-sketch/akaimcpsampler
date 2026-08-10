@@ -45,19 +45,39 @@ export function demoHitsToEvents(hits: DemoHit[]): SeqEvent[] {
     .sort((a, b) => a.tick - b.tick || a.pad - b.pad);
 }
 
-/** Classic boom-bap — kick/snare/hats (pads 0,2,4). */
+/** Classic boom-bap — kick/snare/hats (pads 0,2,4). Phrase B varies every 4 bars. */
 function boomBap(bars = 4): DemoHit[] {
   const out: DemoHit[] = [];
   for (let bar = 0; bar < bars; bar++) {
     const o = bar * 16;
+    const phraseB = Math.floor(bar / 4) % 2 === 1;
+
     out.push({ pad: 0, step: o, vel: 127 });
-    out.push({ pad: 0, step: o + 10, vel: 105 });
-    out.push({ pad: 2, step: o + 4, vel: 120 });
-    out.push({ pad: 2, step: o + 12, vel: 115 });
-    for (let s = 0; s < 16; s += 2) {
-      out.push({ pad: 4, step: o + s, vel: s % 4 === 0 ? 85 : 65 });
+    if (phraseB) {
+      out.push({ pad: 0, step: o + 6, vel: 98 });
+      out.push({ pad: 0, step: o + 11, vel: 108 });
+    } else {
+      out.push({ pad: 0, step: o + 10, vel: 105 });
     }
-    out.push({ pad: 8, step: o + 14, vel: 90 });
+
+    out.push({ pad: 2, step: o + 4, vel: 120 });
+    out.push({ pad: 2, step: o + 12, vel: phraseB ? 125 : 115 });
+
+    for (let s = 0; s < 16; s += 2) {
+      const accent = s % 4 === 0;
+      const vel = phraseB
+        ? (accent ? 78 : s >= 10 ? 58 : 62)
+        : (accent ? 85 : 65);
+      out.push({ pad: 4, step: o + s, vel });
+    }
+
+    if (bar % 4 === 3) {
+      out.push({ pad: 4, step: o + 13, vel: 92 });
+      out.push({ pad: 4, step: o + 14, vel: 88 });
+      out.push({ pad: 2, step: o + 15, vel: 122 });
+    } else {
+      out.push({ pad: 8, step: o + 14, vel: 90 });
+    }
   }
   return out;
 }

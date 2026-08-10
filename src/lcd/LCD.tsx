@@ -985,7 +985,7 @@ function StepEditScreen() {
     .filter(({ e }) => Math.abs(e.tick - atTick) < project.quantize / 2);
   const current = atEvents[stepEditEvent]?.e;
 
-  const barSteps = Math.min(16, Math.max(4, seq.bars * 4));
+  const barSteps = Math.min(128, Math.max(4, seq.bars * 4));
 
   return (
     <div className="lcdpanel">
@@ -1016,7 +1016,7 @@ function StepEditScreen() {
       <div className="lcdrow">
         <span>Length</span>
         <input
-          type="range" min={1} max={16} step={1} value={seq.bars}
+          type="range" min={1} max={32} step={1} value={Math.min(32, seq.bars)}
           onChange={(e) => {
             const bars = Number(e.target.value);
             const banks = project.sequences.map((row, bi) =>

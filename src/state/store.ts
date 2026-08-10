@@ -1198,6 +1198,7 @@ export const useStore = create<UIState>((set, get) => ({
       screen: 'seq',
       queuedSeqSlot: null,
     });
+    get().play(false);
   },
 
   async checkLibraryProxy() {
