@@ -1,7 +1,10 @@
 /**
- * Factory demo beats — short complete loops (4–8 bars) with kits + sequences.
+ * Factory demo beats — complete loops (4–32 bars) with kits + sequences.
  * Load → PLAY → jam on pads over a real groove.
  */
+
+/** Demos at or above this bar count appear under the LONG tab. */
+export const LONG_DEMO_BAR_THRESHOLD = 16;
 
 import { TICKS_PER_16TH, type SeqEvent } from '../types';
 
@@ -147,12 +150,64 @@ function layerMelody(
   melodyBank = 1,
 ): DemoHit[] {
   const mel = arpSong(melodyPads, bars, 2).map((h) => ({ ...h, bank: melodyBank, vel: (h.vel ?? 80) - 10 }));
-  const chords = chordSong(melodyPads.slice(0, 4), bars).map((h) => ({
+  const chordPads = melodyPads.length >= 8
+    ? melodyPads
+    : Array.from({ length: Math.max(4, bars) }, (_, i) => melodyPads[i % melodyPads.length]);
+  const chords = chordSong(chordPads, bars).map((h) => ({
     ...h,
     bank: melodyBank,
     vel: 75,
   }));
   return [...drumHits, ...mel, ...chords];
+}
+
+/** Snare + hat fill at the end of every N-bar phrase. */
+function addPhraseFills(hits: DemoHit[], bars: number, every = 8): DemoHit[] {
+  const out = [...hits];
+  for (let bar = every - 1; bar < bars; bar += every) {
+    const o = bar * 16;
+    for (let s = 13; s < 16; s++) {
+      out.push({ pad: 4, step: o + s, vel: 88 + (s - 13) * 4 });
+    }
+    out.push({ pad: 2, step: o + 14, vel: 127 });
+    out.push({ pad: 2, step: o + 15, vel: 118 });
+  }
+  return out;
+}
+
+/** Drop heavy drums for a 2-bar breakdown, keep light hats. */
+function withBreakdown(
+  hits: DemoHit[],
+  startBar: number,
+  dropPads: number[] = [0, 1, 2, 8],
+): DemoHit[] {
+  const breakdownBars = new Set([startBar, startBar + 1]);
+  const filtered = hits.filter((h) => {
+    const bar = Math.floor(h.step / 16);
+    if (!breakdownBars.has(bar)) return true;
+    return !dropPads.includes(h.pad);
+  });
+  for (const bar of breakdownBars) {
+    const o = bar * 16;
+    for (let s = 0; s < 16; s += 4) {
+      filtered.push({ pad: 4, step: o + s, vel: 42 });
+      filtered.push({ pad: 5, step: o + s + 2, vel: 35 });
+    }
+    filtered.push({ pad: 10, step: o + 7, vel: 55 });
+  }
+  return filtered;
+}
+
+function longDrumPattern(
+  baseFn: (bars: number) => DemoHit[],
+  bars: number,
+  breakdownAt?: number,
+): DemoHit[] {
+  let hits = addPhraseFills(baseFn(bars), bars, 8);
+  if (breakdownAt !== undefined && bars > breakdownAt + 2) {
+    hits = withBreakdown(hits, breakdownAt);
+  }
+  return hits;
 }
 
 function buildDemos(): FactoryDemoMeta[] {
@@ -239,6 +294,82 @@ function buildDemos(): FactoryDemoMeta[] {
     });
   }
 
+  const longDrumBeats: typeof drumBeats = [
+    { id: 'beat-classic-long-16', kit: 'drums-classic-01', name: 'Boom Bap Extended', desc: '16-bar boom bap with 8-bar fills', bpm: 90, bars: 16, hits: longDrumPattern(boomBap, 16), swing: 58 },
+    { id: 'beat-classic-long-32', kit: 'drums-classic-03', name: 'Boom Bap Journey', desc: '32-bar boom bap — breakdown at bar 16', bpm: 88, bars: 32, hits: longDrumPattern(boomBap, 32, 16), swing: 60 },
+    { id: 'beat-lofi-long-16', kit: 'drums-lofi-02', name: 'Lo-Fi Extended', desc: '16-bar dusty lo-fi session', bpm: 78, bars: 16, hits: longDrumPattern(lofiBeat, 16), swing: 63 },
+    { id: 'beat-lofi-long-32', kit: 'drums-lofi-04', name: 'Lo-Fi Odyssey', desc: '32-bar lo-fi with mid-song breakdown', bpm: 76, bars: 32, hits: longDrumPattern(lofiBeat, 32, 16), swing: 64 },
+    { id: 'beat-trap-long-16', kit: 'drums-trap-02', name: 'Trap Extended', desc: '16-bar trap with rolling fills', bpm: 142, bars: 16, hits: longDrumPattern(trapBeat, 16) },
+    { id: 'beat-trap-long-32', kit: 'drums-trap-04', name: 'Trap Marathon', desc: '32-bar trap — strip-down at bar 16', bpm: 140, bars: 32, hits: longDrumPattern(trapBeat, 32, 16) },
+    { id: 'beat-house-long-16', kit: 'drums-classic-05', name: 'House Extended', desc: '16-bar four-on-the-floor ride', bpm: 122, bars: 16, hits: longDrumPattern(houseBeat, 16) },
+  ];
+
+  for (const b of longDrumBeats) {
+    demos.push({
+      id: b.id,
+      name: b.name,
+      description: b.desc,
+      category: 'beats',
+      kitId: b.kit,
+      bpm: b.bpm,
+      bars: b.bars,
+      swing: b.swing,
+      hits: b.hits,
+    });
+  }
+
+  const longMelodicSongs: typeof melodicSongs = [
+    { id: 'song-keys-long-16', kit: 'melodic-keys-03', name: 'Key Journey', desc: '16-bar key progression to jam over', bpm: 92, bars: 16, hits: chordSong([0, 4, 7, 11, 9, 7, 3, 5, 0, 4, 8, 11, 7, 5, 3, 0], 16) },
+    { id: 'song-pads-long-16', kit: 'melodic-pads-04', name: 'Pad Voyage', desc: '16-bar evolving pad movement', bpm: 70, bars: 16, hits: chordSong([0, 5, 3, 7, 10, 8, 5, 3, 0, 4, 7, 11, 9, 6, 4, 0], 16) },
+    { id: 'song-pads-long-32', kit: 'melodic-pads-05', name: 'Pad Odyssey', desc: '32-bar slow pad swell — full song feel', bpm: 68, bars: 32, hits: chordSong([0, 4, 7, 11, 9, 5, 3, 8, 0, 5, 10, 7, 4, 2, 9, 0, 3, 7, 11, 8, 5, 2, 6, 10, 0, 4, 9, 7, 5, 3, 8, 0], 32) },
+    { id: 'song-arp-long-16', kit: 'melodic-arp-03', name: 'Arp Extended', desc: '16-bar arpeggio melody line', bpm: 115, bars: 16, hits: arpSong([0, 2, 4, 7, 9, 11, 9, 7, 4, 2, 0, 3, 5, 8, 10, 8], 16, 2) },
+    { id: 'song-strings-long-32', kit: 'melodic-strings-03', name: 'String Suite Long', desc: '32-bar cinematic string pads', bpm: 72, bars: 32, hits: chordSong([0, 4, 7, 11, 8, 5, 3, 7, 0, 9, 7, 4, 2, 5, 8, 0, 3, 7, 10, 8, 5, 2, 6, 9, 0, 4, 8, 11, 7, 5, 3, 0], 32) },
+    { id: 'song-ambient-long-32', kit: 'melodic-ambient-03', name: 'Ambient Longform', desc: '32-bar evolving ambient texture', bpm: 64, bars: 32, hits: chordSong([0, 7, 3, 10, 5, 12, 8, 4, 0, 9, 5, 11, 7, 3, 10, 0, 4, 8, 12, 7, 3, 9, 5, 0, 6, 11, 8, 4, 2, 7, 10, 0], 32) },
+  ];
+
+  for (const m of longMelodicSongs) {
+    demos.push({
+      id: m.id,
+      name: m.name,
+      description: m.desc,
+      category: 'melodic',
+      kitId: m.kit,
+      bpm: m.bpm,
+      bars: m.bars,
+      hits: m.hits,
+    });
+  }
+
+  const longFullBeats: typeof fullBeats = [
+    { id: 'full-lofi-keys-16', drumKit: 'drums-lofi-03', melKit: 'melodic-keys-04', name: 'Lo-Fi + Keys Long', desc: '16-bar lo-fi beat with keys — full song', bpm: 80, bars: 16, swing: 61 },
+    { id: 'full-lofi-keys-32', drumKit: 'drums-lofi-05', melKit: 'melodic-keys-05', name: 'Lo-Fi + Keys Odyssey', desc: '32-bar lo-fi song with breakdown', bpm: 78, bars: 32, swing: 63 },
+    { id: 'full-trap-pads-16', drumKit: 'drums-trap-03', melKit: 'melodic-pads-03', name: 'Trap + Pads Long', desc: '16-bar trap with pad layer', bpm: 144, bars: 16 },
+    { id: 'full-trap-pads-32', drumKit: 'drums-trap-05', melKit: 'melodic-pads-04', name: 'Trap + Pads Epic', desc: '32-bar trap + pads with mid breakdown', bpm: 140, bars: 32 },
+    { id: 'full-boom-chords-16', drumKit: 'drums-classic-04', melKit: 'melodic-chords-03', name: 'Boom + Chords Long', desc: '16-bar boom bap with chord stabs', bpm: 92, bars: 16, swing: 57 },
+    { id: 'full-boom-chords-32', drumKit: 'drums-classic-05', melKit: 'melodic-chords-04', name: 'Boom + Chords Epic', desc: '32-bar boom bap chord journey', bpm: 90, bars: 32, swing: 59 },
+    { id: 'full-classic-pluck-16', drumKit: 'drums-classic-02', melKit: 'melodic-plucks-03', name: 'Classic + Pluck Long', desc: '16-bar groove with pluck melody', bpm: 94, bars: 16, swing: 55 },
+    { id: 'full-lofi-ambient-32', drumKit: 'drums-lofi-01', melKit: 'melodic-ambient-04', name: 'Lo-Fi Ambient Epic', desc: '32-bar atmospheric full beat', bpm: 74, bars: 32, swing: 62 },
+    { id: 'full-boom-strings-32', drumKit: 'drums-classic-03', melKit: 'melodic-strings-04', name: 'Boom + Strings Epic', desc: '32-bar cinematic boom bap', bpm: 86, bars: 32, swing: 60 },
+    { id: 'full-trap-arp-32', drumKit: 'drums-trap-04', melKit: 'melodic-arp-04', name: 'Trap + Arp Epic', desc: '32-bar trap with arpeggio top line', bpm: 138, bars: 32 },
+  ];
+
+  for (const f of longFullBeats) {
+    const drumFn = f.id.includes('trap') ? trapBeat : f.id.includes('house') ? houseBeat : f.bars >= 24 ? lofiBeat : boomBap;
+    const drums = longDrumPattern(drumFn, f.bars, f.bars >= 24 ? Math.floor(f.bars / 2) : undefined);
+    demos.push({
+      id: f.id,
+      name: f.name,
+      description: f.desc,
+      category: 'full',
+      kitId: f.drumKit,
+      melodyKitId: f.melKit,
+      bpm: f.bpm,
+      bars: f.bars,
+      swing: f.swing,
+      hits: layerMelody(drums, [0, 2, 4, 7, 9, 11, 8, 3], f.bars, 1),
+    });
+  }
+
   return demos;
 }
 
@@ -248,6 +379,10 @@ export const FACTORY_DEMO_COUNT = FACTORY_DEMOS.length;
 
 export function getFactoryDemo(id: string): FactoryDemoMeta | undefined {
   return FACTORY_DEMOS.find((d) => d.id === id);
+}
+
+export function isLongDemo(demo: FactoryDemoMeta): boolean {
+  return demo.bars >= LONG_DEMO_BAR_THRESHOLD;
 }
 
 /** Approximate loop length in seconds for UI. */

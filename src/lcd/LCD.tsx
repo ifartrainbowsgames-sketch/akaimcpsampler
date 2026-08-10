@@ -10,7 +10,7 @@ import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
-import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec } from '../audio/factory/kits';
+import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec, isLongDemo } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
@@ -872,7 +872,7 @@ function KitsScreen() {
   const loadFactoryDemo = useStore((s) => s.loadFactoryDemo);
   const setScreen = useStore((s) => s.setScreen);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'beats' | 'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('beats');
+  const [filter, setFilter] = useState<'beats' | 'long' | 'melodic' | 'all' | 'drums' | 'bass' | 'perc' | 'fx'>('beats');
   const [query, setQuery] = useState('');
 
   const kits = FACTORY_KITS.filter((k) => {
@@ -884,20 +884,21 @@ function KitsScreen() {
 
   const demos = FACTORY_DEMOS.filter((d) => {
     let ok = false;
-    if (filter === 'beats') ok = d.category === 'beats' || d.category === 'full';
-    else if (filter === 'melodic') ok = d.category === 'melodic' || d.category === 'full';
+    if (filter === 'long') ok = isLongDemo(d);
+    else if (filter === 'beats') ok = (d.category === 'beats' || d.category === 'full') && !isLongDemo(d);
+    else if (filter === 'melodic') ok = (d.category === 'melodic' || d.category === 'full') && !isLongDemo(d);
     if (!ok) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return d.name.toLowerCase().includes(q) || d.description.toLowerCase().includes(q);
   });
 
-  const showDemos = filter === 'beats' || filter === 'melodic';
+  const showDemos = filter === 'beats' || filter === 'long' || filter === 'melodic';
 
   return (
     <div className="lcdpanel">
       <div className="lcdrow">
-        <span>{showDemos ? `${demos.length} beats` : `${FACTORY_KIT_COUNT} kits`}</span>
+        <span>{showDemos ? `${demos.length} ${filter === 'long' ? 'long songs' : 'beats'}` : `${FACTORY_KIT_COUNT} kits`}</span>
         <input
           type="search"
           className="kitsearch"
@@ -907,7 +908,7 @@ function KitsScreen() {
         />
       </div>
       <div className="kitfilters">
-        {(['beats', 'melodic', 'all', 'drums', 'bass', 'perc', 'fx'] as const).map((f) => (
+        {(['beats', 'long', 'melodic', 'all', 'drums', 'bass', 'perc', 'fx'] as const).map((f) => (
           <button
             key={f}
             type="button"
@@ -931,7 +932,7 @@ function KitsScreen() {
             }}
           >
             <b>{demo.name}</b>
-            <small>{demo.description} — {demoDurationSec(demo).toFixed(0)}s · PLAY to jam</small>
+            <small>{demo.description} — {demo.bars} bars · {demoDurationSec(demo).toFixed(0)}s · PLAY to jam</small>
           </div>
         ))}
         {!showDemos && kits.length === 0 && <div>— no kits match —</div>}
@@ -955,8 +956,10 @@ function KitsScreen() {
       </div>
       <div className="hintline">
         {busy ? 'Loading…' : showDemos
-          ? 'Beats = full loop + sequence. Hit PLAY, then jam on pads.'
-          : `${kits.length} kits — samples only (use BEATS tab for songs)`}
+          ? filter === 'long'
+            ? 'Long songs = 16–32 bar loops with fills & breakdowns. PLAY, then jam.'
+            : 'Beats = full loop + sequence. Hit PLAY, then jam on pads.'
+          : `${kits.length} kits — samples only (use BEATS or LONG tab for songs)`}
       </div>
     </div>
   );

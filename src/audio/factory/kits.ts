@@ -7,7 +7,7 @@ import { browserSynthCtx, synthesizeKit, type SynthBuffer } from './synthCore';
 
 export type { FactoryKitMeta };
 export { FACTORY_KITS, FACTORY_KIT_COUNT } from './catalog';
-export { FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec } from './demos';
+export { FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec, isLongDemo, LONG_DEMO_BAR_THRESHOLD } from './demos';
 
 function synthToAudioBuffer(ctx: AudioContext, buf: SynthBuffer): AudioBuffer {
   const out = ctx.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);

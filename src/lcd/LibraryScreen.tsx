@@ -185,7 +185,7 @@ export function LibraryScreen() {
         </button>
       </div>
       <div className="hintline">
-        Tap name to preview · LOAD → current pad · CC-licensed previews
+        Tap name to preview · LOAD → current pad · Loops 6s+ auto-enable loop mode
       </div>
     </div>
   );

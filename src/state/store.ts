@@ -1232,12 +1232,15 @@ export const useStore = create<UIState>((set, get) => ({
       const buffer = await engine.loadSample(id, data);
       await writeSample(id, data);
       const { selectedPad } = get();
+      const isLoop = sound.duration >= 6;
       get().updatePad(selectedPad, {
         sampleId: id,
         sampleName: sound.name.slice(0, 24),
         start: 0,
         end: buffer.length,
         loopStart: 0,
+        loop: isLoop,
+        polyphony: isLoop ? 'poly' : undefined,
         slices: [],
       });
       set({ screen: 'sample', libraryLoading: false });
