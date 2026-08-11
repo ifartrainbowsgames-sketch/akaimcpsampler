@@ -54,6 +54,11 @@
   background: #38383e;
 }
 
+.pianoroll__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Tool-mode group (DRAW / SELECT / ERASE) */
 .pianoroll__tools {
   display: flex;

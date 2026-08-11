@@ -97,6 +97,7 @@ export function PianoRoll() {
   const [tool, setTool]                   = useState<Tool>('draw');
   const [showKeys, setShowKeys]           = useState(true);
   const [snapScale, setSnapScale]         = useState(false);
+  const [selected, setSelected]           = useState<Set<string>>(new Set());
 
   const isInScale = useCallback((note: number) => {
     if (scaleType === 'off') return true;
@@ -129,6 +130,8 @@ export function PianoRoll() {
   const pianoHover   = useRef(-1);
   const erasing      = useRef(false);                  // swipe-to-erase in progress
   const scrollDrag   = useRef<'v' | 'h' | null>(null); // scrollbar thumb being dragged
+  const marquee      = useRef({ active: false, x0: 0, y0: 0, x1: 0, y1: 0 });
+  const clipboard    = useRef<{ dtick: number; note: number; duration: number; velocity: number }[]>([]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const totalTicks  = seq.bars * ticksPerBar(project.timeSignature);
@@ -334,7 +337,8 @@ export function PianoRoll() {
       if (x + w < 0 || x > W) continue;
       if (y + ROW_HEIGHT < 0 || y > H) continue;
 
-      const sel = selectedNote && selectedNote.tick === e.tick && selectedNote.note === note;
+      const sel = (selectedNote && selectedNote.tick === e.tick && selectedNote.note === note)
+        || selected.has(`${e.tick}:${note}`);
       ctx.fillStyle = sel ? NOTE_COLOR_SEL : velocityColor(e.velocity);
       ctx.fillRect(x, y + 1, w, ROW_HEIGHT - 2);
       ctx.fillStyle = NOTE_COLOR_BORDER;
@@ -350,6 +354,20 @@ export function PianoRoll() {
       }
     }
 
+    // ── Marquee (multi-select rectangle) ──────────────────────────────────
+    const m = marquee.current;
+    if (m.active) {
+      const mx = Math.min(m.x0, m.x1);
+      const my = Math.min(m.y0, m.y1);
+      const mw = Math.abs(m.x1 - m.x0);
+      const mh = Math.abs(m.y1 - m.y0);
+      ctx.fillStyle = 'rgba(240,180,60,0.15)';
+      ctx.fillRect(mx, my, mw, mh);
+      ctx.strokeStyle = 'rgba(240,180,60,0.85)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(mx + 0.5, my + 0.5, mw, mh);
+    }
+
     // ── Playhead ──────────────────────────────────────────────────────────
     if (playheadTick >= 0) {
       const phX = tickToPx(playheadTick);
@@ -358,7 +376,7 @@ export function PianoRoll() {
         ctx.fillRect(Math.round(phX), 0, 2, H);
       }
     }
-  }, [scrollTick, scrollNote, ticksPerPx, tickToPx, noteToPy, noteEvents, selectedNote, project.timeSignature, isInScale]);
+  }, [scrollTick, scrollNote, ticksPerPx, tickToPx, noteToPy, noteEvents, selectedNote, selected, project.timeSignature, isInScale]);
 
   const drawVelocity = useCallback(() => {
     const canvas = velCanvasRef.current;
@@ -523,10 +541,22 @@ export function PianoRoll() {
       dragNote.current    = newNote;
       pianoRollAddNote(snapped, drawNote, quantize, 100);
       setSelectedNote({ tick: snapped, note: drawNote });
+    } else if (tool === 'select') {
+      // Empty space in SELECT: start a marquee (and clear the prior selection).
+      marquee.current = { active: true, x0: x, y0: y, x1: x, y1: y };
+      if (selected.size) setSelected(new Set());
     }
   };
 
   const onGridPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Marquee drag: track the rectangle and repaint.
+    if (marquee.current.active) {
+      const p = getGridPointerPos(e);
+      marquee.current.x1 = p.x;
+      marquee.current.y1 = p.y;
+      drawGrid(-1);
+      return;
+    }
     // Swipe-to-erase: while ERASE is held, delete any note dragged across.
     if (erasing.current) {
       const p = getGridPointerPos(e);
@@ -568,6 +598,24 @@ export function PianoRoll() {
   };
 
   const onGridPointerUp = () => {
+    if (marquee.current.active) {
+      const m = marquee.current;
+      const t0 = pxToTick(Math.min(m.x0, m.x1));
+      const t1 = pxToTick(Math.max(m.x0, m.x1));
+      const nA = pxToNote(Math.min(m.y0, m.y1));
+      const nB = pxToNote(Math.max(m.y0, m.y1));
+      const lowNote = Math.min(nA, nB);
+      const highNote = Math.max(nA, nB);
+      const sel = new Set<string>();
+      for (const e of noteEvents) {
+        const nn = e.note ?? BASE_NOTE;
+        if (e.tick >= t0 && e.tick <= t1 && nn >= lowNote && nn <= highNote) {
+          sel.add(`${e.tick}:${nn}`);
+        }
+      }
+      marquee.current.active = false;
+      setSelected(sel);
+    }
     dragMode.current = 'none';
     dragNewNote.current = null;
     erasing.current = false;
@@ -715,6 +763,41 @@ export function PianoRoll() {
     );
     useStore.getState().updateProject({ sequences });
     setSelectedNote(null);
+    setSelected(new Set());
+  };
+
+  const copySelection = () => {
+    const items = noteEvents.filter((e) => selected.has(`${e.tick}:${e.note ?? BASE_NOTE}`));
+    if (!items.length) return;
+    const minTick = Math.min(...items.map((e) => e.tick));
+    clipboard.current = items.map((e) => ({
+      dtick: e.tick - minTick,
+      note: e.note ?? BASE_NOTE,
+      duration: e.duration,
+      velocity: e.velocity,
+    }));
+  };
+
+  const pasteClipboard = () => {
+    if (!clipboard.current.length) return;
+    const base = snapTick(scrollTick);
+    const newSel = new Set<string>();
+    for (const c of clipboard.current) {
+      const t = base + c.dtick;
+      pianoRollAddNote(t, c.note, c.duration, c.velocity);
+      newSel.add(`${t}:${c.note}`);
+    }
+    setSelected(newSel);
+  };
+
+  const deleteSelection = () => {
+    if (!selected.size) return;
+    for (const key of selected) {
+      const [t, n] = key.split(':').map(Number);
+      pianoRollDeleteNote(t, n);
+    }
+    setSelected(new Set());
+    setSelectedNote(null);
   };
 
   const QUANTIZE_OPTIONS: { label: string; value: number }[] = [
@@ -742,6 +825,14 @@ export function PianoRoll() {
             </button>
           ))}
         </div>
+
+        {tool === 'select' && (
+          <div className="pianoroll__tools">
+            <button className="pianoroll__btn" type="button" onClick={copySelection} disabled={selected.size === 0}>COPY</button>
+            <button className="pianoroll__btn" type="button" onClick={pasteClipboard}>PASTE</button>
+            <button className="pianoroll__btn pianoroll__btn--danger" type="button" onClick={deleteSelection} disabled={selected.size === 0}>DEL</button>
+          </div>
+        )}
 
         <button className="pianoroll__btn" type="button" onClick={zoomIn}>ZOOM+</button>
         <button className="pianoroll__btn" type="button" onClick={zoomOut}>ZOOM−</button>
