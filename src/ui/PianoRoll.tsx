@@ -7,10 +7,13 @@ import type { SeqEvent } from '../audio/types';
 import './pianoroll.css';
 
 // ─── Layout constants ────────────────────────────────────────────────────────
-const ROW_HEIGHT = 14;         // px per MIDI note row
+const ROW_HEIGHT = 18;         // px per MIDI note row (touch-friendly)
 const TOTAL_NOTES = 128;
 const PIANO_WIDTH = 48;        // px for keyboard column
 const VELOCITY_HEIGHT = 72;    // px for velocity lane
+const H_SCROLLBAR = 14;        // px for horizontal (time) scrollbar
+const V_SCROLLBAR = 14;        // px for vertical (pitch) scrollbar
+const RESIZE_GRIP = 10;        // px hit zone on a note's right edge
 const MIN_TICKS_PER_PX = 0.05; // most zoomed in
 const MAX_TICKS_PER_PX = 8;    // most zoomed out
 const DEFAULT_TICKS_PER_PX = 0.5;
@@ -48,6 +51,7 @@ const PIANO_WHITE_LABEL = '#333';
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface NoteRef { tick: number; note: number; }
 type DragMode = 'none' | 'draw' | 'move' | 'resize' | 'velocity';
+type Tool = 'draw' | 'select' | 'erase';
 
 export function PianoRoll() {
   const project     = useStore((s) => s.project);
@@ -80,6 +84,7 @@ export function PianoRoll() {
   const [quantize, setQuantize]           = useState(TICKS_PER_16TH);
   const [scaleRoot, setScaleRoot]         = useState(0);          // 0 = C
   const [scaleType, setScaleType]         = useState<ScaleType>('off');
+  const [tool, setTool]                   = useState<Tool>('draw');
 
   const isInScale = useCallback((note: number) => {
     if (scaleType === 'off') return true;
@@ -100,6 +105,8 @@ export function PianoRoll() {
   const dragOrigNote = useRef(0);
   const dragNewNote  = useRef<NoteRef | null>(null);   // note being drawn
   const pianoHover   = useRef(-1);
+  const erasing      = useRef(false);                  // swipe-to-erase in progress
+  const scrollDrag   = useRef<'v' | 'h' | null>(null); // scrollbar thumb being dragged
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const totalTicks  = seq.bars * ticksPerBar(project.timeSignature);
@@ -147,7 +154,7 @@ export function PianoRoll() {
     const ey = noteToPy(e.note ?? BASE_NOTE);
     return (
       py >= ey && py < ey + ROW_HEIGHT &&
-      px >= ex + ew - 6 && px <= ex + ew
+      px >= ex + ew - RESIZE_GRIP && px <= ex + ew
     );
   }, [tickToPx, noteToPy]);
 
@@ -158,7 +165,7 @@ export function PianoRoll() {
     const obs = new ResizeObserver(() => {
       const r = area.getBoundingClientRect();
       setGridW(Math.max(1, r.width));
-      setGridH(Math.max(1, r.height - VELOCITY_HEIGHT));
+      setGridH(Math.max(1, r.height - VELOCITY_HEIGHT - H_SCROLLBAR));
       setVelH(VELOCITY_HEIGHT);
     });
     obs.observe(area);
@@ -312,6 +319,13 @@ export function PianoRoll() {
       ctx.fillRect(x, y + 1, 1, ROW_HEIGHT - 2);
       ctx.fillRect(x, y + 1, w, 1);
       ctx.fillRect(x + w - 1, y + 1, 1, ROW_HEIGHT - 2);
+
+      // Resize grip on the right edge, when the note is wide enough to show one.
+      if (w >= RESIZE_GRIP + 4) {
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillRect(x + w - 4, y + 4, 1, ROW_HEIGHT - 8);
+        ctx.fillRect(x + w - 6, y + 4, 1, ROW_HEIGHT - 8);
+      }
     }
 
     // ── Playhead ──────────────────────────────────────────────────────────
@@ -407,8 +421,9 @@ export function PianoRoll() {
     const snapped = snapTick(rawTick);
     const found   = findEvent(rawTick, note);
 
-    if (e.button === 2 || (e.buttons === 2)) {
-      // Right click = delete
+    // Right-click (desktop) or the ERASE tool deletes the note under the pointer.
+    if (e.button === 2 || e.buttons === 2 || tool === 'erase') {
+      erasing.current = tool === 'erase';   // enables swipe-to-erase on move
       if (found) {
         pianoRollDeleteNote(found.tick, found.note ?? BASE_NOTE);
         setSelectedNote(null);
@@ -429,8 +444,8 @@ export function PianoRoll() {
         dragOrigNote.current = found.note ?? BASE_NOTE;
       }
       setSelectedNote({ tick: found.tick, note: found.note ?? BASE_NOTE });
-    } else {
-      // Draw new note
+    } else if (tool === 'draw') {
+      // Draw a new note. SELECT tool never creates notes on empty space.
       dragMode.current = 'draw';
       const newNote: NoteRef = { tick: snapped, note };
       dragNewNote.current = newNote;
@@ -441,6 +456,16 @@ export function PianoRoll() {
   };
 
   const onGridPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Swipe-to-erase: while ERASE is held, delete any note dragged across.
+    if (erasing.current) {
+      const p = getGridPointerPos(e);
+      const found = findEvent(pxToTick(p.x), pxToNote(p.y));
+      if (found) {
+        pianoRollDeleteNote(found.tick, found.note ?? BASE_NOTE);
+        setSelectedNote(null);
+      }
+      return;
+    }
     if (dragMode.current === 'none') return;
     const { x, y } = getGridPointerPos(e);
     const rawTick = pxToTick(x);
@@ -474,6 +499,7 @@ export function PianoRoll() {
   const onGridPointerUp = () => {
     dragMode.current = 'none';
     dragNewNote.current = null;
+    erasing.current = false;
   };
 
   // Scroll on wheel
@@ -562,9 +588,47 @@ export function PianoRoll() {
     drawPiano();
   };
 
+  // ── Scroll bounds + thumb geometry ───────────────────────────────────────
+  const visibleRows   = Math.max(1, Math.floor(gridH / ROW_HEIGHT));
+  const maxScrollNote = Math.max(0, TOTAL_NOTES - visibleRows);
+  const visibleTicks  = gridW * ticksPerPx;
+  const maxScrollTick = Math.max(0, totalTicks - visibleTicks);
+
+  const vThumbH   = Math.max(24, Math.min(gridH, (visibleRows / TOTAL_NOTES) * gridH));
+  const vThumbTop = maxScrollNote > 0 ? (scrollNote / maxScrollNote) * (gridH - vThumbH) : 0;
+  const hThumbW   = Math.max(24, Math.min(gridW, (visibleTicks / totalTicks) * gridW));
+  const hThumbLeft = maxScrollTick > 0 ? (scrollTick / maxScrollTick) * (gridW - hThumbW) : 0;
+
   // ── Toolbar actions ────────────────────────────────────────────────────────
   const zoomIn  = () => setTicksPerPx((t) => Math.max(MIN_TICKS_PER_PX, t * 0.7));
   const zoomOut = () => setTicksPerPx((t) => Math.min(MAX_TICKS_PER_PX, t * 1.4));
+  const octaveUp   = () => setScrollNote((n) => Math.max(0, n - 12));            // higher pitch = up
+  const octaveDown = () => setScrollNote((n) => Math.min(maxScrollNote, n + 12));
+
+  // ── Scrollbar thumb dragging ──────────────────────────────────────────────
+  const moveVScroll = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (scrollDrag.current !== 'v') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientY - rect.top) / Math.max(1, rect.height)));
+    setScrollNote(Math.round(frac * maxScrollNote));
+  };
+  const onVScrollDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    scrollDrag.current = 'v';
+    moveVScroll(e);
+  };
+  const moveHScroll = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (scrollDrag.current !== 'h') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+    setScrollTick(Math.round(frac * maxScrollTick));
+  };
+  const onHScrollDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    scrollDrag.current = 'h';
+    moveHScroll(e);
+  };
+  const onScrollUp = () => { scrollDrag.current = null; };
   const clearAll = () => {
     // Delete all notes for this pad by simply bulk-deleting via updateProject
     const { bank: b, seqSlot: sl } = useStore.getState();
@@ -595,8 +659,23 @@ export function PianoRoll() {
       <div className="pianoroll__toolbar">
         <span className="pianoroll__title">PIANO ROLL — {padName}</span>
 
+        <div className="pianoroll__tools">
+          {(['draw', 'select', 'erase'] as Tool[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`pianoroll__btn ${tool === t ? 'pianoroll__btn--active' : ''}`}
+              onClick={() => setTool(t)}
+            >
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
         <button className="pianoroll__btn" type="button" onClick={zoomIn}>ZOOM+</button>
         <button className="pianoroll__btn" type="button" onClick={zoomOut}>ZOOM−</button>
+        <button className="pianoroll__btn" type="button" onClick={octaveUp}>OCT+</button>
+        <button className="pianoroll__btn" type="button" onClick={octaveDown}>OCT−</button>
 
         <select
           className="pianoroll__select"
@@ -710,6 +789,36 @@ export function PianoRoll() {
               onPointerLeave={onVelPointerUp}
             />
           </div>
+
+          {/* Horizontal (time) scrollbar */}
+          <div
+            className="pianoroll__scrollbar-h"
+            style={{ height: H_SCROLLBAR }}
+            onPointerDown={onHScrollDown}
+            onPointerMove={moveHScroll}
+            onPointerUp={onScrollUp}
+            onPointerLeave={onScrollUp}
+          >
+            <div
+              className="pianoroll__scrollbar-h-thumb"
+              style={{ left: hThumbLeft, width: hThumbW }}
+            />
+          </div>
+        </div>
+
+        {/* Vertical (pitch) scrollbar */}
+        <div
+          className="pianoroll__scrollbar-v"
+          style={{ width: V_SCROLLBAR, height: gridH }}
+          onPointerDown={onVScrollDown}
+          onPointerMove={moveVScroll}
+          onPointerUp={onScrollUp}
+          onPointerLeave={onScrollUp}
+        >
+          <div
+            className="pianoroll__scrollbar-v-thumb"
+            style={{ top: vThumbTop, height: vThumbH }}
+          />
         </div>
       </div>
     </div>

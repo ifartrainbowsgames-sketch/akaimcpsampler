@@ -54,6 +54,23 @@
   background: #38383e;
 }
 
+/* Tool-mode group (DRAW / SELECT / ERASE) */
+.pianoroll__tools {
+  display: flex;
+  gap: 2px;
+}
+
+.pianoroll__btn--active {
+  background: #c43a2e;
+  border-color: #e0503f;
+  color: #fff;
+}
+
+.pianoroll__btn--active:hover,
+.pianoroll__btn--active:active {
+  background: #d64335;
+}
+
 .pianoroll__btn--close {
   background: #2a1a1a;
   border-color: #5a2a2a;
@@ -155,21 +172,48 @@
   cursor: pointer;
 }
 
-/* Scrollbar */
+/* Horizontal (time) scrollbar */
 .pianoroll__scrollbar-h {
-  height: 10px;
   flex-shrink: 0;
   background: #111114;
   border-top: 1px solid #2a2a30;
   position: relative;
   overflow: hidden;
+  touch-action: none;
+  cursor: pointer;
 }
 
 .pianoroll__scrollbar-h-thumb {
   position: absolute;
-  top: 2px;
-  height: 6px;
-  background: #404048;
-  border-radius: 3px;
+  top: 3px;
+  bottom: 3px;
+  background: #4a4a54;
+  border-radius: 4px;
   cursor: grab;
+}
+
+/* Vertical (pitch) scrollbar */
+.pianoroll__scrollbar-v {
+  flex-shrink: 0;
+  align-self: flex-start;
+  background: #111114;
+  border-left: 1px solid #2a2a30;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.pianoroll__scrollbar-v-thumb {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  background: #4a4a54;
+  border-radius: 4px;
+  cursor: grab;
+}
+
+.pianoroll__scrollbar-h-thumb:hover,
+.pianoroll__scrollbar-v-thumb:hover {
+  background: #5a5a66;
 }
