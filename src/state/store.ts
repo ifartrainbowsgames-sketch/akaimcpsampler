@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pad, Project } from '../audio/types';
+import type { AutoParam, Pad, Project } from '../audio/types';
 import type { KnobFXId } from '../audio/fx/knobfx';
 import type { PadFXId } from '../audio/fx/padfx';
 import type { MidiConfig } from '../midi/midi';
@@ -122,6 +122,9 @@ export interface UIState {
   toggleEraseMode(): void;
   eraseSequence(): void;
   copySequence(): void;
+  /** Write a mixer-automation point for the current sequence while recording. */
+  recordAutomation(pad: number, param: AutoParam, norm: number): void;
+  clearAutomation(): void;
   recallSample(): Promise<void>;
   setFaderParam(p: string): void;
   setKitVolume(db: number): void;

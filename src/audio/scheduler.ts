@@ -1,5 +1,5 @@
 import { PPQN, TICKS_PER_8TH, TICKS_PER_16TH } from './types';
-import type { Sequence, SeqEvent, Project } from './types';
+import type { Sequence, SeqEvent, Project, AutoEvent } from './types';
 
 /**
  * Lookahead scheduling, per "A Tale of Two Clocks".
@@ -42,6 +42,7 @@ export interface SchedulerHost {
   getTimeSignature(): [number, number];
   getHumanize(): Project['humanize'];
   playEvent(e: SeqEvent, when: number, velocityOverride?: number): void;
+  applyAutomation?(evt: AutoEvent, when: number): void;
   click?(when: number, accent: boolean): void;
   metronomeEnabled(): boolean;
   countInBars(): number;
@@ -250,6 +251,14 @@ export class Scheduler {
             };
             this.host.playEvent(ev, this.timeForTick(this.nextTick));
             slot.nextTick = (tickInLoop + slot.interval) % this.loopLengthTicks;
+          }
+        }
+
+        // Mixer automation — replay recorded volume/pan points at their tick.
+        if (seq.automation && this.host.applyAutomation) {
+          const when = this.timeForTick(this.nextTick);
+          for (const a of seq.automation) {
+            if (a.tick === tickInLoop) this.host.applyAutomation(a, when);
           }
         }
       }

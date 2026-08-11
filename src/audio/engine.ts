@@ -1,5 +1,5 @@
 import { MAX_VOICES, NUM_PADS, PPQN, TICKS_PER_16TH } from './types';
-import type { Pad, Project, SeqEvent, Sequence } from './types';
+import type { AutoParam, Pad, Project, SeqEvent, Sequence } from './types';
 import { triggerVoice, voiceFrameAt, type Voice } from './voice';
 import { resolvePlayback as resolvePlaybackShared, reverseBuffer, warpRate as warpRateShared } from './playback';
 import { Scheduler, type TransportState, ticksPerBar } from './scheduler';
@@ -24,6 +24,8 @@ export class Engine {
   private compressor!: DynamicsCompressorNode;
   private kitGain!: GainNode;
   private padGains: GainNode[] = [];
+  /** Persistent per-pad panners (pad.pan lives here so it's live-automatable). */
+  private padPanners: StereoPannerNode[] = [];
   private analyser!: AnalyserNode;
   knobFX!: KnobFX;
   padFX!: PadFXRack;
@@ -189,10 +191,16 @@ export class Engine {
 
     this.recorder = new Recorder(ctx, this.master);
 
-    // Persistent per-pad gain nodes. Created once, never torn down.
-    this.padGains = Array.from({ length: NUM_PADS }, () => {
+    // Persistent per-pad gain + pan nodes. Created once, never torn down.
+    // Chain: padGains[i] (volume) -> padPanners[i] (pan) -> kitGain.
+    this.padPanners = Array.from({ length: NUM_PADS }, () => {
+      const p = ctx.createStereoPanner();
+      p.connect(this.kitGain);
+      return p;
+    });
+    this.padGains = Array.from({ length: NUM_PADS }, (_, i) => {
       const g = ctx.createGain();
-      g.connect(this.kitGain);
+      g.connect(this.padPanners[i]);
       return g;
     });
 
@@ -263,6 +271,7 @@ export class Engine {
       countInBars: () => (this.project?.countIn ? 1 : 0),
       click: (when, accent) => this.click(when, accent),
       playEvent: (e, when, velocityOverride) => this.playEvent(e, when, velocityOverride),
+      applyAutomation: (evt, when) => this.applyAutomation(evt.param, evt.pad, evt.value, when),
       onPosition: (s: TransportState) => {
         this.telemetry.playing = s.playing;
         this.telemetry.recording = s.recording;
@@ -294,6 +303,10 @@ export class Engine {
       const dl = (pad.delaySend ?? 0) / 127;
       this.padReverbSends[i]?.gain.setTargetAtTime(rv, t, 0.01);
       this.padDelaySends[i]?.gain.setTargetAtTime(dl, t, 0.01);
+      // Static volume + pan live on the persistent per-pad nodes.
+      const g = pad.gain <= -74 ? 0 : Math.pow(10, pad.gain / 20);
+      this.padGains[i]?.gain.setTargetAtTime(g, t, 0.01);
+      this.padPanners[i]?.pan.setTargetAtTime(Math.max(-1, Math.min(1, pad.pan)), t, 0.01);
     }
     // Update delay time from BPM
     const bpm = p.bpmScope === 'global' ? p.bpm : p.bpm;
@@ -782,6 +795,9 @@ export class Engine {
     if (hardReset) this.pausedAt = 0;
     this.scheduler.stop();
     this.stopAll();
+    // A recorded sweep leaves the live mix nodes wherever automation put them;
+    // restore each pad to its static gain/pan so stopping doesn't strand them.
+    if (this.project) this.syncSendLevels(this.project);
     this.songMode = false;
     this.songIndex = 0;
     midi.stop();
@@ -829,6 +845,20 @@ export class Engine {
     if (!g || !this.ctx) return;
     const v = db === -Infinity ? 0 : Math.pow(10, db / 20);
     g.gain.setTargetAtTime(v, this.ctx.currentTime, 0.01);
+  }
+
+  /** Drive a live mix param from a recorded automation point (or on replay). */
+  applyAutomation(param: AutoParam, pad: number, norm: number, when?: number) {
+    if (!this.ctx) return;
+    const t = when ?? this.ctx.currentTime;
+    const n = Math.max(0, Math.min(1, norm));
+    if (param === 'vol') {
+      const db = n * 80 - 74;
+      const v = db <= -74 ? 0 : Math.pow(10, db / 20);
+      this.padGains[pad]?.gain.setTargetAtTime(v, t, 0.008);
+    } else if (param === 'pan') {
+      this.padPanners[pad]?.pan.setTargetAtTime(n * 2 - 1, t, 0.008);
+    }
   }
 
   setKitVolume(db: number) {

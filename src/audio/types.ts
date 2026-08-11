@@ -103,6 +103,15 @@ export interface SeqEvent {
   note?: number;
 }
 
+/** A recorded parameter-automation point. `value` is normalized 0..1. */
+export type AutoParam = 'vol' | 'pan';
+export interface AutoEvent {
+  tick: number;
+  pad: number;
+  param: AutoParam;
+  value: number;
+}
+
 export interface Sequence {
   name: string;
   /** Length in bars. */
@@ -111,6 +120,8 @@ export interface Sequence {
   events: SeqEvent[];
   /** Per-sequence tempo, used when bpmScope is 'seq'. */
   bpm: number;
+  /** Recorded mixer automation (volume/pan), replayed on playback. */
+  automation?: AutoEvent[];
 }
 
 export interface Project {
@@ -179,7 +190,7 @@ export function makePad(): Pad {
 }
 
 export function makeSequence(name: string): Sequence {
-  return { name, bars: 4, events: [], bpm: 93 };
+  return { name, bars: 4, events: [], bpm: 93, automation: [] };
 }
 
 export function makeProject(name = 'New Project'): Project {
@@ -227,6 +238,7 @@ export function migrateProject(p: Project): Project {
     sequences: p.sequences.map((bank) =>
       bank.map((seq) => ({
         ...seq,
+        automation: seq.automation ?? [],
         events: seq.events.map((e) => ({
           ...e,
           probability: e.probability ?? 100,

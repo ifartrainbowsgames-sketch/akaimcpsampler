@@ -12,7 +12,8 @@ export type PlaybackSlice = Pick<UIState,
   | 'padModes' | 'faderParam'
   | 'togglePadMode' | 'hitPad' | 'releasePad' | 'startPadNoteRepeat' | 'play' | 'stop' | 'toggleRecord'
   | 'playSong' | 'tapTempo' | 'toggleMetronome' | 'toggleNoteRepeat' | 'toggleTriplet' | 'toggleEraseMode'
-  | 'eraseSequence' | 'copySequence' | 'recallSample' | 'setFaderParam' | 'setKitVolume'
+  | 'eraseSequence' | 'copySequence' | 'recordAutomation' | 'clearAutomation'
+  | 'recallSample' | 'setFaderParam' | 'setKitVolume'
   | 'setCompressorSettings' | 'toggleCompressorColor' | 'toggleCompressorBypass' | 'halfSeq' | 'doubleSeq'
   | 'toggleCountIn' | 'halfSpeed' | 'doubleSpeed' | 'toggleRecQuantize' | 'resampleToPad' | 'toggleWarpMode'
   | 'cycleFaderParam' | 'toggleFaderEnabled'
@@ -186,6 +187,30 @@ export const createPlaybackSlice: StateCreator<UIState, [], [], PlaybackSlice> =
         : row
     );
     get().updateProject({ sequences: banks });
+  },
+
+  recordAutomation(pad, param, norm) {
+    // Only while the transport is recording live. Mutate the active sequence's
+    // automation in place — the engine shares the same sequence object, so the
+    // scheduler replays it without a project rebuild. The mixer fader's own
+    // updatePad triggers the re-render that refreshes the on-screen count.
+    if (!engine.telemetry.recordingLive) return;
+    const { project, bank, seqSlot } = get();
+    const seq = project.sequences[bank][seqSlot];
+    if (!seq.automation) seq.automation = [];
+    const tick = Math.round(engine.telemetry.positionTicks);
+    const value = Math.max(0, Math.min(1, norm));
+    const i = seq.automation.findIndex((a) => a.tick === tick && a.pad === pad && a.param === param);
+    if (i >= 0) seq.automation[i] = { tick, pad, param, value };
+    else seq.automation.push({ tick, pad, param, value });
+  },
+
+  clearAutomation() {
+    const { project, bank, seqSlot } = get();
+    const sequences = project.sequences.map((row, bi) =>
+      bi === bank ? row.map((s, si) => (si === seqSlot ? { ...s, automation: [] } : s)) : row
+    );
+    get().updateProject({ sequences });
   },
 
   copySequence() {

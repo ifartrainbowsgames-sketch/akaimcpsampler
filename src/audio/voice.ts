@@ -48,9 +48,6 @@ function cutoffHz(v: number): number {
   return 20 * Math.pow(1000, n);
 }
 
-function dbToGain(db: number): number {
-  return db === -Infinity ? 0 : Math.pow(10, db / 20);
-}
 
 function eqGainDb(v: number): number {
   return Math.max(-12, Math.min(12, v));
@@ -90,7 +87,9 @@ export function triggerVoice(o: TriggerOptions): Voice {
 
   const ampGain = ctx.createGain();
   const panner = ctx.createStereoPanner();
-  panner.pan.value = Math.max(-1, Math.min(1, pad.pan));
+  // Pan is applied by the engine's persistent per-pad panner (so it can be
+  // automated live); the per-voice panner stays centred to avoid double-panning.
+  panner.pan.value = 0;
 
   let last: AudioNode = ampGain;
 
@@ -131,8 +130,11 @@ export function triggerVoice(o: TriggerOptions): Voice {
   panner.connect(destination);
   source.connect(ampGain);
 
+  // Pad volume (pad.gain) is applied by the engine's persistent per-pad gain
+  // node (padGains[i]) so it can be automated live; the voice only shapes
+  // velocity + amp envelope here.
   const velScale = 1 - (pad.ampEnv.amount / 127) * (1 - velocity / 127);
-  const peak = dbToGain(pad.gain) * Math.max(0, Math.min(1, velScale));
+  const peak = Math.max(0, Math.min(1, velScale));
 
   const attack = envTime(pad.ampEnv.attack, 2);
   const decay = envTime(pad.ampEnv.decay, 6);

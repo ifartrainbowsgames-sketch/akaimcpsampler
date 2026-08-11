@@ -773,7 +773,11 @@ function PadMixerScreen() {
   const setScreen = useStore((s) => s.setScreen);
   const soloPads = useStore((s) => s.soloPads);
   const togglePadSolo = useStore((s) => s.togglePadSolo);
+  const seqSlot = useStore((s) => s.seqSlot);
+  const recordAutomation = useStore((s) => s.recordAutomation);
+  const clearAutomation = useStore((s) => s.clearAutomation);
   const pads = project.banks[bank];
+  const autoCount = project.sequences[bank][seqSlot].automation?.length ?? 0;
 
   const gainToNorm = (g: number) => Math.max(0, Math.min(1, (g + 74) / 80));
   const panLabel = (pan: number) =>
@@ -796,7 +800,11 @@ function PadMixerScreen() {
               type="range" min={0} max={1000}
               value={Math.round(gainToNorm(p.gain) * 1000)}
               onPointerDown={() => selectPad(i)}
-              onChange={(e) => updatePad(i, { gain: (Number(e.target.value) / 1000) * 80 - 74 })}
+              onChange={(e) => {
+                const norm = Number(e.target.value) / 1000;
+                updatePad(i, { gain: norm * 80 - 74 });
+                recordAutomation(i, 'vol', norm);
+              }}
               aria-label={`Pad ${i + 1} volume`}
             />
             <input
@@ -804,7 +812,11 @@ function PadMixerScreen() {
               type="range" min={0} max={1000}
               value={Math.round(((p.pan + 1) / 2) * 1000)}
               onPointerDown={() => selectPad(i)}
-              onChange={(e) => updatePad(i, { pan: (Number(e.target.value) / 1000) * 2 - 1 })}
+              onChange={(e) => {
+                const norm = Number(e.target.value) / 1000;
+                updatePad(i, { pan: norm * 2 - 1 });
+                recordAutomation(i, 'pan', norm);
+              }}
               aria-label={`Pad ${i + 1} pan`}
             />
             <span className="mixerstrip__panlbl">{panLabel(p.pan)}</span>
@@ -829,9 +841,13 @@ function PadMixerScreen() {
       </div>
       <div className="lcdbtns">
         <button type="button" onClick={() => setScreen('seq')}>BACK</button>
+        <button type="button" onClick={() => clearAutomation()} disabled={autoCount === 0}>
+          CLR AUTO{autoCount ? ` (${autoCount})` : ''}
+        </button>
       </div>
       <div className="hintline">
-        Tap a channel to select — K1-K3 set its Reverb/Delay sends + Kit Vol.
+        Record + play, then move Vol/Pan while recording to write automation.
+        Tap a channel: K1-K3 set its Reverb/Delay sends + Kit Vol.
       </div>
     </div>
   );
