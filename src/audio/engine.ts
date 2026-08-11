@@ -7,6 +7,7 @@ import { KnobFX, type KnobFXId } from './fx/knobfx';
 import { PadFXRack, type PadFXId } from './fx/padfx';
 import { FlexBeat } from './fx/flexbeat';
 import { Recorder } from './recorder';
+import { Arp } from './arp';
 import { midi } from '../midi/midi';
 import { dspWorkletUrl } from './worklets/dspSource';
 
@@ -76,6 +77,17 @@ export class Engine {
   fullLevel = false;
 
   scheduler!: Scheduler;
+
+  /** Keyboard arpeggiator — BPM-synced, runs independent of the transport. */
+  arp = new Arp({
+    bpm: () => {
+      const p = this.project;
+      if (!p) return 120;
+      return p.bpmScope === 'global' ? p.bpm : this.activeSequence()?.bpm ?? p.bpm;
+    },
+    trigger: (pad, note, vel) =>
+      this.triggerWithNote(pad, vel, this.ctx?.currentTime ?? 0, note),
+  });
 
   /** Telemetry the UI polls on rAF. Never a React state update from here. */
   telemetry = {

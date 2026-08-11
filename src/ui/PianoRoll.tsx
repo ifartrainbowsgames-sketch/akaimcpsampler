@@ -4,6 +4,7 @@ import { engine } from '../audio/engine';
 import { TICKS_PER_16TH, TICKS_PER_BEAT } from '../audio/types';
 import { ticksPerBar } from '../audio/scheduler';
 import type { SeqEvent } from '../audio/types';
+import type { ArpMode, ArpRate } from '../audio/arp';
 import './pianoroll.css';
 
 // ─── Layout constants ────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ const PIANO_WHITE_LABEL = '#333';
 interface NoteRef { tick: number; note: number; }
 type DragMode = 'none' | 'draw' | 'move' | 'resize' | 'velocity';
 type Tool = 'draw' | 'select' | 'erase';
+type ArpState = { on: boolean; mode: ArpMode; rate: ArpRate; octaves: number };
 
 export function PianoRoll() {
   const project     = useStore((s) => s.project);
@@ -98,6 +100,10 @@ export function PianoRoll() {
   const [showKeys, setShowKeys]           = useState(true);
   const [snapScale, setSnapScale]         = useState(false);
   const [selected, setSelected]           = useState<Set<string>>(new Set());
+  const [arp, setArp]                     = useState<ArpState>({ on: false, mode: 'up', rate: '1/16', octaves: 1 });
+
+  useEffect(() => { engine.arp.setConfig(arp); }, [arp]);
+  useEffect(() => () => engine.arp.clear(), []); // stop arp when the roll unmounts
 
   const isInScale = useCallback((note: number) => {
     if (scaleType === 'off') return true;
@@ -1011,7 +1017,7 @@ export function PianoRoll() {
       </div>
 
       {showKeys && (
-        <PianoKeyboard padIndex={selectedPad} bank={bank} isInScale={isInScale} />
+        <PianoKeyboard padIndex={selectedPad} bank={bank} isInScale={isInScale} arp={arp} setArp={setArp} />
       )}
     </div>
   );
@@ -1032,10 +1038,14 @@ function PianoKeyboard({
   padIndex,
   bank,
   isInScale,
+  arp,
+  setArp,
 }: {
   padIndex: number;
   bank: number;
   isInScale: (n: number) => boolean;
+  arp: ArpState;
+  setArp: React.Dispatch<React.SetStateAction<ArpState>>;
 }) {
   const [startNote, setStartNote] = useState(48);          // leftmost C = C3
   const [held, setHeld] = useState<Set<number>>(new Set());
@@ -1130,8 +1140,13 @@ function PianoKeyboard({
     const note = noteAt(x, y);
     const vel = velFromY(y);
     pointers.current.set(e.pointerId, note);
-    engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
-    engine.recordHit(padIndex, vel, padIndex, bank, note);   // no-op unless recording live
+    if (arp.on) {
+      // Held notes feed the arpeggiator; it does the triggering on its clock.
+      engine.arp.noteOn(padIndex, note, vel);
+    } else {
+      engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
+      engine.recordHit(padIndex, vel, padIndex, bank, note);   // no-op unless recording live
+    }
     setHeld(new Set(pointers.current.values()));
   };
 
@@ -1141,18 +1156,26 @@ function PianoKeyboard({
     const note = noteAt(x, y);
     const prev = pointers.current.get(e.pointerId)!;
     if (note !== prev) {
-      engine.releaseNote(padIndex, prev, bank);
-      pointers.current.set(e.pointerId, note);
       const vel = velFromY(y);
-      engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
-      engine.recordHit(padIndex, vel, padIndex, bank, note);
+      if (arp.on) {
+        engine.arp.noteOff(prev);
+        engine.arp.noteOn(padIndex, note, vel);
+      } else {
+        engine.releaseNote(padIndex, prev, bank);
+        engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
+        engine.recordHit(padIndex, vel, padIndex, bank, note);
+      }
+      pointers.current.set(e.pointerId, note);
       setHeld(new Set(pointers.current.values()));
     }
   };
 
   const up = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const note = pointers.current.get(e.pointerId);
-    if (note !== undefined) engine.releaseNote(padIndex, note, bank);
+    if (note !== undefined) {
+      if (arp.on) engine.arp.noteOff(note);
+      else engine.releaseNote(padIndex, note, bank);
+    }
     pointers.current.delete(e.pointerId);
     setHeld(new Set(pointers.current.values()));
   };
@@ -1161,7 +1184,53 @@ function PianoKeyboard({
     <div className="pianoroll__keyboard" style={{ height: KB_CONTROLS_H + KB_KEYS_H }}>
       <div className="pianoroll__kb-controls" style={{ height: KB_CONTROLS_H }}>
         <button className="pianoroll__btn" type="button" onClick={() => setStartNote((n) => Math.max(0, n - 12))}>◀ OCT</button>
-        <span className="pianoroll__kb-title">PLAY — draws the selected pad chromatically</span>
+        <button
+          className={`pianoroll__btn ${arp.on ? 'pianoroll__btn--active' : ''}`}
+          type="button"
+          onClick={() => setArp((a) => ({ ...a, on: !a.on }))}
+          title="Arpeggiate held keys"
+        >
+          ARP
+        </button>
+        {arp.on && (
+          <>
+            <select
+              className="pianoroll__select"
+              value={arp.mode}
+              onChange={(e) => setArp((a) => ({ ...a, mode: e.target.value as ArpMode }))}
+              aria-label="Arp mode"
+            >
+              <option value="up">Up</option>
+              <option value="down">Down</option>
+              <option value="updown">Up-Down</option>
+              <option value="random">Rnd</option>
+            </select>
+            <select
+              className="pianoroll__select"
+              value={arp.rate}
+              onChange={(e) => setArp((a) => ({ ...a, rate: e.target.value as ArpRate }))}
+              aria-label="Arp rate"
+            >
+              <option value="1/8">1/8</option>
+              <option value="1/16">1/16</option>
+              <option value="1/8T">1/8T</option>
+              <option value="1/16T">1/16T</option>
+            </select>
+            <select
+              className="pianoroll__select"
+              value={arp.octaves}
+              onChange={(e) => setArp((a) => ({ ...a, octaves: Number(e.target.value) }))}
+              aria-label="Arp octaves"
+            >
+              <option value={1}>1 oct</option>
+              <option value={2}>2 oct</option>
+              <option value={3}>3 oct</option>
+            </select>
+          </>
+        )}
+        <span className="pianoroll__kb-title">
+          {arp.on ? 'ARP — hold keys to arpeggiate' : 'PLAY — draws the selected pad chromatically'}
+        </span>
         <button className="pianoroll__btn" type="button" onClick={() => setStartNote((n) => Math.min(108, n + 12))}>OCT ▶</button>
       </div>
       <div ref={wrapRef} className="pianoroll__kb-keys" style={{ height: H }}>
