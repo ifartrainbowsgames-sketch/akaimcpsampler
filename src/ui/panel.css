@@ -8,6 +8,7 @@
   --rgb:#1E9BE0;
   --rest:#97968F; --rest-hi:#ACABA4;
   --red:#CE1E22;
+  --mpc-red:#E4322B; --mpc-red-lo:#B0261F;
   --ink:#25251F; --ink2:#3C3C35;
   --lcd:#0A0A0A; --lcd-y:#E8D24A; --lcd-c:#57C8D8;
   --f:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;
@@ -34,6 +35,17 @@
 [data-theme="light"] .kcell{background:var(--lcd)}
 [data-theme="light"] .kname{color:#606058}
 [data-theme="light"] .kval{color:#1a1a14}
+[data-theme="light"] .tabs button,[data-theme="light"] .tabs > div{background:#d4d4cc; color:#5a5a52; border-color:#b0b0a8}
+[data-theme="light"] .tabs .on{background:var(--mpc-red); border-color:var(--mpc-red); color:#fff}
+[data-theme="light"] .lcd-status{background:linear-gradient(#d8d8d0,#c6c6be); color:#2a2a22; border-bottom-color:#a0a098}
+[data-theme="light"] .lcd-status__name{color:#5a5a52}
+[data-theme="light"] .lcd-status__pos{background:#e8e8e0; color:#006f80; border-color:#b0b0a8}
+[data-theme="light"] .qlinkstrip{background:#c8c8c0; border-top-color:#a0a098}
+[data-theme="light"] .qlink__name{color:#606058}
+[data-theme="light"] .qlink__val{color:#1a1a14}
+[data-theme="light"] .qlink__cap{background:radial-gradient(circle at 50% 32%,#f2f2ee,#d0d0c8)}
+[data-theme="light"] .qlink__cap i{background:#333}
+[data-theme="light"] .kknobval{color:#3a3a34}
 [data-theme="light"] .hintline{color:#808074}
 [data-theme="light"] .lcdlist{color:#484840}
 [data-theme="light"] .lcdlist .sel{background:var(--lcd-y); color:#fff}
@@ -156,12 +168,53 @@ button{font:inherit}
   font-family:var(--mono);display:flex;flex-direction:column;color:#dcdcd2}
 .lcd::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(118deg,rgba(255,255,255,.08),transparent 38%)}
-.tabs{display:flex;font-size:.82em;color:#9a9a92;flex:0 0 auto}
-.tabs button{
-  flex:1;text-align:center;padding:.2em 0;border:0;border-bottom:.08em solid #3a3a34;
-  background:transparent;color:#9a9a92;font-family:var(--mono);font-size:inherit;
-  cursor:pointer;touch-action:manipulation;min-height:2em}
-.tabs button.on{background:#3d3d36;color:#fff}
+.tabs{display:flex;gap:.2em;font-size:.82em;color:#9a9a92;flex:0 0 auto;padding:.2em .25em 0}
+.tabs button,.tabs > div{
+  flex:1;text-align:center;padding:.28em 0;border:.08em solid #3a3a34;border-radius:.5em;
+  background:#1c1c20;color:#9a9a92;font-family:var(--mono);font-size:inherit;font-weight:700;
+  cursor:pointer;touch-action:manipulation;min-height:2em;letter-spacing:.03em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs .on{background:var(--mpc-red);border-color:var(--mpc-red);color:#fff}
+/* MPC top status strip */
+.lcd-status{display:flex;align-items:center;gap:.4em;padding:.22em .4em;flex:0 0 auto;
+  background:linear-gradient(#1e1e22,#141416);border-bottom:.08em solid #000;
+  font-family:var(--mono);color:#cfcfc6;min-height:2.1em}
+.lcd-status__dot{font-size:.7em;line-height:1;color:#6a6a62;width:1em;text-align:center}
+.lcd-status__dot--play{color:#3FBF52}
+.lcd-status__dot--rec{color:var(--mpc-red);animation:recblink 1s steps(1) infinite}
+@keyframes recblink{50%{opacity:.3}}
+.lcd-status__name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:.72em;color:#a8a89e}
+.lcd-status__bpm{display:flex;align-items:baseline;gap:.2em;background:transparent;border:0;
+  color:var(--lcd-y);font-family:var(--mono);cursor:pointer;padding:0 .2em;touch-action:manipulation}
+.lcd-status__bpm b{font-size:1.05em;font-weight:800;letter-spacing:.02em}
+.lcd-status__bpm small{font-size:.55em;color:#8f8f86;font-weight:600}
+.lcd-status__sig{font-size:.72em;color:#9a9a92;padding:0 .1em}
+.lcd-status__pos{font-size:.76em;font-weight:700;color:var(--lcd-c);
+  background:#0a0a0a;border:.06em solid #2a2a30;border-radius:.2em;padding:.1em .35em;letter-spacing:.06em}
+
+/* MPC Q-Link arc dials */
+.qlinkstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:.3em;flex:0 0 auto;
+  padding:.25em .35em .3em;background:linear-gradient(#161618,#0e0e10);border-top:.08em solid #000}
+.qlink{display:flex;flex-direction:column;align-items:center;gap:.12em;min-width:0}
+.qlink__name{font-size:.58em;color:#9a9a92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;text-align:center}
+.qlink__val{font-size:.72em;font-weight:700;color:#e6e6dc;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%;text-align:center}
+.qlink__dial{position:relative;width:2.5em;height:2.5em;border-radius:50%;cursor:ns-resize;
+  touch-action:none;
+  background:conic-gradient(from 210deg,var(--mpc-red) var(--fill,0deg),#33333a var(--fill,0deg) 300deg,transparent 300deg 360deg)}
+.qlink__cap{position:absolute;inset:20%;border-radius:50%;
+  background:radial-gradient(circle at 50% 32%,#2c2c33,#141418);box-shadow:0 .05em .12em rgba(0,0,0,.6)}
+.qlink__cap i{position:absolute;left:50%;top:10%;width:.12em;height:34%;margin-left:-.06em;
+  background:#e6e6dc;border-radius:.06em;transform-origin:50% 100%}
+.qlink--empty .qlink__dial{background:#222226;opacity:.5}
+.qlink--empty .qlink__cap i{display:none}
+
+/* Live value under each physical K1-K3 knob */
+.kknobval{font-size:.6em;color:#c9c9be;font-family:var(--mono);margin-top:.05em;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:5em}
+
 .infoline{display:flex;gap:.35em;padding:.15em .3em;font-size:.7em;color:var(--lcd-y);
   flex:0 0 auto;align-items:center}
 .infoline .sname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}

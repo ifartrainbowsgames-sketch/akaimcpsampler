@@ -4,7 +4,6 @@ import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { Waveform } from '../ui/Waveform';
 import { WaveformSurface } from '../ui/WaveformSurface';
-import { type KParam } from './pages';
 import { resolveSamplePage, sampleTabLabel } from './samplePage';
 import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
@@ -12,12 +11,13 @@ import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
 import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec, isLongDemo } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
-import { HwSlider } from '../ui/HwSlider';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
 import { resolveScreenParams } from './screenParams';
 import { FLEX_BEAT_EFFECTS } from '../audio/fx/flexbeat';
 import { guideClick } from '../guide/guideClick';
 import { PianoRoll } from '../ui/PianoRoll';
+import { StatusBar } from './StatusBar';
+import { QLinkStrip } from './QLinkDial';
 
 /**
  * The LCD is a screen router with a mode stack, so menus opened via Shift+Pad
@@ -126,6 +126,7 @@ export function LCD() {
 
     return (
       <div className="lcd">
+        <StatusBar />
         <div className="tabs">
           {TAB_INDICES.map((i) => (
             <button
@@ -246,20 +247,21 @@ export function LCD() {
           <PanMeter pan={pad.pan} />
         </div>
 
-        <Footline params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
+        <QLinkStrip params={params} onChange={(p, v) => p.set(v, updatePad, selectedPad)} />
       </div>
     );
   }
 
   return (
     <div className="lcd">
+      <StatusBar />
       <div className="tabs">
         <div className="on">{SCREEN_TITLES[screen] ?? screen}</div>
       </div>
       <div className="lanes">
         <ScreenBody screen={screen} />
       </div>
-      <KRow
+      <QLinkStrip
         params={resolveScreenParams({
           screen,
           bGroup,
@@ -288,68 +290,6 @@ const SCREEN_TITLES: Record<string, string> = {
 };
 
 const TAB_INDICES = [0, 1, 2];
-
-function Footline({
-  params,
-  onChange,
-}: {
-  params: KParam[];
-  onChange(p: KParam, v: number): void;
-}) {
-  return (
-    <div className="footline">
-      {[0, 1, 2].map((i) => {
-        const p = params[i];
-        return p ? (
-          <HwSlider
-            key={i}
-            label={p.name}
-            value={p.norm}
-            onChange={(v) => onChange(p, v)}
-          />
-        ) : (
-          <div key={i} className="footcell">
-            <span>—</span>
-            <div className="hwslider hwslider--empty" />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function KRow({
-  params,
-  onChange,
-}: {
-  params: KParam[];
-  onChange(p: KParam, v: number): void;
-}) {
-  return (
-    <div className="krow">
-      {[0, 1, 2].map((i) => {
-        const p = params[i];
-        return (
-          <div className="kcell" key={i}>
-            <div className="kname">{p?.name ?? '—'}</div>
-            <div className="kval">{p ? p.display : '—'}</div>
-            {p && (
-              <input
-                className="kslider"
-                type="range"
-                min={0}
-                max={1000}
-                value={Math.round(p.norm * 1000)}
-                onChange={(e) => onChange(p, Number(e.target.value) / 1000)}
-                aria-label={p.name}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function ScreenBody({ screen }: { screen: string }) {
   const project = useStore((s) => s.project);

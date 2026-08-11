@@ -63,6 +63,9 @@ export function ParamKnobs() {
               {shift && screen === 'comp' && i === 2 ? 'S-K3' : `K${i + 1}`}
               {assigned && <span className="klabel__dot" aria-hidden="true" />}
             </button>
+            {p && p.name !== '—' && (
+              <div className="kknobval" title={p.name}>{p.display}</div>
+            )}
           </div>
         );
       })}
