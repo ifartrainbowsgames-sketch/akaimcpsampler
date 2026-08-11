@@ -1017,7 +1017,7 @@ export function PianoRoll() {
       </div>
 
       {showKeys && (
-        <PianoKeyboard padIndex={selectedPad} bank={bank} isInScale={isInScale} arp={arp} setArp={setArp} />
+        <PianoKeyboard padIndex={selectedPad} bank={bank} isInScale={isInScale} arp={arp} setArp={setArp} bpm={project.bpm} />
       )}
     </div>
   );
@@ -1040,12 +1040,14 @@ function PianoKeyboard({
   isInScale,
   arp,
   setArp,
+  bpm,
 }: {
   padIndex: number;
   bank: number;
   isInScale: (n: number) => boolean;
   arp: ArpState;
   setArp: React.Dispatch<React.SetStateAction<ArpState>>;
+  bpm: number;
 }) {
   const [startNote, setStartNote] = useState(48);          // leftmost C = C3
   const [held, setHeld] = useState<Set<number>>(new Set());
@@ -1053,6 +1055,9 @@ function PianoKeyboard({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [w, setW] = useState(1);
   const pointers = useRef<Map<number, number>>(new Map());
+  // When a key is played into a live recording, remember the event + press time
+  // so key-up can set its duration from how long the key was held.
+  const recNotes = useRef<Map<number, { ev: SeqEvent; downMs: number }>>(new Map());
   const H = KB_KEYS_H;
   const numWhite = KB_OCTAVES * 7;
   const ww = w / numWhite;
@@ -1145,9 +1150,20 @@ function PianoKeyboard({
       engine.arp.noteOn(padIndex, note, vel);
     } else {
       engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
-      engine.recordHit(padIndex, vel, padIndex, bank, note);   // no-op unless recording live
+      const ev = engine.recordHit(padIndex, vel, padIndex, bank, note); // undefined unless recording live
+      if (ev) recNotes.current.set(note, { ev, downMs: performance.now() });
     }
     setHeld(new Set(pointers.current.values()));
+  };
+
+  // Finalize a held-into-recording note's duration from how long it was held.
+  const finalizeRec = (note: number) => {
+    const rec = recNotes.current.get(note);
+    if (!rec) return;
+    const elapsed = performance.now() - rec.downMs;
+    const ticks = Math.round((elapsed * TICKS_PER_BEAT * bpm) / 60000);
+    rec.ev.duration = Math.max(Math.round(TICKS_PER_16TH / 2), ticks);
+    recNotes.current.delete(note);
   };
 
   const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1162,8 +1178,10 @@ function PianoKeyboard({
         engine.arp.noteOn(padIndex, note, vel);
       } else {
         engine.releaseNote(padIndex, prev, bank);
+        finalizeRec(prev);
         engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
-        engine.recordHit(padIndex, vel, padIndex, bank, note);
+        const ev = engine.recordHit(padIndex, vel, padIndex, bank, note);
+        if (ev) recNotes.current.set(note, { ev, downMs: performance.now() });
       }
       pointers.current.set(e.pointerId, note);
       setHeld(new Set(pointers.current.values()));
@@ -1174,7 +1192,7 @@ function PianoKeyboard({
     const note = pointers.current.get(e.pointerId);
     if (note !== undefined) {
       if (arp.on) engine.arp.noteOff(note);
-      else engine.releaseNote(padIndex, note, bank);
+      else { engine.releaseNote(padIndex, note, bank); finalizeRec(note); }
     }
     pointers.current.delete(e.pointerId);
     setHeld(new Set(pointers.current.values()));
