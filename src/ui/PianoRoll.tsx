@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { TICKS_PER_16TH, TICKS_PER_BEAT } from '../audio/types';
@@ -85,6 +85,7 @@ export function PianoRoll() {
   const [scaleRoot, setScaleRoot]         = useState(0);          // 0 = C
   const [scaleType, setScaleType]         = useState<ScaleType>('off');
   const [tool, setTool]                   = useState<Tool>('draw');
+  const [showKeys, setShowKeys]           = useState(true);
 
   const isInScale = useCallback((note: number) => {
     if (scaleType === 'off') return true;
@@ -676,6 +677,13 @@ export function PianoRoll() {
         <button className="pianoroll__btn" type="button" onClick={zoomOut}>ZOOM−</button>
         <button className="pianoroll__btn" type="button" onClick={octaveUp}>OCT+</button>
         <button className="pianoroll__btn" type="button" onClick={octaveDown}>OCT−</button>
+        <button
+          className={`pianoroll__btn ${showKeys ? 'pianoroll__btn--active' : ''}`}
+          type="button"
+          onClick={() => setShowKeys((v) => !v)}
+        >
+          KEYS
+        </button>
 
         <select
           className="pianoroll__select"
@@ -820,6 +828,175 @@ export function PianoRoll() {
             style={{ top: vThumbTop, height: vThumbH }}
           />
         </div>
+      </div>
+
+      {showKeys && (
+        <PianoKeyboard padIndex={selectedPad} bank={bank} isInScale={isInScale} />
+      )}
+    </div>
+  );
+}
+
+// ─── Playable keyboard strip ───────────────────────────────────────────────
+// A real instrument built from the selected pad's sample: plays it chromatically
+// via the shared engine (any sample becomes playable), polyphonic + multi-touch
+// with per-note release, velocity from finger height, and — while the transport
+// is recording — writes the played notes straight into this pad's track.
+const KB_OCTAVES = 2;
+const KB_WHITE = [0, 2, 4, 5, 7, 9, 11];   // C D E F G A B offsets
+const KB_BLACK_AFTER = [0, 1, 3, 4, 5];    // white indices a black key sits after
+const KB_CONTROLS_H = 26;
+const KB_KEYS_H = 104;
+
+function PianoKeyboard({
+  padIndex,
+  bank,
+  isInScale,
+}: {
+  padIndex: number;
+  bank: number;
+  isInScale: (n: number) => boolean;
+}) {
+  const [startNote, setStartNote] = useState(48);          // leftmost C = C3
+  const [held, setHeld] = useState<Set<number>>(new Set());
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [w, setW] = useState(1);
+  const pointers = useRef<Map<number, number>>(new Map());
+  const H = KB_KEYS_H;
+  const numWhite = KB_OCTAVES * 7;
+  const ww = w / numWhite;
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(() => setW(Math.max(1, el.getBoundingClientRect().width)));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const whiteKeys = useMemo(() => {
+    const arr: { note: number; x: number }[] = [];
+    let idx = 0;
+    for (let o = 0; o < KB_OCTAVES; o++) {
+      for (let wi = 0; wi < 7; wi++) {
+        arr.push({ note: startNote + o * 12 + KB_WHITE[wi], x: idx * ww });
+        idx++;
+      }
+    }
+    return arr;
+  }, [startNote, ww]);
+
+  const blackKeys = useMemo(() => {
+    const arr: { note: number; x: number; w: number }[] = [];
+    const bw = ww * 0.62;
+    for (let o = 0; o < KB_OCTAVES; o++) {
+      for (const ba of KB_BLACK_AFTER) {
+        const centerX = (o * 7 + ba + 1) * ww;
+        arr.push({ note: startNote + o * 12 + KB_WHITE[ba] + 1, x: centerX - bw / 2, w: bw });
+      }
+    }
+    return arr;
+  }, [startNote, ww]);
+
+  const noteAt = useCallback((x: number, y: number) => {
+    if (y < H * 0.6) {
+      for (const bk of blackKeys) if (x >= bk.x && x < bk.x + bk.w) return bk.note;
+    }
+    const wi = Math.max(0, Math.min(numWhite - 1, Math.floor(x / ww)));
+    return whiteKeys[wi].note;
+  }, [blackKeys, whiteKeys, ww, numWhite, H]);
+
+  const draw = useCallback(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, w, H);
+    for (const wk of whiteKeys) {
+      const on = held.has(wk.note);
+      ctx.fillStyle = on ? '#c43a2e' : (isInScale(wk.note) ? '#e8e8e4' : '#c2c2b8');
+      ctx.fillRect(wk.x + 1, 0, ww - 2, H - 1);
+      if (wk.note % 12 === 0) {
+        ctx.fillStyle = on ? '#fff' : '#666';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`C${Math.floor(wk.note / 12) - 1}`, wk.x + ww / 2, H - 3);
+      }
+    }
+    for (const bk of blackKeys) {
+      const on = held.has(bk.note);
+      ctx.fillStyle = on ? '#e0503f' : (isInScale(bk.note) ? '#1c1c22' : '#3a3a42');
+      ctx.fillRect(bk.x, 0, bk.w, H * 0.6);
+    }
+  }, [w, H, whiteKeys, blackKeys, held, isInScale, ww]);
+
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (c) { c.width = w; c.height = H; }
+    draw();
+  }, [w, H, draw]);
+
+  const pos = (e: React.PointerEvent) => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const velFromY = (y: number) => Math.max(1, Math.min(127, Math.round(40 + (y / H) * 87)));
+
+  const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const { x, y } = pos(e);
+    const note = noteAt(x, y);
+    const vel = velFromY(y);
+    pointers.current.set(e.pointerId, note);
+    engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
+    engine.recordHit(padIndex, vel, padIndex, bank, note);   // no-op unless recording live
+    setHeld(new Set(pointers.current.values()));
+  };
+
+  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    const { x, y } = pos(e);
+    const note = noteAt(x, y);
+    const prev = pointers.current.get(e.pointerId)!;
+    if (note !== prev) {
+      engine.releaseNote(padIndex, prev, bank);
+      pointers.current.set(e.pointerId, note);
+      const vel = velFromY(y);
+      engine.triggerWithNote(padIndex, vel, engine.ctx?.currentTime ?? 0, note);
+      engine.recordHit(padIndex, vel, padIndex, bank, note);
+      setHeld(new Set(pointers.current.values()));
+    }
+  };
+
+  const up = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const note = pointers.current.get(e.pointerId);
+    if (note !== undefined) engine.releaseNote(padIndex, note, bank);
+    pointers.current.delete(e.pointerId);
+    setHeld(new Set(pointers.current.values()));
+  };
+
+  return (
+    <div className="pianoroll__keyboard" style={{ height: KB_CONTROLS_H + KB_KEYS_H }}>
+      <div className="pianoroll__kb-controls" style={{ height: KB_CONTROLS_H }}>
+        <button className="pianoroll__btn" type="button" onClick={() => setStartNote((n) => Math.max(0, n - 12))}>◀ OCT</button>
+        <span className="pianoroll__kb-title">PLAY — draws the selected pad chromatically</span>
+        <button className="pianoroll__btn" type="button" onClick={() => setStartNote((n) => Math.min(108, n + 12))}>OCT ▶</button>
+      </div>
+      <div ref={wrapRef} className="pianoroll__kb-keys" style={{ height: H }}>
+        <canvas
+          ref={canvasRef}
+          width={w}
+          height={H}
+          style={{ width: '100%', height: H, display: 'block', touchAction: 'none' }}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerLeave={up}
+          onPointerCancel={up}
+          onContextMenu={(e) => e.preventDefault()}
+        />
       </div>
     </div>
   );

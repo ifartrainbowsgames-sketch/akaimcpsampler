@@ -680,12 +680,28 @@ export class Engine {
       rate: resolved.rate,
     });
 
+    voice.note = midiNote;
     this.voices.push(voice);
     voice.source.addEventListener('ended', () => {
       const i = this.voices.indexOf(voice);
       if (i >= 0) this.voices.splice(i, 1);
     });
     this.telemetry.padActivity[padIndex] = performance.now();
+  }
+
+  /**
+   * Release only the voice(s) started at a specific MIDI note on a pad — used
+   * by the playable keyboard so releasing one held key doesn't cut the others.
+   * Mirrors release(): one-shot pads (noteOn false) ring out and are untouched.
+   */
+  releaseNote(padIndex: number, midiNote: number, bankIndex?: number) {
+    const bank = bankIndex ?? this.currentBank;
+    const pad = this.activePad(padIndex, bank);
+    if (!pad?.noteOn) return;
+    const t = this.ctx?.currentTime ?? 0;
+    for (const v of this.voices) {
+      if (v.pad === padIndex && v.bank === bank && v.note === midiNote) v.stop(t);
+    }
   }
 
   private onSequenceLoopComplete() {
@@ -760,7 +776,7 @@ export class Engine {
   }
 
   /** Record a live pad hit into the active sequence. */
-  recordHit(padIndex: number, velocity: number, recordPad?: number, recordBank?: number) {
+  recordHit(padIndex: number, velocity: number, recordPad?: number, recordBank?: number, note?: number) {
     const seq = this.activeSequence();
     if (!seq || !this.project) return;
     if (!this.scheduler.state.playing || !this.scheduler.state.recording) return;
@@ -770,7 +786,8 @@ export class Engine {
       recordPad ?? padIndex,
       recordBank ?? this.currentBank,
       velocity,
-      this.project.recordQuantize ? this.project.quantize : null
+      this.project.recordQuantize ? this.project.quantize : null,
+      note
     );
     this.onRecordHit?.(ev);
     return ev;

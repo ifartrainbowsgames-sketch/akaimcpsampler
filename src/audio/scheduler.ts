@@ -274,7 +274,8 @@ export class Scheduler {
     pad: number,
     bank: number,
     velocity: number,
-    quantize: number | null
+    quantize: number | null,
+    note?: number
   ): SeqEvent {
     const loopLen = this.loopLengthTicks || seq.bars * ticksPerBar(this.host.getTimeSignature());
     const raw = this.countInDone
@@ -282,6 +283,7 @@ export class Scheduler {
       : 0;
     const tick = quantize ? quantizeTick(raw, quantize) % loopLen : Math.round(raw);
     const ev: SeqEvent = { tick, pad, bank, velocity, duration: TICKS_PER_16TH };
+    if (note !== undefined) ev.note = note;
     const i = seq.events.findIndex((e) => e.tick > tick);
     if (i === -1) seq.events.push(ev);
     else seq.events.splice(i, 0, ev);

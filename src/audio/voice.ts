@@ -8,6 +8,8 @@ import type { Pad, FilterType } from './types';
 export interface Voice {
   pad: number;
   bank: number;
+  /** MIDI note this voice was triggered at (for per-note release). 60 = C4. */
+  note?: number;
   muteGroup: number | null;
   startedAt: number;
   regionStart: number;
