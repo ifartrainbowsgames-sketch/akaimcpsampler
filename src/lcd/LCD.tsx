@@ -771,6 +771,8 @@ function PadMixerScreen() {
   const selectPad = useStore((s) => s.selectPad);
   const updatePad = useStore((s) => s.updatePad);
   const setScreen = useStore((s) => s.setScreen);
+  const soloPads = useStore((s) => s.soloPads);
+  const togglePadSolo = useStore((s) => s.togglePadSolo);
   const pads = project.banks[bank];
 
   const gainToNorm = (g: number) => Math.max(0, Math.min(1, (g + 74) / 80));
@@ -813,6 +815,14 @@ function PadMixerScreen() {
               aria-label={`Pad ${i + 1} mute`}
             >
               M
+            </button>
+            <button
+              type="button"
+              className={`lcd-mini mixerstrip__s${soloPads[i] ? ' mixerstrip__s--on' : ''}`}
+              onClick={(e) => { e.stopPropagation(); togglePadSolo(i); }}
+              aria-label={`Pad ${i + 1} solo`}
+            >
+              S
             </button>
           </div>
         ))}

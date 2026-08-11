@@ -10,6 +10,7 @@ export type FxSlice = Pick<UIState,
   | 'toggleKnobFXBypass' | 'setFlexBeat' | 'selectFlexBeatPad' | 'setInputConfig' | 'setKnobFX'
   | 'pressPadFX' | 'releasePadFX' | 'togglePadFXLatch'
   | 'setKnobAssign' | 'openKnobAssignPicker' | 'closeKnobAssignPicker'
+  | 'soloPads' | 'togglePadSolo' | 'clearSolos'
 >;
 
 export const createFxSlice: StateCreator<UIState, [], [], FxSlice> = (set, get) => ({
@@ -29,6 +30,19 @@ export const createFxSlice: StateCreator<UIState, [], [], FxSlice> = (set, get) 
   activePadFX: null,
   knobAssign: [null, null, null],
   knobAssignPicker: null,
+  soloPads: Array.from({ length: 16 }, () => false),
+
+  togglePadSolo(i) {
+    const next = [...get().soloPads];
+    next[i] = !next[i];
+    engine.setSolo(i, next[i]);
+    set({ soloPads: next });
+  },
+
+  clearSolos() {
+    engine.clearSolos();
+    set({ soloPads: Array.from({ length: 16 }, () => false) });
+  },
 
   setKnobFXParam(k, v) {
     engine.setKnobFXParam(k, v);

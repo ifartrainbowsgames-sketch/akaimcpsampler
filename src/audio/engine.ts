@@ -68,6 +68,9 @@ export class Engine {
   /** Fired at each sequence loop boundary (not during song chain). */
   onSeqLoopEnd: (() => void) | null = null;
 
+  /** Per-pad solo mask. When any bit is set, only soloed pads sound. */
+  soloMask: boolean[] = Array.from({ length: NUM_PADS }, () => false);
+
   /** Pad Play modes. Set from the UI; consulted on every trigger. */
   chopMode = false;
   levelsMode = false;
@@ -304,6 +307,18 @@ export class Engine {
     this.currentBank = b;
   }
 
+  private soloActive() {
+    return this.soloMask.some(Boolean);
+  }
+
+  setSolo(padIndex: number, on: boolean) {
+    if (padIndex >= 0 && padIndex < this.soloMask.length) this.soloMask[padIndex] = on;
+  }
+
+  clearSolos() {
+    this.soloMask.fill(false);
+  }
+
   setSequenceSlot(i: number) {
     this.currentSeqSlot = i;
   }
@@ -485,6 +500,7 @@ export class Engine {
 
     const pad = this.activePad(sourcePad, bank);
     if (!pad || pad.muted || !pad.sampleId) return;
+    if (this.soloActive() && !this.soloMask[sourcePad]) return;
 
     const buffer = pad.reverse
       ? this.getReversed(pad.sampleId)
@@ -635,6 +651,7 @@ export class Engine {
     const bank = bankIndex ?? this.currentBank;
     const pad = this.activePad(padIndex, bank);
     if (!pad || pad.muted || !pad.sampleId) return;
+    if (this.soloActive() && !this.soloMask[padIndex]) return;
 
     const semiOffset = midiNote - 60;
     const effectivePad: typeof pad = { ...pad, semi: pad.semi + semiOffset };

@@ -689,8 +689,9 @@ button{font:inherit}
 .mixerstrip__vol{flex:1;min-width:0}
 .mixerstrip__pan{width:3.2em;flex:0 0 auto}
 .mixerstrip__panlbl{width:2.2em;flex:0 0 auto;text-align:right;font-size:.66em;color:#9a9a92}
-.mixerstrip__m{flex:0 0 auto;min-width:1.6em}
+.mixerstrip__m,.mixerstrip__s{flex:0 0 auto;min-width:1.6em}
 .mixerstrip__m--on{background:var(--mpc-red);border-color:var(--mpc-red);color:#fff}
+.mixerstrip__s--on{background:var(--lcd-y);border-color:var(--lcd-y);color:#111}
 [data-theme="light"] .mixerstrip__id{color:#8a6000}
 [data-theme="light"] .mixerstrip.sel{background:rgba(228,50,43,.14)}
 

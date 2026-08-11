@@ -219,6 +219,11 @@ export interface UIState {
   toggleWarpMode(): void;
   cycleFaderParam(): void;
 
+  // ---- Pad Mixer solo ----
+  soloPads: boolean[];
+  togglePadSolo(i: number): void;
+  clearSolos(): void;
+
   // ---- Phase 6: FX ----
   knobFX: KnobFXId;
   setKnobFX(id: KnobFXId): void;
