@@ -17,7 +17,7 @@ export type ScreenId =
   | 'browser' | 'beats' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx' | 'knobfx-select'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj'
-  | 'pianoroll';
+  | 'pianoroll' | 'padmixer';
 
 export type FlexBeatMode = 'oneshot' | 'loop';
 export type InputRecLength = 'FREE' | 'SEQ';

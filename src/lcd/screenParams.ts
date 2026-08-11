@@ -224,6 +224,30 @@ function resolveScreenDrivenParams(ctx: ScreenParamContext, s: ReturnType<typeof
     case 'fadermenu':
       return [];
 
+    case 'padmixer': {
+      const p = ctx.pad;
+      return [
+        {
+          name: 'Reverb',
+          display: `${Math.round(p.reverbSend ?? 0)}`,
+          norm: clamp01((p.reverbSend ?? 0) / 127),
+          set: (n, update, i) => update(i, { reverbSend: Math.round(n * 127) }),
+        },
+        {
+          name: 'Delay',
+          display: `${Math.round(p.delaySend ?? 0)}`,
+          norm: clamp01((p.delaySend ?? 0) / 127),
+          set: (n, update, i) => update(i, { delaySend: Math.round(n * 127) }),
+        },
+        {
+          name: 'Kit Vol',
+          display: s.kitVolume <= -74 ? '-INF' : `${s.kitVolume.toFixed(1)} dB`,
+          norm: clamp01((s.kitVolume + 74) / 80),
+          set: (n) => s.setKitVolume(n * 80 - 74),
+        },
+      ];
+    }
+
     default:
       return [];
   }

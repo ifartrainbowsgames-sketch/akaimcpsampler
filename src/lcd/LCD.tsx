@@ -295,7 +295,7 @@ const SCREEN_TITLES: Record<string, string> = {
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX', 'knobfx-select': 'KNOB FX SELECT',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
-  pianoroll: 'PIANO ROLL',
+  pianoroll: 'PIANO ROLL', padmixer: 'PAD MIXER',
 };
 
 const TAB_INDICES = [0, 1, 2];
@@ -321,6 +321,9 @@ function ScreenBody({ screen }: { screen: string }) {
           <div className="lcdbtns">
             <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('pianoroll')}>
               PIANO ROLL
+            </button>
+            <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('padmixer')}>
+              MIXER
             </button>
           </div>
           <Row label="Tempo">
@@ -406,6 +409,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'pianoroll':
       return <PianoRoll />;
+
+    case 'padmixer':
+      return <PadMixerScreen />;
 
     case 'fadermenu':
       return <FaderMenuScreen />;
@@ -754,6 +760,69 @@ function MidiScreen() {
         })}
       </div>
       <div className="hintline">Pads map from C1 (note 36). Settings persist on this device.</div>
+    </div>
+  );
+}
+
+function PadMixerScreen() {
+  const project = useStore((s) => s.project);
+  const bank = useStore((s) => s.bank);
+  const selectedPad = useStore((s) => s.selectedPad);
+  const selectPad = useStore((s) => s.selectPad);
+  const updatePad = useStore((s) => s.updatePad);
+  const setScreen = useStore((s) => s.setScreen);
+  const pads = project.banks[bank];
+
+  const gainToNorm = (g: number) => Math.max(0, Math.min(1, (g + 74) / 80));
+  const panLabel = (pan: number) =>
+    pan === 0 ? 'C' : pan < 0 ? `${Math.round(-pan * 50)}L` : `${Math.round(pan * 50)}R`;
+
+  return (
+    <div className="lcdpanel">
+      <div className="mixerlist">
+        {pads.map((p, i) => (
+          <div
+            key={i}
+            className={`mixerstrip${i === selectedPad ? ' sel' : ''}${!p.sampleId ? ' dim' : ''}`}
+            onClick={() => selectPad(i)}
+          >
+            <span className="mixerstrip__id">
+              {String.fromCharCode(65 + bank)}{String(i + 1).padStart(2, '0')}
+            </span>
+            <input
+              className="mixerstrip__vol"
+              type="range" min={0} max={1000}
+              value={Math.round(gainToNorm(p.gain) * 1000)}
+              onPointerDown={() => selectPad(i)}
+              onChange={(e) => updatePad(i, { gain: (Number(e.target.value) / 1000) * 80 - 74 })}
+              aria-label={`Pad ${i + 1} volume`}
+            />
+            <input
+              className="mixerstrip__pan"
+              type="range" min={0} max={1000}
+              value={Math.round(((p.pan + 1) / 2) * 1000)}
+              onPointerDown={() => selectPad(i)}
+              onChange={(e) => updatePad(i, { pan: (Number(e.target.value) / 1000) * 2 - 1 })}
+              aria-label={`Pad ${i + 1} pan`}
+            />
+            <span className="mixerstrip__panlbl">{panLabel(p.pan)}</span>
+            <button
+              type="button"
+              className={`lcd-mini mixerstrip__m${p.muted ? ' mixerstrip__m--on' : ''}`}
+              onClick={(e) => { e.stopPropagation(); updatePad(i, { muted: !p.muted }); }}
+              aria-label={`Pad ${i + 1} mute`}
+            >
+              M
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => setScreen('seq')}>BACK</button>
+      </div>
+      <div className="hintline">
+        Tap a channel to select — K1-K3 set its Reverb/Delay sends + Kit Vol.
+      </div>
     </div>
   );
 }
