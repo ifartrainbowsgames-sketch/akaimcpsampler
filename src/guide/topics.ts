@@ -657,6 +657,22 @@ export const GUIDE_TOPICS: Record<string, GuideTopic> = {
       },
     ],
   },
+
+  'lcd.normalize': {
+    id: 'lcd.normalize',
+    title: 'NORMALIZE',
+    brief: "Auto-sets Volume so the sample's loudest point hits -0.1dB.",
+    body: 'NORMALIZE scans the current Start/End region for its peak level and computes the Volume needed to bring that peak up to -0.1dB — the same Volume knob as the Mix tab, just auto-calculated instead of set by ear. Non-destructive: the sample file itself is untouched.',
+    tips: ['Re-run after trimming — the peak region changes.', 'A silent region is left alone.'],
+  },
+
+  'lcd.looptoend': {
+    id: 'lcd.looptoend',
+    title: 'LOOP TO END',
+    brief: 'Resets End back to the sample’s true full length.',
+    body: 'LOOP TO END undoes any trim/chop on the end side, restoring End to the actual end of the audio — useful when a chop boundary cut off a tail (like reverb decay) you want to hear ring out. Start and Loop points are unchanged.',
+    tips: ['Only shown when End is currently short of the full sample.'],
+  },
 };
 
 export function getGuideTopic(id: string): GuideTopic | undefined {

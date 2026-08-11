@@ -283,10 +283,20 @@ not recalled/assumed knowledge, per an explicit ask to check.
    works. Automation recording (capturing knob moves into the sequencer)
    was explicitly deferred per the AskUserQuestion decision earlier —
    separate, substantial feature, not silently dropped.
-5. **Sample tool completeness.** Not started. Normalize, loop-to-end —
-   small, low-risk additions once the bigger structural work above is
-   settled.
+5. ✅ **Sample tool completeness — Normalize + Loop To End shipped.** Both
+   turned out to be genuinely small, confirmed by exploration before
+   implementing: neither needed a destructive buffer rewrite (unlike Trim).
+   Normalize scans the current trim region's peak and sets `pad.gain` —
+   the exact same field the Mix tab's Volume knob already uses — to hit a
+   -0.1dB target; it's "auto-compute Volume," not a new audio path. Loop
+   To End resets `pad.end` back to the sample's true full length (`Pad`
+   has no separate `loopEnd` field — a loop always plays out to `end` —
+   so this is the correct, verified reading of the classic MPC1000/2500
+   feature, not the initially-guessed "reset loopStart" interpretation).
+   Both buttons sit next to APPLY TRIM, with new Guide topics. Verified at
+   runtime: on a pad trimmed to half length, Normalize computed +2.65dB
+   to reach target peak, Loop To End correctly reset end from 220500 to
+   the full 441000 frames. Zero console errors, typecheck/test/build clean.
 
-Phase 5 and Q-Link's deferred automation-recording piece are not scheduled
-or approved for implementation — this is the list to work from once
-priorities are picked.
+Q-Link's deferred automation-recording piece is the only item left
+unscheduled — everything else on this roadmap is now shipped.

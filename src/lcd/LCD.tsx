@@ -43,6 +43,8 @@ export function LCD() {
   const extractSelectedSlice = useStore((s) => s.extractSelectedSlice);
   const setBGroup = useStore((s) => s.setBGroup);
   const trimSelected = useStore((s) => s.trimSelected);
+  const normalizeSelected = useStore((s) => s.normalizeSelected);
+  const loopToEnd = useStore((s) => s.loopToEnd);
   const setTrimRegion = useStore((s) => s.setTrimRegion);
   const previewAtFrame = useStore((s) => s.previewAtFrame);
   const addManualChopPoint = useStore((s) => s.addManualChopPoint);
@@ -188,6 +190,14 @@ export function LCD() {
         {buffer && (pad.start > 0 || padEnd < sampleLen) && (
           <div className="lcdchop">
             <button type="button" className="lcd-btn lcd-btn--action" onClick={trimSelected}>APPLY TRIM</button>
+          </div>
+        )}
+        {buffer && pad.sampleId && (
+          <div className="lcdchop">
+            <button type="button" className="lcd-btn lcd-btn--ghost" onClick={() => guideClick('lcd.normalize', () => normalizeSelected())}>NORMALIZE</button>
+            {padEnd < sampleLen && (
+              <button type="button" className="lcd-btn lcd-btn--ghost" onClick={() => guideClick('lcd.looptoend', () => loopToEnd())}>LOOP TO END</button>
+            )}
           </div>
         )}
 

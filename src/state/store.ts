@@ -172,6 +172,8 @@ export interface UIState {
   mergeSelectedSlice(): void;
   extractSelectedSlice(): void;
   trimSelected(): void;
+  normalizeSelected(): void;
+  loopToEnd(): void;
   toggleFullLevel(): void;
   cycleLevelsType(): void;
   selectSlice(i: number): void;

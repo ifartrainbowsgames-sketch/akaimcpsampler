@@ -14,6 +14,7 @@ export type ChopSlice = Pick<UIState,
   | 'stepEditTick' | 'stepEditEvent' | 'stepErasePending' | 'timeCorrectPads' | 'timeCorrectShift'
   | 'importSample' | 'resolveChopChoice' | 'autoChopPad' | 'sliceAllToPads' | 'chopSongToPads'
   | 'runChop' | 'splitSelectedSlice' | 'mergeSelectedSlice' | 'extractSelectedSlice' | 'trimSelected'
+  | 'normalizeSelected' | 'loopToEnd'
   | 'toggleFullLevel' | 'cycleLevelsType' | 'selectSlice' | 'setWaveformZoom' | 'setTrimRegion'
   | 'previewAtFrame' | 'addManualChopPoint' | 'detectBpm'
   | 'selectStepEditPad' | 'erasePadFromStep' | 'requestStepErase' | 'confirmStepErase' | 'cancelStepErase'
@@ -237,6 +238,41 @@ export const createChopSlice: StateCreator<UIState, [], [], ChopSlice> = (set, g
       loopStart: 0,
       slices: [],
     });
+  },
+
+  /** Non-destructive: scans the trim region's peak and sets Volume to hit -0.1dB. */
+  normalizeSelected() {
+    const { project, bank, selectedPad } = get();
+    const pad = project.banks[bank][selectedPad];
+    if (!pad.sampleId) return;
+    const buffer = engine.getBuffer(pad.sampleId);
+    if (!buffer) return;
+    const from = pad.start;
+    const to = pad.end || buffer.length;
+
+    let peak = 0;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = from; i < to; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    if (peak <= 0) return; // silent region — nothing to normalize
+
+    const targetPeak = Math.pow(10, -0.1 / 20); // -0.1 dB headroom
+    const gainDb = 20 * Math.log10(targetPeak / peak);
+    get().updatePad(selectedPad, { gain: Math.max(-74, Math.min(6, gainDb)) });
+  },
+
+  /** Non-destructive: resets End back to the sample's true full length. */
+  loopToEnd() {
+    const { project, bank, selectedPad } = get();
+    const pad = project.banks[bank][selectedPad];
+    if (!pad.sampleId) return;
+    const buffer = engine.getBuffer(pad.sampleId);
+    if (!buffer) return;
+    get().updatePad(selectedPad, { end: buffer.length });
   },
 
   toggleFullLevel() {
