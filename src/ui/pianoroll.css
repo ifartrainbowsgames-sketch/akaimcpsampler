@@ -132,6 +132,12 @@
   position: relative;
 }
 
+/* Timeline ruler strip */
+.pianoroll__ruler {
+  flex-shrink: 0;
+  border-bottom: 1px solid #2a2a40;
+}
+
 /* Scrollable grid canvas wrapper */
 .pianoroll__grid-scroll {
   flex: 1;

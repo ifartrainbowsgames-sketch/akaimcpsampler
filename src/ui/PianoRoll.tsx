@@ -13,6 +13,7 @@ const PIANO_WIDTH = 48;        // px for keyboard column
 const VELOCITY_HEIGHT = 72;    // px for velocity lane
 const H_SCROLLBAR = 14;        // px for horizontal (time) scrollbar
 const V_SCROLLBAR = 14;        // px for vertical (pitch) scrollbar
+const RULER_H = 16;            // px for the top timeline ruler
 const RESIZE_GRIP = 10;        // px hit zone on a note's right edge
 const MIN_TICKS_PER_PX = 0.05; // most zoomed in
 const MAX_TICKS_PER_PX = 8;    // most zoomed out
@@ -40,9 +41,17 @@ const SCALE_INTERVALS: Record<Exclude<ScaleType, 'off'>, number[]> = {
 };
 
 // ─── Colour helpers ──────────────────────────────────────────────────────────
-const NOTE_COLOR        = 'hsl(210,70%,55%)';
 const NOTE_COLOR_SEL    = 'hsl(40,90%,60%)';
 const NOTE_COLOR_BORDER = 'hsl(210,70%,40%)';
+// Velocity → colour: soft notes read cool/dim, hard notes warm/bright, so the
+// grid shows dynamics at a glance (MPC/FL both colour notes by velocity).
+function velocityColor(v: number, light = false) {
+  const n = Math.max(1, Math.min(127, v)) / 127;
+  const hue = 210 - n * 190;          // 210 (blue) → 20 (orange-red)
+  const sat = 55 + n * 30;            // more saturated when louder
+  const lum = (light ? 40 : 34) + n * 24;
+  return `hsl(${hue},${sat}%,${lum}%)`;
+}
 const PIANO_WHITE_BG    = '#e8e8e4';
 const PIANO_BLACK_BG    = '#1e1e24';
 const PIANO_WHITE_HOVER = '#ccccc8';
@@ -74,6 +83,7 @@ export function PianoRoll() {
   const gridCanvasRef  = useRef<HTMLCanvasElement>(null);
   const pianoCanvasRef = useRef<HTMLCanvasElement>(null);
   const velCanvasRef   = useRef<HTMLCanvasElement>(null);
+  const rulerCanvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef         = useRef<number>(0);
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -86,12 +96,23 @@ export function PianoRoll() {
   const [scaleType, setScaleType]         = useState<ScaleType>('off');
   const [tool, setTool]                   = useState<Tool>('draw');
   const [showKeys, setShowKeys]           = useState(true);
+  const [snapScale, setSnapScale]         = useState(false);
 
   const isInScale = useCallback((note: number) => {
     if (scaleType === 'off') return true;
     const rel = ((note - scaleRoot) % 12 + 12) % 12;
     return SCALE_INTERVALS[scaleType].includes(rel);
   }, [scaleRoot, scaleType]);
+
+  // Hard snap: nudge a note to the nearest in-scale pitch (only when armed).
+  const snapToScale = useCallback((note: number) => {
+    if (!snapScale || scaleType === 'off') return note;
+    for (let d = 0; d <= 6; d++) {
+      if (isInScale(note - d)) return note - d;
+      if (isInScale(note + d)) return note + d;
+    }
+    return note;
+  }, [snapScale, scaleType, isInScale]);
 
   // Sizes – updated on resize
   const [gridW, setGridW] = useState(1);
@@ -166,7 +187,7 @@ export function PianoRoll() {
     const obs = new ResizeObserver(() => {
       const r = area.getBoundingClientRect();
       setGridW(Math.max(1, r.width));
-      setGridH(Math.max(1, r.height - VELOCITY_HEIGHT - H_SCROLLBAR));
+      setGridH(Math.max(1, r.height - VELOCITY_HEIGHT - H_SCROLLBAR - RULER_H));
       setVelH(VELOCITY_HEIGHT);
     });
     obs.observe(area);
@@ -314,7 +335,7 @@ export function PianoRoll() {
       if (y + ROW_HEIGHT < 0 || y > H) continue;
 
       const sel = selectedNote && selectedNote.tick === e.tick && selectedNote.note === note;
-      ctx.fillStyle = sel ? NOTE_COLOR_SEL : NOTE_COLOR;
+      ctx.fillStyle = sel ? NOTE_COLOR_SEL : velocityColor(e.velocity);
       ctx.fillRect(x, y + 1, w, ROW_HEIGHT - 2);
       ctx.fillStyle = NOTE_COLOR_BORDER;
       ctx.fillRect(x, y + 1, 1, ROW_HEIGHT - 2);
@@ -358,7 +379,7 @@ export function PianoRoll() {
       if (x + bw < 0 || x > W) continue;
       const sel = selectedNote && selectedNote.tick === e.tick && selectedNote.note === note;
       const barH = Math.max(2, Math.round((e.velocity / 127) * (H - 4)));
-      ctx.fillStyle = sel ? '#f0a040' : '#4080d0';
+      ctx.fillStyle = sel ? '#f0a040' : velocityColor(e.velocity, true);
       ctx.fillRect(x, H - barH - 2, Math.max(2, bw - 1), barH);
     }
 
@@ -368,6 +389,47 @@ export function PianoRoll() {
     ctx.textAlign = 'left';
     ctx.fillText('VEL', 2, 9);
   }, [tickToPx, noteEvents, selectedNote, ticksPerPx]);
+
+  const drawRuler = useCallback(() => {
+    const canvas = rulerCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const W = canvas.width;
+    const H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#101014';
+    ctx.fillRect(0, 0, W, H);
+
+    const barTicks  = ticksPerBar(project.timeSignature);
+    const beatTicks = TICKS_PER_BEAT;
+    const startBar  = Math.floor(scrollTick / barTicks);
+    const endBar    = Math.ceil((scrollTick + W * ticksPerPx) / barTicks) + 1;
+
+    for (let b = startBar; b <= endBar; b++) {
+      const barX = tickToPx(b * barTicks);
+      if (barX > W) continue;
+      if (barX >= 0) {
+        ctx.fillStyle = '#5050a0';
+        ctx.fillRect(Math.round(barX), 0, 1, H);
+        ctx.fillStyle = '#8888c0';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${b + 1}`, barX + 3, H / 2);
+      }
+      // Beat ticks
+      for (let bt = 1; bt < project.timeSignature[0]; bt++) {
+        const beatX = tickToPx(b * barTicks + bt * beatTicks);
+        if (beatX < 0 || beatX > W) continue;
+        ctx.fillStyle = '#33335a';
+        ctx.fillRect(Math.round(beatX), H * 0.5, 1, H * 0.5);
+      }
+    }
+    // Bottom border
+    ctx.fillStyle = '#2a2a40';
+    ctx.fillRect(0, H - 1, W, 1);
+  }, [scrollTick, ticksPerPx, tickToPx, project.timeSignature]);
 
   // ── Animation loop (playhead update) ─────────────────────────────────────
   useEffect(() => {
@@ -393,6 +455,10 @@ export function PianoRoll() {
     drawVelocity();
   }, [drawVelocity]);
 
+  useEffect(() => {
+    drawRuler();
+  }, [drawRuler]);
+
   // ── Canvas sizing ─────────────────────────────────────────────────────────
   useEffect(() => {
     const gc = gridCanvasRef.current;
@@ -401,10 +467,13 @@ export function PianoRoll() {
     if (pc) { pc.width = PIANO_WIDTH; pc.height = gridH; }
     const vc = velCanvasRef.current;
     if (vc) { vc.width = gridW; vc.height = velH; }
+    const rc = rulerCanvasRef.current;
+    if (rc) { rc.width = gridW; rc.height = RULER_H; }
     drawPiano();
     drawGrid(-1);
     drawVelocity();
-  }, [gridW, gridH, velH, drawPiano, drawGrid, drawVelocity]);
+    drawRuler();
+  }, [gridW, gridH, velH, drawPiano, drawGrid, drawVelocity, drawRuler]);
 
   // ── Pointer events for grid canvas ────────────────────────────────────────
   const getGridPointerPos = (e: React.PointerEvent) => {
@@ -448,11 +517,12 @@ export function PianoRoll() {
     } else if (tool === 'draw') {
       // Draw a new note. SELECT tool never creates notes on empty space.
       dragMode.current = 'draw';
-      const newNote: NoteRef = { tick: snapped, note };
+      const drawNote = snapToScale(note);
+      const newNote: NoteRef = { tick: snapped, note: drawNote };
       dragNewNote.current = newNote;
       dragNote.current    = newNote;
-      pianoRollAddNote(snapped, note, quantize, 100);
-      setSelectedNote({ tick: snapped, note });
+      pianoRollAddNote(snapped, drawNote, quantize, 100);
+      setSelectedNote({ tick: snapped, note: drawNote });
     }
   };
 
@@ -483,7 +553,7 @@ export function PianoRoll() {
       const dn = dragNote.current;
       if (!dn) return;
       const newTick = Math.max(0, snapped);
-      const newNote = Math.max(0, Math.min(127, note));
+      const newNote = snapToScale(Math.max(0, Math.min(127, note)));
       if (newTick !== dn.tick || newNote !== dn.note) {
         pianoRollMoveNote(dn.tick, dn.note, newTick, newNote);
         dragNote.current = { tick: newTick, note: newNote };
@@ -720,6 +790,17 @@ export function PianoRoll() {
           </select>
         )}
 
+        {scaleType !== 'off' && (
+          <button
+            className={`pianoroll__btn ${snapScale ? 'pianoroll__btn--active' : ''}`}
+            type="button"
+            onClick={() => setSnapScale((v) => !v)}
+            title="Force drawn/moved notes into the selected scale"
+          >
+            SNAP
+          </button>
+        )}
+
         <button
           className="pianoroll__btn pianoroll__btn--danger"
           type="button"
@@ -766,6 +847,14 @@ export function PianoRoll() {
 
         {/* Grid + velocity stacked */}
         <div ref={gridAreaRef} className="pianoroll__grid-area">
+          {/* Timeline ruler */}
+          <canvas
+            ref={rulerCanvasRef}
+            className="pianoroll__ruler"
+            width={gridW}
+            height={RULER_H}
+            style={{ width: gridW, height: RULER_H, display: 'block' }}
+          />
           {/* Note grid */}
           <div className="pianoroll__grid-scroll" style={{ height: gridH }}>
             <canvas
