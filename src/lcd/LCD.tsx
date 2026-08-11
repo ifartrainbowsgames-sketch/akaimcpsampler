@@ -156,6 +156,15 @@ export function LCD() {
           </span>
         </div>
 
+        {buffer && (
+          <div className="lcd-readout">
+            <span>S<b>{pad.start}</b></span>
+            <span>E<b>{padEnd}</b></span>
+            <span>L<b>{pad.loopStart}</b></span>
+            <span>LEN<b>{sampleLen}</b></span>
+          </div>
+        )}
+
         <div className="lcdmenu">
           <label htmlFor={SAMPLE_FILE_INPUT_ID} className="lcd-btn lcd-btn--upload" onClick={(e) => {
             if (useStore.getState().guideMode) { e.preventDefault(); guideClick('lcd.upload'); }

@@ -46,6 +46,11 @@
 [data-theme="light"] .qlink__cap{background:radial-gradient(circle at 50% 32%,#f2f2ee,#d0d0c8)}
 [data-theme="light"] .qlink__cap i{background:#333}
 [data-theme="light"] .kknobval{color:#3a3a34}
+[data-theme="light"] .lcd input[type="range"]::-webkit-slider-runnable-track{background:#d0d0c8; border-color:#a8a89e}
+[data-theme="light"] .lcd input[type="range"]::-moz-range-track{background:#d0d0c8; border-color:#a8a89e}
+[data-theme="light"] .lcd select{background-color:#e2e2da; color:#5a4000; border-color:#a8a89e}
+[data-theme="light"] .lcd-readout{color:#606058}
+[data-theme="light"] .lcd-readout span b{color:#006f80}
 [data-theme="light"] .hintline{color:#808074}
 [data-theme="light"] .lcdlist{color:#484840}
 [data-theme="light"] .lcdlist .sel{background:var(--lcd-y); color:#fff}
@@ -326,8 +331,41 @@ button{font:inherit}
 .lcdpanel .big{font-size:1.9em;font-weight:700;color:var(--lcd-y)}
 .lcdrow{display:flex;align-items:center;gap:.4em;color:#a8a89e}
 .lcdrow span{width:3.6em;flex:0 0 auto}
-.lcdrow input{flex:1;accent-color:var(--lcd-y);min-width:0}
+.lcdrow input{flex:1;min-width:0}
 .lcdrow b{color:#e6e6dc;width:3.4em;text-align:right;flex:0 0 auto}
+
+/* MPC-styled native range sliders (every LCD screen slider renders in .lcd) */
+.lcd input[type="range"]{
+  -webkit-appearance:none;appearance:none;height:1.1em;background:transparent;cursor:pointer;
+  touch-action:manipulation}
+.lcd input[type="range"]::-webkit-slider-runnable-track{
+  height:.45em;border-radius:.25em;background:linear-gradient(#0b0b0b,#181818);
+  border:.06em solid #2a2a30}
+.lcd input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:.95em;height:.95em;margin-top:-.3em;border-radius:50%;
+  background:radial-gradient(circle at 50% 35%,#f0f0ea,#b6b6ae);border:.08em solid var(--mpc-red);
+  box-shadow:0 0 .22em rgba(228,50,43,.55)}
+.lcd input[type="range"]::-moz-range-track{
+  height:.45em;border-radius:.25em;background:#141414;border:.06em solid #2a2a30}
+.lcd input[type="range"]::-moz-range-progress{
+  height:.45em;border-radius:.25em;background:var(--mpc-red)}
+.lcd input[type="range"]::-moz-range-thumb{
+  width:.95em;height:.95em;border-radius:50%;
+  background:radial-gradient(circle at 50% 35%,#f0f0ea,#b6b6ae);border:.08em solid var(--mpc-red)}
+.lcd input[type="range"]:focus{outline:none}
+
+/* MPC-styled native selects */
+.lcd select{
+  -webkit-appearance:none;appearance:none;
+  background:#141416 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23e8d24a'/%3E%3C/svg%3E") no-repeat right .45em center;
+  background-size:.5em;color:var(--lcd-y);border:.08em solid #4a4a44;border-radius:.2em;
+  font-family:var(--mono);font-size:.85em;padding:.2em 1.3em .2em .45em;cursor:pointer}
+.lcd select:focus{border-color:var(--mpc-red);outline:none}
+
+/* MPC Sample-Edit numeric start/end/loop readout */
+.lcd-readout{display:flex;gap:.9em;padding:.12em .35em;flex:0 0 auto;
+  font-family:var(--mono);font-size:.62em;color:#8f8f86;letter-spacing:.03em}
+.lcd-readout span b{color:var(--lcd-c);font-weight:700;margin-left:.25em}
 .hintline{font-size:.85em;color:#6f6f66;margin-top:auto}
 .lcd-mini{font-size:.75em;padding:.2em .5em;border:1px solid #555;background:#333;color:#ddd;border-radius:.15em;cursor:pointer}
 .lcd-mini.on{background:#3FBF52;color:#111;border-color:#3FBF52}
@@ -640,10 +678,7 @@ button{font:inherit}
 .quickrow button.on{background:var(--orange);border-color:var(--orange);color:#fff}
 
 /* ---------------- phase 6-8 screens ---------------- */
-.lcdselect select{
-  width:100%;background:#1a1a18;color:var(--lcd-y);border:.08em solid #4a4a44;
-  font-family:var(--mono);font-size:1em;padding:.15em;border-radius:.1em;
-}
+.lcdselect select{width:100%}
 .lcdbtns{display:flex;gap:.3em;margin-top:auto}
 .lcdbtns button{
   flex:1;border:.08em solid #4a4a44;background:#1e1e1c;color:#dcdcd2;
