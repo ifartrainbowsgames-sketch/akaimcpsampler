@@ -9,7 +9,7 @@ import { KNOB_FX } from '../audio/fx/knobfx';
 import { PAD_FX } from '../audio/fx/padfx';
 import { SAMPLE_FILE_INPUT_ID } from '../sampleInput';
 import { TICKS_PER_16TH } from '../audio/types';
-import { FACTORY_KITS, FACTORY_KIT_COUNT, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec, isLongDemo } from '../audio/factory/kits';
+import { FACTORY_KITS, FACTORY_DEMOS, FACTORY_DEMO_COUNT, demoDurationSec, isLongDemo } from '../audio/factory/kits';
 import { LibraryScreen } from './LibraryScreen';
 import { VolumeMeter, PanMeter } from '../ui/WaveMeters';
 import { resolveScreenParams } from './screenParams';
@@ -1075,7 +1075,7 @@ function LoadProjectScreen() {
             <small>{d.description} — {demoDurationSec(d).toFixed(0)}s loop · {d.bars} bars @ {d.bpm} BPM</small>
           </div>
         ))}
-        {category === 'kits' && FACTORY_KITS.map((k) => (
+        {category === 'kits' && FACTORY_KITS.filter((k) => k.real).map((k) => (
           <div key={k.id}>
             <div onClick={() => void loadFactoryKitOnly(k.id)}>
               <b>{k.name}</b>
@@ -1242,7 +1242,9 @@ function KitsScreen() {
   const [filter, setFilter] = useState<'all' | 'drums' | 'bass' | 'perc' | 'melodic' | 'fx'>('all');
   const [query, setQuery] = useState('');
 
-  const kits = FACTORY_KITS.filter((k) => {
+  // Only real (CC0 sample) kits are browsable; synth kits are retired from the UI.
+  const realKits = FACTORY_KITS.filter((k) => k.real);
+  const kits = realKits.filter((k) => {
     if (filter !== 'all' && k.category !== filter) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
@@ -1252,7 +1254,7 @@ function KitsScreen() {
   return (
     <div className="lcdpanel">
       <div className="lcdrow">
-        <span>{kits.length} / {FACTORY_KIT_COUNT} kits</span>
+        <span>{kits.length} / {realKits.length} kits</span>
         <input
           type="search"
           className="kitsearch"
@@ -1262,7 +1264,7 @@ function KitsScreen() {
         />
       </div>
       <div className="kitfilters">
-        {(['all', 'drums', 'bass', 'perc', 'melodic', 'fx'] as const).map((f) => (
+        {(['all', 'drums', 'melodic'] as const).map((f) => (
           <button
             key={f}
             type="button"

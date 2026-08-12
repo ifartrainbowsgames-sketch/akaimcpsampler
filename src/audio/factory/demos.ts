@@ -245,13 +245,21 @@ function buildDemos(): FactoryDemoMeta[] {
     { id: 'beat-lofi-03', kit: 'drums-lofi-05', name: 'Dusty 8', desc: 'Long lo-fi loop for vibing', bpm: 75, bars: 8, hits: lofiBeat(8), swing: 63 },
   ];
 
+  // Demos play through the real (CC0) drum kits; synth drum kits are retired
+  // from the browser. Maps a synth drum-kit id to the closest real kit.
+  const realDrum = (id: string): string =>
+    id.startsWith('drums-trap') ? 'real-trap'
+      : id.startsWith('drums-lofi') ? 'real-vintage'
+        : id.startsWith('drums-') ? 'real-bounce'
+          : id;
+
   for (const b of drumBeats) {
     demos.push({
       id: b.id,
       name: b.name,
       description: b.desc,
       category: 'beats',
-      kitId: b.kit,
+      kitId: realDrum(b.kit),
       bpm: b.bpm,
       bars: b.bars,
       swing: b.swing,
@@ -305,7 +313,7 @@ function buildDemos(): FactoryDemoMeta[] {
       name: f.name,
       description: f.desc,
       category: 'full',
-      kitId: f.drumKit,
+      kitId: realDrum(f.drumKit),
       melodyKitId: f.melKit,
       bpm: f.bpm,
       bars: f.bars,
@@ -330,7 +338,7 @@ function buildDemos(): FactoryDemoMeta[] {
       name: b.name,
       description: b.desc,
       category: 'beats',
-      kitId: b.kit,
+      kitId: realDrum(b.kit),
       bpm: b.bpm,
       bars: b.bars,
       swing: b.swing,
@@ -381,7 +389,7 @@ function buildDemos(): FactoryDemoMeta[] {
       name: f.name,
       description: f.desc,
       category: 'full',
-      kitId: f.drumKit,
+      kitId: realDrum(f.drumKit),
       melodyKitId: f.melKit,
       bpm: f.bpm,
       bars: f.bars,
