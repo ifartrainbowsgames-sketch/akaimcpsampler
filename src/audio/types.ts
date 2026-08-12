@@ -85,6 +85,13 @@ export interface Pad {
   delaySend: number;
 
   muted: boolean;
+
+  /**
+   * Keygroup zones. When present and non-empty, this pad is a multisample
+   * instrument: a played note/velocity selects the matching zone instead of
+   * using `sampleId`. Undefined = ordinary single-sample pad.
+   */
+  zones?: KeygroupZone[];
 }
 
 export interface SeqEvent {
@@ -110,6 +117,21 @@ export interface AutoEvent {
   pad: number;
   param: AutoParam;
   value: number;
+}
+
+/**
+ * A keygroup zone: one sample mapped to a note range + velocity layer. A pad
+ * with `zones` becomes a multisample instrument — the played note/velocity
+ * selects the zone, which then plays pitched relative to its `rootNote`.
+ */
+export interface KeygroupZone {
+  sampleId: string;
+  sampleName: string;
+  rootNote: number;  // MIDI note at which the sample plays un-transposed
+  loNote: number;
+  hiNote: number;
+  loVel: number;     // 1-127
+  hiVel: number;
 }
 
 export interface Sequence {

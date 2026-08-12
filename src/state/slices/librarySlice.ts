@@ -15,6 +15,7 @@ export type LibrarySlice = Pick<UIState,
   | 'browserEntries' | 'libraryResults' | 'libraryPage' | 'libraryNumPages' | 'libraryQuery'
   | 'libraryError' | 'libraryLoading' | 'libraryProxyReady' | 'loadProjectCategory'
   | 'refreshBrowser' | 'loadBrowserSample' | 'loadFactoryKit' | 'loadFactoryKitOnly' | 'loadFactoryDemo'
+  | 'addKeygroupZone' | 'updateKeygroupZone' | 'removeKeygroupZone'
   | 'searchLibrary' | 'loadLibrarySound' | 'checkLibraryProxy' | 'deleteBrowserSample' | 'setLoadProjectCategory'
 >;
 
@@ -63,6 +64,41 @@ export const createLibrarySlice: StateCreator<UIState, [], [], LibrarySlice> = (
       slices: [],
     });
     set({ screen: 'sample' });
+  },
+
+  async addKeygroupZone(browserId) {
+    const data = await readSample(browserId);
+    if (!data) return;
+    try {
+      await engine.loadSample(browserId, data);
+    } catch {
+      return;
+    }
+    if (!engine.getBuffer(browserId)) return;
+    const { selectedPad, project, bank } = get();
+    const pad = project.banks[bank][selectedPad];
+    const name = get().browserEntries.find((e) => e.id === browserId)?.name ?? 'Sample';
+    const zones = [
+      ...(pad.zones ?? []),
+      { sampleId: browserId, sampleName: name, rootNote: 60, loNote: 0, hiNote: 127, loVel: 1, hiVel: 127 },
+    ];
+    get().updatePad(selectedPad, { zones });
+  },
+
+  updateKeygroupZone(index, patch) {
+    const { selectedPad, project, bank } = get();
+    const pad = project.banks[bank][selectedPad];
+    if (!pad.zones) return;
+    const zones = pad.zones.map((z, i) => (i === index ? { ...z, ...patch } : z));
+    get().updatePad(selectedPad, { zones });
+  },
+
+  removeKeygroupZone(index) {
+    const { selectedPad, project, bank } = get();
+    const pad = project.banks[bank][selectedPad];
+    if (!pad.zones) return;
+    const zones = pad.zones.filter((_, i) => i !== index);
+    get().updatePad(selectedPad, { zones: zones.length ? zones : undefined });
   },
 
   async loadFactoryKit(kitId) {

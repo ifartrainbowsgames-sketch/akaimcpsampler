@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AutoParam, Pad, Project } from '../audio/types';
+import type { AutoParam, KeygroupZone, Pad, Project } from '../audio/types';
 import type { KnobFXId } from '../audio/fx/knobfx';
 import type { PadFXId } from '../audio/fx/padfx';
 import type { MidiConfig } from '../midi/midi';
@@ -17,7 +17,7 @@ export type ScreenId =
   | 'browser' | 'beats' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx' | 'knobfx-select'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj'
-  | 'pianoroll' | 'padmixer';
+  | 'pianoroll' | 'padmixer' | 'keygroup';
 
 export type FlexBeatMode = 'oneshot' | 'loop';
 export type InputRecLength = 'FREE' | 'SEQ';
@@ -186,6 +186,11 @@ export interface UIState {
   setTrimRegion(start: number, end: number, loopStart: number): void;
   previewAtFrame(frame: number): void;
   addManualChopPoint(frame: number): void;
+
+  // ---- Keygroup / multisample ----
+  addKeygroupZone(browserId: string): Promise<void>;
+  updateKeygroupZone(index: number, patch: Partial<KeygroupZone>): void;
+  removeKeygroupZone(index: number): void;
 
   browserEntries: { id: string; name: string }[];
   refreshBrowser(): Promise<void>;

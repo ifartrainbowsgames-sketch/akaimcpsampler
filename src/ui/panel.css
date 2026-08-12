@@ -695,6 +695,17 @@ button{font:inherit}
 [data-theme="light"] .mixerstrip__id{color:#8a6000}
 [data-theme="light"] .mixerstrip.sel{background:rgba(228,50,43,.14)}
 
+/* Keygroup / multisample editor */
+.kglist{max-height:9em}
+.kgzone{border:.06em solid #3a3a34;border-radius:.2em;padding:.2em .3em;margin-bottom:.25em;background:#161614}
+.kgzone__hd{display:flex;align-items:center;gap:.4em}
+.kgzone__hd b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--lcd-y);font-size:.85em}
+.kgzone__row{display:flex;align-items:center;gap:.3em;margin-top:.2em;font-size:.66em;color:#a8a89e;flex-wrap:wrap}
+.kgnum{width:2.8em;font-family:var(--mono);font-size:1em;background:#0e0e10;color:#e6e6dc;
+  border:.06em solid #3a3a40;border-radius:.15em;padding:.1em .2em}
+[data-theme="light"] .kgzone{background:#d8d8d0;border-color:#b0b0a8}
+[data-theme="light"] .kgnum{background:#eee;color:#1a1a14;border-color:#b0b0a8}
+
 .lcdbtns{display:flex;gap:.3em;margin-top:auto}
 .lcdbtns button{
   flex:1;border:.08em solid #4a4a44;background:#1e1e1c;color:#dcdcd2;

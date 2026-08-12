@@ -483,6 +483,15 @@ export class Engine {
 
     const bank = bankIndex ?? this.currentBank;
 
+    // A keygroup pad hit as a drum pad plays its base-note (C4) zone.
+    if (sliceIndex === undefined && !this.chopMode && !this.levelsMode) {
+      const kp = this.activePad(padIndex, bank);
+      if (kp?.zones && kp.zones.length) {
+        this.triggerWithNote(padIndex, this.fullLevel ? 127 : velocity, when ?? this.ctx.currentTime, 60, bank);
+        return;
+      }
+    }
+
     let sourcePad = padIndex;
     let slice = sliceIndex;
     let vel = velocity;
@@ -663,15 +672,29 @@ export class Engine {
     if (!this.ctx || !this.project) return;
     const bank = bankIndex ?? this.currentBank;
     const pad = this.activePad(padIndex, bank);
-    if (!pad || pad.muted || !pad.sampleId) return;
+    if (!pad || pad.muted) return;
     if (this.soloActive() && !this.soloMask[padIndex]) return;
 
-    const semiOffset = midiNote - 60;
-    const effectivePad: typeof pad = { ...pad, semi: pad.semi + semiOffset };
+    // Keygroup: pick the zone whose note+velocity range covers this note. Falls
+    // back to a note-only match (ignoring velocity), else silent.
+    let sampleId = pad.sampleId;
+    let rootNote = 60;
+    if (pad.zones && pad.zones.length) {
+      const z =
+        pad.zones.find((z) => midiNote >= z.loNote && midiNote <= z.hiNote && velocity >= z.loVel && velocity <= z.hiVel)
+        ?? pad.zones.find((z) => midiNote >= z.loNote && midiNote <= z.hiNote);
+      if (!z) return;
+      sampleId = z.sampleId;
+      rootNote = z.rootNote;
+    }
+    if (!sampleId) return;
+
+    const semiOffset = midiNote - rootNote;
+    const effectivePad: typeof pad = { ...pad, sampleId, semi: pad.semi + semiOffset };
 
     const buffer = pad.reverse
-      ? this.getReversed(pad.sampleId)
-      : this.buffers.get(pad.sampleId);
+      ? this.getReversed(sampleId)
+      : this.buffers.get(sampleId);
     if (!buffer) return;
 
     const t = when;

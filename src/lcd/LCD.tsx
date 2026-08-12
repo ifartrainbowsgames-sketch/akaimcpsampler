@@ -173,6 +173,7 @@ export function LCD() {
           <button type="button" className="lcd-btn lcd-btn--action" onClick={() => guideClick('lcd.beats', () => setScreen('beats'))}>BEATS</button>
           <button type="button" className="lcd-btn" onClick={() => guideClick('lcd.kits', () => setScreen('kits'))}>KITS</button>
           <button type="button" className="lcd-btn" onClick={() => guideClick('lcd.loops', () => setScreen('library'))}>LOOPS</button>
+          <button type="button" className="lcd-btn" onClick={() => setScreen('keygroup')}>KEYGROUP</button>
         </div>
 
         {(chopActive || canChopSong) && (
@@ -295,7 +296,7 @@ const SCREEN_TITLES: Record<string, string> = {
   padfx: 'PAD FX', flexbeat: 'FLEX BEAT', knobfx: 'KNOB FX', 'knobfx-select': 'KNOB FX SELECT',
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
-  pianoroll: 'PIANO ROLL', padmixer: 'PAD MIXER',
+  pianoroll: 'PIANO ROLL', padmixer: 'PAD MIXER', keygroup: 'KEYGROUP',
 };
 
 const TAB_INDICES = [0, 1, 2];
@@ -412,6 +413,9 @@ function ScreenBody({ screen }: { screen: string }) {
 
     case 'padmixer':
       return <PadMixerScreen />;
+
+    case 'keygroup':
+      return <KeygroupScreen />;
 
     case 'fadermenu':
       return <FaderMenuScreen />;
@@ -848,6 +852,77 @@ function PadMixerScreen() {
       <div className="hintline">
         Record + play, then move Vol/Pan while recording to write automation.
         Tap a channel: K1-K3 set its Reverb/Delay sends + Kit Vol.
+      </div>
+    </div>
+  );
+}
+
+const KG_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const midiName = (n: number) => `${KG_NOTE_NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 2}`;
+
+function KeygroupScreen() {
+  const project = useStore((s) => s.project);
+  const bank = useStore((s) => s.bank);
+  const selectedPad = useStore((s) => s.selectedPad);
+  const setScreen = useStore((s) => s.setScreen);
+  const browserEntries = useStore((s) => s.browserEntries);
+  const refreshBrowser = useStore((s) => s.refreshBrowser);
+  const addKeygroupZone = useStore((s) => s.addKeygroupZone);
+  const updateKeygroupZone = useStore((s) => s.updateKeygroupZone);
+  const removeKeygroupZone = useStore((s) => s.removeKeygroupZone);
+  const pad = project.banks[bank][selectedPad];
+  const zones = pad.zones ?? [];
+
+  useEffect(() => { void refreshBrowser(); }, [refreshBrowser]);
+
+  const num = (val: number, on: (v: number) => void, min: number, max: number) => (
+    <input
+      type="number" className="kgnum" value={val} min={min} max={max}
+      onChange={(e) => on(Math.max(min, Math.min(max, Number(e.target.value) || 0)))}
+    />
+  );
+
+  return (
+    <div className="lcdpanel">
+      <div className="infoline">
+        <span className="padid">
+          {String.fromCharCode(65 + bank)}{String(selectedPad + 1).padStart(2, '0')}
+        </span>
+        <span className="sname">
+          {zones.length ? `${zones.length} zone${zones.length > 1 ? 's' : ''}` : 'single sample — add a zone to make a keygroup'}
+        </span>
+      </div>
+      <div className="lcdlist kglist">
+        {zones.map((z, i) => (
+          <div className="kgzone" key={i}>
+            <div className="kgzone__hd">
+              <b>{z.sampleName}</b>
+              <button type="button" className="lcd-mini" onClick={() => removeKeygroupZone(i)}>✕</button>
+            </div>
+            <div className="kgzone__row">
+              <label>Note {midiName(z.loNote)}–{midiName(z.hiNote)}</label>
+              {num(z.loNote, (v) => updateKeygroupZone(i, { loNote: v }), 0, 127)}
+              {num(z.hiNote, (v) => updateKeygroupZone(i, { hiNote: v }), 0, 127)}
+              <label>Root {midiName(z.rootNote)}</label>
+              {num(z.rootNote, (v) => updateKeygroupZone(i, { rootNote: v }), 0, 127)}
+            </div>
+            <div className="kgzone__row">
+              <label>Vel {z.loVel}–{z.hiVel}</label>
+              {num(z.loVel, (v) => updateKeygroupZone(i, { loVel: v }), 1, 127)}
+              {num(z.hiVel, (v) => updateKeygroupZone(i, { hiVel: v }), 1, 127)}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hintline">Tap a sample to add it as a zone, then set its note range / root / velocity layer:</div>
+      <div className="lcdlist browserlist" style={{ maxHeight: '5em' }}>
+        {browserEntries.length === 0 && <div>— no uploads — record or UPLOAD samples first</div>}
+        {browserEntries.map((e) => (
+          <div key={e.id} onClick={() => void addKeygroupZone(e.id)}>+ {e.name}</div>
+        ))}
+      </div>
+      <div className="lcdbtns">
+        <button type="button" onClick={() => setScreen('sample')}>BACK</button>
       </div>
     </div>
   );
