@@ -1,7 +1,7 @@
 {
-  "version": 4,
-  "count": 100,
-  "note": "100 WAV kits — 70 melodic, 16 pads each under public/factory/wav/{id}/",
+  "version": 5,
+  "count": 125,
+  "note": "125 WAV kits, 16 pads each under public/factory/wav/{id}/",
   "kits": [
     {
       "id": "melodic-ambient-01",
@@ -454,34 +454,154 @@
       "template": "808"
     },
     {
-      "id": "drums-classic-01",
-      "name": "Classic 1",
+      "id": "drums-acoustic-01",
+      "name": "Acoustic 1",
       "category": "drums",
-      "template": "classic"
+      "template": "acoustic"
     },
     {
-      "id": "drums-classic-02",
-      "name": "Classic 2",
+      "id": "drums-acoustic-02",
+      "name": "Acoustic 2",
       "category": "drums",
-      "template": "classic"
+      "template": "acoustic"
     },
     {
-      "id": "drums-classic-03",
-      "name": "Classic 3",
+      "id": "drums-acoustic-03",
+      "name": "Acoustic 3",
       "category": "drums",
-      "template": "classic"
+      "template": "acoustic"
     },
     {
-      "id": "drums-classic-04",
-      "name": "Classic 4",
+      "id": "drums-acoustic-04",
+      "name": "Acoustic 4",
       "category": "drums",
-      "template": "classic"
+      "template": "acoustic"
     },
     {
-      "id": "drums-classic-05",
-      "name": "Classic 5",
+      "id": "drums-acoustic-05",
+      "name": "Acoustic 5",
       "category": "drums",
-      "template": "classic"
+      "template": "acoustic"
+    },
+    {
+      "id": "drums-afro-01",
+      "name": "Afrobeat 1",
+      "category": "drums",
+      "template": "afro"
+    },
+    {
+      "id": "drums-afro-02",
+      "name": "Afrobeat 2",
+      "category": "drums",
+      "template": "afro"
+    },
+    {
+      "id": "drums-afro-03",
+      "name": "Afrobeat 3",
+      "category": "drums",
+      "template": "afro"
+    },
+    {
+      "id": "drums-afro-04",
+      "name": "Afrobeat 4",
+      "category": "drums",
+      "template": "afro"
+    },
+    {
+      "id": "drums-afro-05",
+      "name": "Afrobeat 5",
+      "category": "drums",
+      "template": "afro"
+    },
+    {
+      "id": "drums-boombap-01",
+      "name": "Boom Bap 1",
+      "category": "drums",
+      "template": "boombap"
+    },
+    {
+      "id": "drums-boombap-02",
+      "name": "Boom Bap 2",
+      "category": "drums",
+      "template": "boombap"
+    },
+    {
+      "id": "drums-boombap-03",
+      "name": "Boom Bap 3",
+      "category": "drums",
+      "template": "boombap"
+    },
+    {
+      "id": "drums-boombap-04",
+      "name": "Boom Bap 4",
+      "category": "drums",
+      "template": "boombap"
+    },
+    {
+      "id": "drums-boombap-05",
+      "name": "Boom Bap 5",
+      "category": "drums",
+      "template": "boombap"
+    },
+    {
+      "id": "drums-dnb-01",
+      "name": "Drum & Bass 1",
+      "category": "drums",
+      "template": "dnb"
+    },
+    {
+      "id": "drums-dnb-02",
+      "name": "Drum & Bass 2",
+      "category": "drums",
+      "template": "dnb"
+    },
+    {
+      "id": "drums-dnb-03",
+      "name": "Drum & Bass 3",
+      "category": "drums",
+      "template": "dnb"
+    },
+    {
+      "id": "drums-dnb-04",
+      "name": "Drum & Bass 4",
+      "category": "drums",
+      "template": "dnb"
+    },
+    {
+      "id": "drums-dnb-05",
+      "name": "Drum & Bass 5",
+      "category": "drums",
+      "template": "dnb"
+    },
+    {
+      "id": "drums-house-01",
+      "name": "House 1",
+      "category": "drums",
+      "template": "house"
+    },
+    {
+      "id": "drums-house-02",
+      "name": "House 2",
+      "category": "drums",
+      "template": "house"
+    },
+    {
+      "id": "drums-house-03",
+      "name": "House 3",
+      "category": "drums",
+      "template": "house"
+    },
+    {
+      "id": "drums-house-04",
+      "name": "House 4",
+      "category": "drums",
+      "template": "house"
+    },
+    {
+      "id": "drums-house-05",
+      "name": "House 5",
+      "category": "drums",
+      "template": "house"
     },
     {
       "id": "drums-lofi-01",
@@ -512,6 +632,36 @@
       "name": "Lo-Fi 5",
       "category": "drums",
       "template": "lofi"
+    },
+    {
+      "id": "drums-techno-01",
+      "name": "Techno 1",
+      "category": "drums",
+      "template": "techno"
+    },
+    {
+      "id": "drums-techno-02",
+      "name": "Techno 2",
+      "category": "drums",
+      "template": "techno"
+    },
+    {
+      "id": "drums-techno-03",
+      "name": "Techno 3",
+      "category": "drums",
+      "template": "techno"
+    },
+    {
+      "id": "drums-techno-04",
+      "name": "Techno 4",
+      "category": "drums",
+      "template": "techno"
+    },
+    {
+      "id": "drums-techno-05",
+      "name": "Techno 5",
+      "category": "drums",
+      "template": "techno"
     },
     {
       "id": "drums-trap-01",

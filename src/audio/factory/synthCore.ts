@@ -54,112 +54,289 @@ function noise(ctx: SynthCtx, dur: number, variant: number): SynthBuffer {
   return buf;
 }
 
-export function kick(ctx: SynthCtx, v: number, deep = false): SynthBuffer {
+// ─── DSP helpers (portable, operate on raw Float32Array) ─────────────────────
+
+/** tanh soft-clip for punch/harmonics. amount 0..1. */
+function saturate(d: Float32Array, amount: number) {
+  if (amount <= 0) return;
+  const k = 1 + amount * 6;
+  const norm = 1 / Math.tanh(k);
+  for (let i = 0; i < d.length; i++) d[i] = Math.tanh(d[i] * k) * norm;
+}
+
+/** One-pole high-pass. */
+function highpass(d: Float32Array, sr: number, fc: number) {
+  const rc = 1 / (2 * Math.PI * fc);
+  const a = rc / (rc + 1 / sr);
+  let prevX = 0, prevY = 0;
+  for (let i = 0; i < d.length; i++) {
+    const x = d[i];
+    const y = a * (prevY + x - prevX);
+    prevX = x; prevY = y; d[i] = y;
+  }
+}
+
+/** Resonant band-pass (biquad, constant skirt). fc Hz, q resonance. */
+function bandpass(d: Float32Array, sr: number, fc: number, q: number) {
+  const w = 2 * Math.PI * fc / sr;
+  const alpha = Math.sin(w) / (2 * q);
+  const cw = Math.cos(w);
+  const b0 = alpha, b1 = 0, b2 = -alpha;
+  const a0 = 1 + alpha, a1 = -2 * cw, a2 = 1 - alpha;
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < d.length; i++) {
+    const x = d[i];
+    const y = (b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0;
+    x2 = x1; x1 = x; y2 = y1; y1 = y; d[i] = y;
+  }
+}
+
+function rng(seed: number) {
+  let s = (seed | 0) || 1;
+  return () => { s = (s * 16807 + 7) % 2147483647; return s / 1073741823.5 - 1; };
+}
+
+/** Peak-normalize to `peak`. */
+function normalize(d: Float32Array, peak = 0.95) {
+  let m = 0;
+  for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > m) m = a; }
+  if (m > 1e-6) { const g = peak / m; for (let i = 0; i < d.length; i++) d[i] *= g; }
+}
+
+const semi = (n: number) => Math.pow(2, n / 12);
+
+/**
+ * Per-genre drum character. `kickModel`/`snareModel`/`hatMetallic` pick the
+ * synthesis flavour; tune/drive/decay/tone/snap continuously shape it so kits
+ * (and variants within a genre) sound distinct.
+ */
+export interface DrumChar {
+  tune: number;   // semitone tuning offset (kick/snare/tom/808)
+  drive: number;  // 0..1 saturation
+  decay: number;  // 0.6..1.6 decay multiplier
+  tone: number;   // 0..1 brightness (hats/snare noise)
+  snap: number;   // 0..1 transient amount
+  kickModel: 'sub808' | 'punch909' | 'acoustic' | 'boom';
+  snareModel: '909' | 'acoustic' | 'trap' | 'clap';
+  hatMetallic: boolean;
+}
+
+const NEUTRAL: DrumChar = {
+  tune: 0, drive: 0.2, decay: 1, tone: 0.5, snap: 0.5,
+  kickModel: 'punch909', snareModel: '909', hatMetallic: true,
+};
+
+export function kick(ctx: SynthCtx, v: number, deep = false, char: DrumChar = NEUTRAL): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = deep ? 0.75 : 0.55;
+  const model = char !== NEUTRAL ? char.kickModel : (deep ? 'sub808' : 'punch909');
+  let startF = 200, endF = 55, pDecay = 42, bDecay = 7, dur = 0.45, click = 0.5;
+  if (model === 'sub808') { startF = 130; endF = 44; pDecay = 24; bDecay = 3.0; dur = 0.95; click = 0.25; }
+  else if (model === 'acoustic') { startF = 230; endF = 72; pDecay = 60; bDecay = 10; dur = 0.32; click = 0.8; }
+  else if (model === 'boom') { startF = 170; endF = 50; pDecay = 30; bDecay = 5; dur = 0.6; click = 0.45; }
+  const tm = semi(char.tune);
+  startF *= tm; endF *= tm;
+  dur *= char.decay;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
+  let phase = 0;
   for (let i = 0; i < len; i++) {
     const t = i / sr;
-    const base = deep ? 55 : 120;
-    const f = (base - v * 8) * Math.exp(-t * (deep ? 12 : 18)) + (deep ? 32 : 42);
-    d[i] = Math.sin(2 * Math.PI * f * t) * Math.exp(-t * (deep ? 5 : 8 + v * 0.5));
+    const f = endF + (startF - endF) * Math.exp(-t * pDecay);
+    phase += (2 * Math.PI * f) / sr;
+    const body = Math.sin(phase) * Math.exp(-t * bDecay);
+    const sub = Math.sin(2 * Math.PI * endF * t) * Math.exp(-t * bDecay * 0.5) * 0.45;
+    d[i] = body * 0.9 + sub;
   }
-  env(d, sr, 0.002, deep ? 0.5 : 0.35);
+  // Beater click: a few ms of high-passed noise for attack definition.
+  const clickLen = Math.min(len, Math.floor(sr * 0.007));
+  const nr = rng(3 + v * 7);
+  const cb = new Float32Array(clickLen);
+  for (let i = 0; i < clickLen; i++) cb[i] = nr();
+  highpass(cb, sr, 2200);
+  for (let i = 0; i < clickLen; i++) d[i] += cb[i] * Math.exp(-(i / sr) * 320) * click * (0.5 + char.snap) * 1.3;
+  saturate(d, char.drive + (model === 'sub808' ? 0.15 : 0));
+  env(d, sr, 0.0009, 999); // de-click attack only
+  normalize(d, 0.97);
   return buf;
 }
 
-export function snare(ctx: SynthCtx, v: number, tight = false): SynthBuffer {
+export function snare(ctx: SynthCtx, v: number, tight = false, char: DrumChar = NEUTRAL): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = tight ? 0.22 : 0.35;
+  const model = char !== NEUTRAL ? char.snareModel : (tight ? 'trap' : '909');
+  const dur = (model === 'trap' ? 0.2 : model === 'acoustic' ? 0.34 : 0.26) * char.decay;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
-  const n = noise(ctx, dur, v).getChannelData(0);
   const d = buf.getChannelData(0);
+  const tm = semi(char.tune);
+  const f1 = 180 * tm, f2 = 250 * tm;
+  const bodyMix = model === 'acoustic' ? 0.6 : model === 'clap' ? 0.15 : 0.4;
+  const noiseMix = model === 'acoustic' ? 0.55 : 0.8;
+  const bodyDecay = tight ? 34 : 26;
   for (let i = 0; i < len; i++) {
     const t = i / sr;
-    const tone = Math.sin(2 * Math.PI * (180 + v * 20) * t) * Math.exp(-t * 30);
-    d[i] = n[i] * (tight ? 0.8 : 0.65) + tone * (tight ? 0.25 : 0.45);
+    const tone = (Math.sin(2 * Math.PI * f1 * t) + Math.sin(2 * Math.PI * f2 * t) * 0.6) * Math.exp(-t * bodyDecay);
+    d[i] = tone * bodyMix;
   }
-  env(d, sr, 0.001, tight ? 0.1 : 0.18);
+  // Band-passed noise layer for the "wire" rattle.
+  const nb = noise(ctx, dur, v + 11).getChannelData(0).slice();
+  bandpass(nb, sr, 1400 + char.tone * 3200, 1.2);
+  const nDecay = model === 'trap' ? 40 : model === 'acoustic' ? 18 : 26;
+  for (let i = 0; i < len; i++) d[i] += nb[i] * noiseMix * Math.exp(-(i / sr) * nDecay);
+  // Bright snap transient.
+  const snapLen = Math.min(len, Math.floor(sr * 0.004));
+  const sr2 = rng(90 + v);
+  const snb = new Float32Array(snapLen);
+  for (let i = 0; i < snapLen; i++) snb[i] = sr2();
+  highpass(snb, sr, 5000);
+  for (let i = 0; i < snapLen; i++) d[i] += snb[i] * Math.exp(-(i / sr) * 600) * char.snap;
+  saturate(d, char.drive);
+  env(d, sr, 0.0006, 999);
+  normalize(d, 0.95);
   return buf;
 }
 
-export function hat(ctx: SynthCtx, v: number, open = false, metallic = false): SynthBuffer {
-  const dur = open ? 0.28 : 0.06 + v * 0.008;
-  const buf = noise(ctx, dur, v + 10);
-  const d = buf.getChannelData(0);
+/** Metallic hat/cymbal from detuned square oscillators through a high-pass. */
+function metalTone(ctx: SynthCtx, dur: number, baseHz: number, hpHz: number, decayRate: number): SynthBuffer {
   const sr = ctx.sampleRate;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  const ratios = [1, 1.34, 1.5, 1.81, 2.0, 2.67];
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    let s = 0;
+    for (const r of ratios) s += Math.sign(Math.sin(2 * Math.PI * baseHz * r * t));
+    d[i] = (s / ratios.length) * Math.exp(-t * decayRate);
+  }
+  highpass(d, sr, hpHz);
+  return buf;
+}
+
+export function hat(ctx: SynthCtx, v: number, open = false, metallic = false, char: DrumChar = NEUTRAL): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const useMetal = char !== NEUTRAL ? char.hatMetallic : (metallic || !open);
+  const dur = (open ? 0.32 : 0.06) * char.decay;
+  const hp = 6000 + char.tone * 4500;
+  let buf: SynthBuffer;
+  if (useMetal) {
+    buf = metalTone(ctx, dur, 320 * semi(char.tune * 0.5), hp, open ? 9 : 34);
+  } else {
+    buf = noise(ctx, dur, v + 10);
+    const d = buf.getChannelData(0);
+    highpass(d, sr, hp * 0.7);
+  }
+  const d = buf.getChannelData(0);
+  env(d, sr, 0.0004, open ? 0.1 * char.decay : 0.02 * char.decay);
+  normalize(d, open ? 0.7 : 0.6);
+  return buf;
+}
+
+export function clap(ctx: SynthCtx, v: number, char: DrumChar = NEUTRAL): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 0.24 * char.decay;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  // Three tight bursts (diffusion) then a short decaying tail.
+  const offs = [0, 0.009, 0.019];
+  for (let b = 0; b < offs.length; b++) {
+    const off = Math.floor(sr * offs[b]);
+    const nr = rng(v * 5 + b * 31 + 7);
+    for (let i = off; i < len; i++) {
+      const t = (i - off) / sr;
+      if (t < 0.02) d[i] += nr() * (1 - t / 0.02) * 0.7;
+    }
+  }
+  // tail
+  const nr = rng(v * 3 + 99);
+  for (let i = 0; i < len; i++) { const t = i / sr; d[i] += nr() * Math.exp(-t * 22) * 0.3; }
+  bandpass(d, sr, 1100 + char.tone * 1400, 1.1);
+  saturate(d, char.drive * 0.5);
+  env(d, sr, 0.0006, 999);
+  normalize(d, 0.9);
+  return buf;
+}
+
+export function tom(ctx: SynthCtx, v: number, char: DrumChar = NEUTRAL): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 0.4 * char.decay;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len);
+  const d = buf.getChannelData(0);
+  const startF = (95 + v * 34) * semi(char.tune);
+  let phase = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const f = startF * (0.6 + 0.4 * Math.exp(-t * 8));
+    phase += (2 * Math.PI * f) / sr;
+    d[i] = Math.sin(phase) * Math.exp(-t * 6);
+  }
+  saturate(d, char.drive * 0.6);
+  env(d, sr, 0.001, 999);
+  normalize(d, 0.9);
+  return buf;
+}
+
+export function rim(ctx: SynthCtx, v: number, char: DrumChar = NEUTRAL): SynthBuffer {
+  const sr = ctx.sampleRate;
+  const dur = 0.05;
+  const buf = ctx.createBuffer(1, Math.floor(sr * dur));
+  const d = buf.getChannelData(0);
+  const nr = rng(v + 51);
+  const toneHz = 1700 * semi(char.tune * 0.5);
   for (let i = 0; i < d.length; i++) {
     const t = i / sr;
-    const mod = metallic ? Math.sin(t * 12000) : Math.sin(t * 8000);
-    d[i] *= (0.3 + 0.7 * mod) * (open ? 0.5 : 0.35);
+    d[i] = (Math.sin(2 * Math.PI * toneHz * t) * 0.6 + nr() * 0.4) * Math.exp(-t * 220);
   }
-  env(d, sr, 0.001, open ? 0.12 : 0.04);
+  highpass(d, sr, 1200 + char.tone * 800);
+  env(d, sr, 0.0004, 999);
+  normalize(d, 0.85);
   return buf;
 }
 
-export function clap(ctx: SynthCtx, v: number): SynthBuffer {
+export function shaker(ctx: SynthCtx, v: number, char: DrumChar = NEUTRAL): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 0.22;
-  const len = Math.floor(sr * dur);
-  const buf = ctx.createBuffer(1, len);
+  const buf = noise(ctx, 0.14, v + 20);
   const d = buf.getChannelData(0);
-  for (let b = 0; b < 3; b++) {
-    const off = Math.floor(sr * 0.012 * b);
-    const n = noise(ctx, dur * 0.5, v + b).getChannelData(0);
-    for (let i = off; i < len; i++) d[i] += n[i - off] * 0.4;
-  }
-  env(d, sr, 0.001, 0.1);
+  highpass(d, sr, 5000 + char.tone * 3000);
+  for (let i = 0; i < d.length; i++) d[i] *= 0.25 + 0.75 * Math.abs(Math.sin((i / sr) * 45));
+  env(d, sr, 0.003, 0.06);
+  normalize(d, 0.6);
   return buf;
 }
 
-export function tom(ctx: SynthCtx, v: number): SynthBuffer {
+/** Long metallic crash cymbal. */
+export function crash(ctx: SynthCtx, v: number, char: DrumChar = NEUTRAL): SynthBuffer {
+  const buf = metalTone(ctx, 1.3 * char.decay, 300, 5000 + char.tone * 3000, 3.2);
+  const d = buf.getChannelData(0);
+  const nr = rng(v + 200);
+  for (let i = 0; i < d.length; i++) d[i] = d[i] * 0.7 + nr() * Math.exp(-(i / ctx.sampleRate) * 4) * 0.3;
+  highpass(d, ctx.sampleRate, 5500);
+  env(d, ctx.sampleRate, 0.001, 999);
+  normalize(d, 0.75);
+  return buf;
+}
+
+export function bass808(ctx: SynthCtx, note: number, v = 0, char: DrumChar = NEUTRAL): SynthBuffer {
   const sr = ctx.sampleRate;
-  const dur = 0.4;
+  const dur = 1.3 * char.decay;
   const len = Math.floor(sr * dur);
   const buf = ctx.createBuffer(1, len);
   const d = buf.getChannelData(0);
-  const base = 90 + v * 35;
+  const hz = 440 * Math.pow(2, (note - 69) / 12) * semi(char.tune);
+  let phase = 0;
   for (let i = 0; i < len; i++) {
     const t = i / sr;
-    d[i] = Math.sin(2 * Math.PI * base * Math.exp(-t * 6) * t) * Math.exp(-t * 5);
+    // Short pitch glide into the note, then a long sustained sub.
+    const f = hz * (1 + (0.35 + v * 0.015) * Math.exp(-t * 9));
+    phase += (2 * Math.PI * f) / sr;
+    d[i] = Math.sin(phase) * Math.exp(-t * 1.6);
   }
-  env(d, sr, 0.002, 0.25);
-  return buf;
-}
-
-export function rim(ctx: SynthCtx, v: number): SynthBuffer {
-  const buf = noise(ctx, 0.05, v + 50);
-  env(buf.getChannelData(0), ctx.sampleRate, 0.001, 0.02);
-  return buf;
-}
-
-export function shaker(ctx: SynthCtx, v: number): SynthBuffer {
-  const buf = noise(ctx, 0.15 + v * 0.01, v + 20);
-  const d = buf.getChannelData(0);
-  const sr = ctx.sampleRate;
-  for (let i = 0; i < d.length; i++) {
-    d[i] *= 0.2 + 0.8 * Math.abs(Math.sin(i / sr * 40));
-  }
-  env(d, sr, 0.002, 0.08);
-  return buf;
-}
-
-export function bass808(ctx: SynthCtx, note: number, v = 0): SynthBuffer {
-  const sr = ctx.sampleRate;
-  const dur = 1.2;
-  const len = Math.floor(sr * dur);
-  const buf = ctx.createBuffer(1, len);
-  const d = buf.getChannelData(0);
-  const hz = 440 * Math.pow(2, (note - 69) / 12);
-  for (let i = 0; i < len; i++) {
-    const t = i / sr;
-    const pitch = hz * (1 + (0.4 + v * 0.02) * Math.exp(-t * 8));
-    d[i] = Math.sin(2 * Math.PI * pitch * t) * Math.exp(-t * 1.8);
-  }
-  env(d, sr, 0.005, 0.9);
+  // Drive adds the harmonics that make an 808 audible on small speakers.
+  saturate(d, 0.35 + char.drive * 0.4);
+  env(d, sr, 0.004, 999);
+  normalize(d, 0.95);
   return buf;
 }
 
@@ -467,8 +644,61 @@ function synthPluck(ctx: SynthCtx, note: number, v: number): SynthBuffer {
   return buf;
 }
 
+// ─── Genre character + standard drum-kit builder ─────────────────────────────
+
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+const tweak = (c: DrumChar, p: Partial<DrumChar>): DrumChar => ({ ...c, ...p });
+
+/** Distinct character per drum genre — this is what makes kits sound different. */
+const GENRE_CHAR: Record<string, DrumChar> = {
+  trap:     { tune: -2, drive: 0.50, decay: 1.25, tone: 0.72, snap: 0.7, kickModel: 'sub808',  snareModel: 'trap',     hatMetallic: true },
+  boombap:  { tune: -1, drive: 0.55, decay: 1.00, tone: 0.32, snap: 0.5, kickModel: 'boom',    snareModel: 'acoustic', hatMetallic: false },
+  house:    { tune:  0, drive: 0.30, decay: 0.90, tone: 0.55, snap: 0.6, kickModel: 'punch909', snareModel: '909',      hatMetallic: true },
+  techno:   { tune:  0, drive: 0.62, decay: 0.85, tone: 0.60, snap: 0.65, kickModel: 'punch909', snareModel: '909',     hatMetallic: true },
+  lofi:     { tune: -2, drive: 0.40, decay: 1.18, tone: 0.20, snap: 0.35, kickModel: 'boom',    snareModel: 'acoustic', hatMetallic: false },
+  acoustic: { tune:  0, drive: 0.15, decay: 1.10, tone: 0.45, snap: 0.6, kickModel: 'acoustic', snareModel: 'acoustic', hatMetallic: false },
+  dnb:      { tune: -1, drive: 0.52, decay: 0.80, tone: 0.78, snap: 0.78, kickModel: 'punch909', snareModel: '909',     hatMetallic: true },
+  afro:     { tune:  1, drive: 0.35, decay: 0.95, tone: 0.60, snap: 0.6, kickModel: 'punch909', snareModel: 'trap',     hatMetallic: true },
+};
+
+/** Apply the kit variant as a meaningful modulation so kits within a genre differ. */
+function charForGenre(genre: string, variant: number): DrumChar {
+  const base = GENRE_CHAR[genre] ?? NEUTRAL;
+  const k = variant - 2; // -2..+2 across the 5 variants
+  return {
+    ...base,
+    tune: base.tune + k,
+    drive: clamp01(base.drive + k * 0.08),
+    decay: Math.max(0.6, Math.min(1.6, base.decay + k * 0.06)),
+    tone: clamp01(base.tone + k * 0.06),
+  };
+}
+
+/** 16 standard drum pads (matches catalog DRUM_PADS) for a given character. */
+function drumKit(char: DrumChar): Gen[] {
+  return [
+    (c, v) => kick(c, v, false, char),
+    (c, v) => kick(c, v + 2, false, tweak(char, { tune: char.tune - 3, decay: char.decay * 0.9 })),
+    (c, v) => snare(c, v, false, char),
+    (c, v) => snare(c, v + 1, true, tweak(char, { decay: char.decay * 0.8 })),
+    (c, v) => hat(c, v, false, false, char),
+    (c, v) => hat(c, v, true, false, char),
+    (c, v) => hat(c, v, false, false, char),
+    (c, v) => toneHit(c, 320 * semi(char.tune), 0.14, v),
+    (c, v) => clap(c, v, char),
+    (c, v) => clap(c, v + 3, char),
+    (c) => tom(c, 0, char),
+    (c) => tom(c, 1, char),
+    (c) => tom(c, 2, char),
+    (c) => tom(c, 3, char),
+    (c, v) => rim(c, v, char),
+    (c, v) => crash(c, v, char),
+  ];
+}
+
 /** Build 16-pad generator list for a template + kit variant offset. */
 export function recipeForTemplate(template: string, kitVariant: number): Gen[] {
+  if (GENRE_CHAR[template]) return drumKit(charForGenre(template, kitVariant));
   const o = kitVariant * 4;
   switch (template) {
     case 'classic':

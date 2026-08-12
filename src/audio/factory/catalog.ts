@@ -22,11 +22,16 @@ export interface FactoryKitMeta {
 const DRUM_PADS = ['Kick', 'Kick 2', 'Snare', 'Snare 2', 'Hat', 'Hat O', 'Hat C', 'Perc',
   'Clap', 'Clap 2', 'Tom L', 'Tom M', 'Tom H', 'Tom HH', 'Rim', 'Crash'];
 
-/** Core drum kits — melodic content gets the majority of slots. */
+/** Distinct drum genres — each a different synthesis character. */
 const DRUM_TEMPLATES: { template: string; name: string; desc: string }[] = [
-  { template: 'classic', name: 'Classic', desc: 'Punchy kicks, snares and hats' },
-  { template: 'lofi', name: 'Lo-Fi', desc: 'Dusty warm drum machine' },
-  { template: 'trap', name: 'Trap', desc: '808 kicks and snappy snares' },
+  { template: 'trap', name: 'Trap', desc: 'Deep 808 kicks, snappy snares, rolling metallic hats' },
+  { template: 'boombap', name: 'Boom Bap', desc: 'Dusty saturated kick & snare — classic hip-hop' },
+  { template: 'house', name: 'House', desc: 'Punchy four-on-the-floor kick, crisp claps & hats' },
+  { template: 'techno', name: 'Techno', desc: 'Hard driven kick, tight percussion' },
+  { template: 'lofi', name: 'Lo-Fi', desc: 'Warm mellow drums, soft transients' },
+  { template: 'acoustic', name: 'Acoustic', desc: 'Natural kit — beater kick, live snare' },
+  { template: 'dnb', name: 'Drum & Bass', desc: 'Fast bright breaks, punchy snare' },
+  { template: 'afro', name: 'Afrobeat', desc: 'Percussive kit, bright hats & toms' },
 ];
 
 const BASS_TEMPLATES: { template: string; name: string; desc: string }[] = [
