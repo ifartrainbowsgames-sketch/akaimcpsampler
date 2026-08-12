@@ -17,6 +17,8 @@ export interface FactoryKitMeta {
   variant: number;
   padNames: string[];
   defaultGain?: number;
+  /** Real (CC0) sample kit — WAVs live under /samples/{id}/ instead of synth. */
+  real?: boolean;
 }
 
 const DRUM_PADS = ['Kick', 'Kick 2', 'Snare', 'Snare 2', 'Hat', 'Hat O', 'Hat C', 'Perc',
@@ -98,8 +100,41 @@ function pushVariants(
   }
 }
 
+/** Real CC0 sample kits — 16 pad WAVs baked under public/samples/{id}/. */
+const REAL_DRUM_KITS: { id: string; name: string }[] = [
+  { id: 'real-trap', name: 'Trap (Real)' },
+  { id: 'real-bounce', name: 'Bounce (Real)' },
+  { id: 'real-vintage', name: 'Vintage (Real)' },
+];
+const REAL_MELODIC_KITS: { id: string; name: string }[] = [
+  { id: 'real-marimba', name: 'Marimba (Real)' },
+  { id: 'real-vibraphone', name: 'Vibraphone (Real)' },
+  { id: 'real-glockenspiel', name: 'Glockenspiel (Real)' },
+  { id: 'real-xylophone', name: 'Xylophone (Real)' },
+  { id: 'real-tubular-bells', name: 'Tubular Bells (Real)' },
+  { id: 'real-balafon', name: 'Balafon (Real)' },
+  { id: 'real-harp', name: 'Concert Harp (Real)' },
+  { id: 'real-kalimba', name: 'Kalimba (Real)' },
+];
+
+function pushRealKits(out: FactoryKitMeta[]) {
+  for (const k of REAL_DRUM_KITS) {
+    out.push({
+      id: k.id, name: k.name, category: 'drums', description: 'Real recorded drums (CC0)',
+      source: 'files', template: k.id, variant: 0, padNames: DRUM_PADS, real: true,
+    });
+  }
+  for (const k of REAL_MELODIC_KITS) {
+    out.push({
+      id: k.id, name: k.name, category: 'melodic', description: 'Real recorded instrument (CC0)',
+      source: 'files', template: k.id, variant: 0, padNames: MELODIC_PADS, real: true,
+    });
+  }
+}
+
 function buildCatalog(): FactoryKitMeta[] {
   const kits: FactoryKitMeta[] = [];
+  pushRealKits(kits);
   pushVariants(kits, 'drums', 'drums', DRUM_TEMPLATES, 5, DRUM_PADS);
   pushVariants(kits, 'bass', 'bass', BASS_TEMPLATES, 5, BASS_PADS, -3);
   pushVariants(kits, 'perc', 'perc', PERC_TEMPLATES, 5, DRUM_PADS);
@@ -142,6 +177,10 @@ export function factoryKitPadDefaults(meta: FactoryKitMeta): {
   if (meta.category !== 'melodic') {
     return { loop: false, loopStartRatio: 0, polyphony: 'mono' };
   }
+  // Real melodic kits (mallets/harp/kalimba) are polyphonic one-shots.
+  if (meta.real) {
+    return { loop: false, loopStartRatio: 0, polyphony: 'poly' };
+  }
   const loopTemplates = new Set(['pads', 'strings', 'organ', 'ambient']);
   const polyTemplates = new Set(['keys', 'chords', 'minor', 'stabs', 'plucks', 'bells', 'arp']);
   return {
@@ -153,8 +192,8 @@ export function factoryKitPadDefaults(meta: FactoryKitMeta): {
 
 export const FACTORY_KIT_COUNT = FACTORY_KITS.length;
 
-/** URL path to a pad WAV inside a kit folder. */
-export function factoryPadWavUrl(kitId: string, padIndex: number): string {
+/** URL path to a pad WAV inside a kit folder (real kits live under /samples/). */
+export function factoryPadWavUrl(kitId: string, padIndex: number, real = false): string {
   const n = String(padIndex + 1).padStart(2, '0');
-  return `/factory/wav/${kitId}/pad-${n}.wav`;
+  return real ? `/samples/${kitId}/pad-${n}.wav` : `/factory/wav/${kitId}/pad-${n}.wav`;
 }

@@ -28,7 +28,7 @@ export async function loadFactoryKitWavs(
   const buffers: AudioBuffer[] = [];
   for (let i = 0; i < 16; i++) {
     try {
-      const res = await fetch(factoryPadWavUrl(kitId, i));
+      const res = await fetch(factoryPadWavUrl(kitId, i, meta.real));
       if (!res.ok) return null;
       const ab = await res.arrayBuffer();
       buffers.push(await ctx.decodeAudioData(ab.slice(0)));
@@ -68,5 +68,6 @@ export async function generateFactoryKit(
   if (wavs) {
     return { id: kitId, name: meta.name, buffers: wavs };
   }
+  if (meta.real) return null; // real kits have no synth fallback
   return synthesizeFactoryKit(ctx, kitId);
 }

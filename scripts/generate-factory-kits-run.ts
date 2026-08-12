@@ -70,6 +70,7 @@ function main() {
   let files = 0;
 
   for (const kit of FACTORY_KITS) {
+    if (kit.real) continue; // real kits are baked separately into public/samples/
     const dir = join(outRoot, kit.id);
     mkdirSync(dir, { recursive: true });
     const buffers = synthesizeKit(ctx, kit.template, kit.variant);

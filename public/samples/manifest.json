@@ -1,0 +1,249 @@
+{
+  "generated": "2026-08-12T01:51:29.712Z",
+  "drums": [
+    {
+      "id": "real-trap",
+      "name": "Trap Real",
+      "padNames": [
+        "Kick",
+        "Kick 2",
+        "Snare",
+        "Snare 2",
+        "Hat",
+        "Hat O",
+        "Hat C",
+        "Perc",
+        "Clap",
+        "Clap 2",
+        "Tom L",
+        "Tom M",
+        "Tom H",
+        "Tom HH",
+        "Rim",
+        "Crash"
+      ]
+    },
+    {
+      "id": "real-bounce",
+      "name": "Bounce Real",
+      "padNames": [
+        "Kick",
+        "Kick 2",
+        "Snare",
+        "Snare 2",
+        "Hat",
+        "Hat O",
+        "Hat C",
+        "Perc",
+        "Clap",
+        "Clap 2",
+        "Tom L",
+        "Tom M",
+        "Tom H",
+        "Tom HH",
+        "Rim",
+        "Crash"
+      ]
+    },
+    {
+      "id": "real-vintage",
+      "name": "Vintage Real",
+      "padNames": [
+        "Kick",
+        "Kick 2",
+        "Snare",
+        "Snare 2",
+        "Hat",
+        "Hat O",
+        "Hat C",
+        "Perc",
+        "Clap",
+        "Clap 2",
+        "Tom L",
+        "Tom M",
+        "Tom H",
+        "Tom HH",
+        "Rim",
+        "Crash"
+      ]
+    }
+  ],
+  "melodic": [
+    {
+      "id": "real-marimba",
+      "name": "Marimba",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-vibraphone",
+      "name": "Vibraphone",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-glockenspiel",
+      "name": "Glockenspiel",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-xylophone",
+      "name": "Xylophone",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-tubular-bells",
+      "name": "Tubular Bells",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-balafon",
+      "name": "Balafon",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-harp",
+      "name": "Concert Harp",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    },
+    {
+      "id": "real-kalimba",
+      "name": "Kalimba",
+      "padNames": [
+        "C4",
+        "D4",
+        "E4",
+        "F4",
+        "G4",
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F5",
+        "G5",
+        "A5",
+        "B5",
+        "C6",
+        "D6"
+      ]
+    }
+  ]
+}
