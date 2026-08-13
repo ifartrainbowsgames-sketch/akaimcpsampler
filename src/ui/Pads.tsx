@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { engine } from '../audio/engine';
 import { SHIFT_FUNCTIONS, SHIFT_SCREENS } from './shiftMap';
 import { guideClick } from '../guide/guideClick';
+import { emitAkiraHit, flashElement } from './akiraHitBus';
 
 const ROWS = [
   [12, 13, 14, 15],
@@ -185,6 +186,8 @@ export function Pads() {
                   ].join(' ')}
                   onPointerDown={(e) => {
                     e.currentTarget.setPointerCapture(e.pointerId);
+                    flashElement(e.currentTarget, 'red');
+                    emitAkiraHit('red');
                     const v = e.pressure > 0 && e.pressure < 1
                       ? Math.max(90, Math.round(e.pressure * 127))
                       : fullLevel ? 127 : 100;

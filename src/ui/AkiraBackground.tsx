@@ -190,6 +190,16 @@ export function AkiraBackground() {
       else if (!reduced) raf = requestAnimationFrame(() => draw());
     };
 
+    const onHit = () => {
+      if (reduced) return;
+      bike.active = true;
+      bike.speed = (Math.random() < 0.5 ? 1 : -1) * (10 + Math.random() * 8);
+      bike.x = bike.speed > 0 ? -200 : W + 200;
+      bike.y = H * HORIZON + 6 + Math.random() * (H * 0.22);
+      bike.cool = 0;
+    };
+    window.addEventListener('akira-hit', onHit);
+
     resize();
     window.addEventListener('resize', resize);
     document.addEventListener('visibilitychange', onVisibility);
@@ -199,6 +209,7 @@ export function AkiraBackground() {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('akira-hit', onHit);
     };
   }, []);
 

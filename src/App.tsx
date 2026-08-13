@@ -18,6 +18,8 @@ import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
 import { AkiraLogo, ProMcpWordmark } from './ui/AkaiLogo';
 import { AkiraBackground } from './ui/AkiraBackground';
+import { AkiraDeckDecor, AkiraHitFX } from './ui/AkiraHitFX';
+import { emitAkiraHit, flashElement } from './ui/akiraHitBus';
 import type { ChopLoadMode } from './storage/preferences';
 
 export default function App() {
@@ -55,11 +57,13 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
   return (
     <div className="boot">
       <AkiraBackground />
+      <AkiraHitFX />
       <div className="bootcard">
         <div className="bootlogo">
           <AkiraLogo className="akailogo" />
         </div>
         <h1 className="boot-title" ref={titleRef}>AKIRA PRO MCP</h1>
+        <p className="boot-anime-tag">ネオ東京 · LIVE WALLPAPER</p>
         <p>16-pad sampler, sequencer &amp; DAW. Everything runs on your device.</p>
         <button
           type="button"
@@ -69,6 +73,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
             setBusy(true);
             await onStart();
           }}
+          onPointerDown={(e) => { flashElement(e.currentTarget, 'red'); emitAkiraHit('red'); }}
         >
           {busy ? 'Starting…' : 'Tap to start'}
         </button>
@@ -203,23 +208,28 @@ function Panel() {
   return (
     <>
       <AkiraBackground />
+      <AkiraHitFX />
       <div className={`stage ${shift ? 'shifted' : ''}`}>
       <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
       <GuideBubble />
       <GuideBanner />
 
-      <div className="unit">
+      <div className={`unit${transport.playing ? ' unit--playing' : ''}`}>
         <div className="screw tl" /><div className="screw tr" />
         <div className="screw bl" /><div className="screw br" />
 
         <div className="deck">
+          <AkiraDeckDecor />
           <div className="deckrow1">
             <div className="logo"><AkiraLogo className="akailogo akailogo--deck" /></div>
             <div className="fnrow">
-              <button type="button" className="fnbtn" aria-label="B1" onClick={() => cycleB(1)} />
-              <button type="button" className="fnbtn" aria-label="B2" onClick={() => cycleB(2)} />
-              <button type="button" className="fnbtn" aria-label="B3" onClick={() => cycleB(3)} />
+              <button type="button" className="fnbtn" aria-label="B1" onClick={() => cycleB(1)}
+                onPointerDown={(e) => { flashElement(e.currentTarget, 'cyan'); emitAkiraHit('cyan'); }} />
+              <button type="button" className="fnbtn" aria-label="B2" onClick={() => cycleB(2)}
+                onPointerDown={(e) => { flashElement(e.currentTarget, 'cyan'); emitAkiraHit('cyan'); }} />
+              <button type="button" className="fnbtn" aria-label="B3" onClick={() => cycleB(3)}
+                onPointerDown={(e) => { flashElement(e.currentTarget, 'cyan'); emitAkiraHit('cyan'); }} />
             </div>
             <div className="wordmark"><ProMcpWordmark /></div>
           </div>
