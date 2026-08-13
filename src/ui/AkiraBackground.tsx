@@ -82,59 +82,63 @@ export function AkiraBackground() {
       const s = Math.max(W / img.width, H / img.height);
       const dw = img.width * s, dh = img.height * s;
       ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-      // Subtle breathing glow on image wallpaper
-      const pulse = 0.92 + Math.sin(Date.now() * 0.0008) * 0.04;
-      ctx.globalAlpha = pulse;
-      const glow = ctx.createRadialGradient(W * 0.65, H * HORIZON, 0, W * 0.65, H * HORIZON, W * 0.5);
-      glow.addColorStop(0, 'rgba(255,42,51,0.12)');
-      glow.addColorStop(1, 'rgba(255,42,51,0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = 1;
-      // darken for legibility + red/cyan grade
+      // Film-grade: dark smoke sky + massive crimson orb
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, 'rgba(8,4,14,0.55)');
-      g.addColorStop(0.5, 'rgba(10,4,10,0.35)');
-      g.addColorStop(1, 'rgba(4,2,8,0.7)');
+      g.addColorStop(0, 'rgba(15,18,22,0.45)');
+      g.addColorStop(0.45, 'rgba(10,10,10,0.25)');
+      g.addColorStop(1, 'rgba(0,0,0,0.55)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      // pulsing orb reflection on image
+      const pulse = 0.88 + Math.sin(Date.now() * 0.0006) * 0.06;
+      const orbX = W * 0.62, orbY = H * 0.38, orbR = Math.min(W, H) * 0.35;
+      const orbGlow = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR * pulse);
+      orbGlow.addColorStop(0, 'rgba(230,0,18,0.18)');
+      orbGlow.addColorStop(0.5, 'rgba(230,0,18,0.06)');
+      orbGlow.addColorStop(1, 'rgba(230,0,18,0)');
+      ctx.fillStyle = orbGlow; ctx.fillRect(0, 0, W, H);
     };
 
     const drawScene = () => {
       const hy = H * HORIZON;
-      // sky
       const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, '#0a0614');
-      sky.addColorStop(0.45, '#1b0a22');
-      sky.addColorStop(HORIZON, '#4a0d18');
-      sky.addColorStop(HORIZON + 0.001, '#080510');
-      sky.addColorStop(1, '#040309');
+      sky.addColorStop(0, '#1a2228');
+      sky.addColorStop(0.35, '#2a3038');
+      sky.addColorStop(HORIZON, '#3a4048');
+      sky.addColorStop(HORIZON + 0.001, '#121212');
+      sky.addColorStop(1, '#0a0a0a');
       ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
 
-      // red sun + glow
-      const sunX = W * 0.66, sunY = hy - H * 0.06, R = Math.min(W, H) * 0.16;
-      const glow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, R * 3.4);
-      glow.addColorStop(0, 'rgba(255,60,50,0.5)');
-      glow.addColorStop(1, 'rgba(255,60,50,0)');
-      ctx.fillStyle = glow; ctx.fillRect(0, 0, W, hy + 40);
-      const sun = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, R);
-      sun.addColorStop(0, '#ff6a4a'); sun.addColorStop(0.7, '#e42a2b'); sun.addColorStop(1, '#7a0f14');
-      ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sunX, sunY, R, 0, Math.PI * 2); ctx.fill();
+      // Massive Akira-style crimson orb (dominates sky like the film poster)
+      const orbX = W * 0.58, orbY = H * 0.32;
+      const R = Math.min(W, H) * 0.38;
+      const pulse = 1 + Math.sin(Date.now() * 0.001) * 0.015;
+      const outer = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, R * 2.2 * pulse);
+      outer.addColorStop(0, 'rgba(230,0,18,0.55)');
+      outer.addColorStop(0.35, 'rgba(230,0,18,0.2)');
+      outer.addColorStop(1, 'rgba(230,0,18,0)');
+      ctx.fillStyle = outer; ctx.fillRect(0, 0, W, H * 0.85);
+      const orb = ctx.createRadialGradient(orbX - R * 0.15, orbY - R * 0.1, 0, orbX, orbY, R * pulse);
+      orb.addColorStop(0, '#ff6070');
+      orb.addColorStop(0.45, '#e60012');
+      orb.addColorStop(0.85, '#8a0010');
+      orb.addColorStop(1, '#3a0008');
+      ctx.fillStyle = orb; ctx.beginPath(); ctx.arc(orbX, orbY, R * pulse, 0, Math.PI * 2); ctx.fill();
 
-      // skyline
+      // Grey concrete Neo-Tokyo skyline
       for (const b of buildings) {
-        ctx.fillStyle = '#0a0713';
+        ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(b.x, hy - b.h, b.w, b.h);
-        ctx.strokeStyle = 'rgba(41,192,255,0.10)';
+        ctx.strokeStyle = 'rgba(80,80,80,0.5)';
         ctx.strokeRect(b.x + 0.5, hy - b.h + 0.5, b.w, b.h);
         for (const l of b.lights) {
           if (!l.on) continue;
-          ctx.fillStyle = l.warm ? 'rgba(255,180,90,0.85)' : 'rgba(90,210,255,0.8)';
+          ctx.fillStyle = l.warm ? 'rgba(245,208,0,0.7)' : 'rgba(180,180,180,0.5)';
           const cols = Math.max(1, Math.floor(b.w / 12));
-          for (let c = 0; c < cols; c++) if (Math.random() < 0.6) ctx.fillRect(b.x + 4 + c * 11, l.y, 4, 5);
+          for (let c = 0; c < cols; c++) if (Math.random() < 0.5) ctx.fillRect(b.x + 4 + c * 11, l.y, 4, 5);
         }
       }
-      // horizon neon line
-      ctx.strokeStyle = 'rgba(255,42,51,0.5)'; ctx.lineWidth = 1;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, hy, W, H - hy);
+      ctx.strokeStyle = 'rgba(230,0,18,0.35)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, hy); ctx.lineTo(W, hy); ctx.stroke();
     };
 
@@ -152,22 +156,26 @@ export function AkiraBackground() {
       }
       bike.x += bike.speed;
       const dir = Math.sign(bike.speed);
-      const tailX = bike.x - dir * (180 + Math.abs(bike.speed) * 14);
+      const tailX = bike.x - dir * (220 + Math.abs(bike.speed) * 18);
       const grad = ctx.createLinearGradient(bike.x, bike.y, tailX, bike.y);
-      grad.addColorStop(0, 'rgba(255,90,80,0.95)');
-      grad.addColorStop(1, 'rgba(255,42,51,0)');
-      ctx.strokeStyle = grad; ctx.lineWidth = 3;
-      ctx.shadowBlur = 16; ctx.shadowColor = 'rgba(255,42,51,0.9)';
+      grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.08, 'rgba(230,0,18,0.95)');
+      grad.addColorStop(1, 'rgba(230,0,18,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 4;
+      ctx.shadowBlur = 24; ctx.shadowColor = 'rgba(230,0,18,0.95)';
       ctx.beginPath(); ctx.moveTo(bike.x, bike.y); ctx.lineTo(tailX, bike.y); ctx.stroke();
-      // bright head
+      // Kaneda-style round headlight
+      ctx.shadowBlur = 30;
       ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(bike.x, bike.y, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(bike.x, bike.y, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(230,0,18,0.5)';
+      ctx.beginPath(); ctx.arc(bike.x, bike.y, 14, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
       if (bike.x < -260 || bike.x > W + 260) { bike.active = false; bike.cool = 120 + Math.random() * 240; }
     };
 
     const drawRain = () => {
-      ctx.strokeStyle = 'rgba(150,200,255,0.10)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(180,180,180,0.06)'; ctx.lineWidth = 1;
       ctx.beginPath();
       for (const d of rain) {
         ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 2, d.y + d.len);

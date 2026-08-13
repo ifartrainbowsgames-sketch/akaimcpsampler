@@ -35,8 +35,8 @@
 .bootcard { position: relative; z-index: 1; }
 
 .boot-title {
-  color: #fff;
-  text-shadow: 0 0 14px rgba(228, 50, 43, 0.7);
+  color: #e60012;
+  text-shadow: 3px 3px 0 #1a1a1a, 0 0 20px rgba(230, 0, 18, 0.75);
   will-change: transform, filter, text-shadow;
 }
 

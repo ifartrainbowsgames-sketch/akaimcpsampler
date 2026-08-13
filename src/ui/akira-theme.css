@@ -1,182 +1,230 @@
 /* ============================================================================
-   AKIRA PRO MCP — Neo-Tokyo neon skin.
-   Applied to the default (dark) theme by remapping the existing design tokens,
-   so the whole token-driven device reskins at once. The `light` theme is left
-   untouched as a clean alternate. High-specificity `body[data-theme="dark"]`
-   selectors so this layer wins regardless of import order.
+   AKIRA anime film palette — concrete dystopia, blood red orb, capsule chrome.
+   Grey industrial chassis (not purple cyberpunk). Warning yellow accents.
    ========================================================================== */
 
 body[data-theme="dark"] {
-  /* Chassis: dark brushed metal with a violet cast instead of cream */
-  --body-hi: #241a30; --body: #150e1f; --body-lo: #0a0713; --body-edge: #46295f;
-  --deck: #08050d;
+  /* Brutalist concrete MPC chassis */
+  --body-hi: #4a4a4a;
+  --body: #2e2e2e;
+  --body-lo: #1a1a1a;
+  --body-edge: #5c5c5c;
+  --deck: #121212;
 
-  /* Panel buttons */
-  --btn: #2a2038; --btn-hi: #3c2d52; --btn-lo: #17102400; --btn-txt: #efe4ff;
+  --btn: #3a3a3a;
+  --btn-hi: #525252;
+  --btn-lo: #222;
+  --btn-txt: #f0ece8;
 
-  /* Pads */
-  --pad: #241d36; --pad-hi: #362a4e; --pad-lo: #150e20;
-  --rest: #271f3a; --rest-hi: #3a2f52;
+  --pad: #404040;
+  --pad-hi: #565656;
+  --pad-lo: #282828;
+  --rest: #353535;
+  --rest-hi: #484848;
 
-  /* Silkscreen text must go light now that the chassis is dark */
-  --ink: #ece1ff; --ink2: #b8a6d8;
+  --ink: #f2ede8;
+  --ink2: #a8a098;
 
-  /* Neon accents (kept, slightly hotter) */
-  --orange: #ff8a2a; --orange-lo: #c25e10;
-  --blue: #29c0ff; --blue-lo: #1580b0;
-  --red: #ff2f45;
-  --mpc-red: #ff2a33; --mpc-red-lo: #b0261f;
-  --rgb: #29c0ff;
+  /* Akira film red (#e60012 family) + warning yellow */
+  --orange: #f5d000;
+  --orange-lo: #c4a800;
+  --blue: #6a8a9a;
+  --blue-lo: #4a6470;
+  --red: #e60012;
+  --mpc-red: #e60012;
+  --mpc-red-lo: #9a0010;
+  --rgb: #e60012;
+
+  --akira-orb: #e60012;
+  --akira-concrete: #3a3a3a;
+  --akira-yellow: #f5d000;
+  --akira-smoke: #1a2228;
 
   color-scheme: dark;
 }
 
-/* Page backdrop goes black so the animated wallpaper (canvas) reads clean */
-body[data-theme="dark"] { background: #060309; }
+body[data-theme="dark"] { background: #0a0a0a; }
 
-/* ---- The device: dark metal + red/cyan neon rim glow ---------------------- */
+/* Hazard stripe rail on the device (iconic industrial anime look) */
 body[data-theme="dark"] .unit {
+  border: 2px solid #1a1a1a;
   box-shadow:
-    inset 0 0.12em 0 rgba(120, 90, 160, 0.35),
-    inset 0 0 3em rgba(41, 192, 255, 0.05),
-    0 0 0 1px rgba(255, 42, 51, 0.35),
-    0 0 2.2em rgba(255, 42, 51, 0.28),
-    0 0 4em rgba(41, 192, 255, 0.12),
-    0 1.2em 3em rgba(0, 0, 0, 0.7);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 2em rgba(0, 0, 0, 0.5),
+    0 0 0 3px #e60012,
+    0 0 2em rgba(230, 0, 18, 0.35),
+    0 1.2em 3em rgba(0, 0, 0, 0.85);
 }
-body[data-theme="dark"] .unit::after { opacity: 0.25; }
+body[data-theme="dark"] .unit::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #f5d000,
+    #f5d000 8px,
+    #1a1a1a 8px,
+    #1a1a1a 16px
+  );
+  border-radius: 0.4em 0.4em 0 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0.85;
+}
+body[data-theme="dark"] .unit::after { opacity: 0.15; }
 
-/* Brand wordmarks: neon red glow */
-body[data-theme="dark"] .akaibrand { color: var(--mpc-red); }
+/* Movie-poster AKIRA wordmark */
+body[data-theme="dark"] .akaibrand { color: #e60012; }
 body[data-theme="dark"] .akaibrand__main {
-  text-shadow: 0 0 0.5em rgba(255, 42, 51, 0.75), 0 0 1em rgba(255, 42, 51, 0.4);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-shadow:
+    2px 2px 0 #1a1a1a,
+    0 0 20px rgba(230, 0, 18, 0.8),
+    0 0 40px rgba(230, 0, 18, 0.4);
+}
+body[data-theme="dark"] .akaibrand__kanji {
+  display: block;
+  font-size: 0.55em;
+  line-height: 1;
+  color: #e60012;
+  opacity: 0.9;
+  text-shadow: 0 0 12px rgba(230, 0, 18, 0.6);
+}
+body[data-theme="dark"] .akaibrand__sub {
+  font-size: 0.42em;
+  letter-spacing: 0.35em;
+  color: #888;
+  text-transform: uppercase;
 }
 body[data-theme="dark"] .mpcword {
-  color: #d8e8ff;
-  text-shadow: 0 0 0.5em rgba(41, 192, 255, 0.6);
-  letter-spacing: 0.14em;
+  color: #ccc;
+  text-shadow: none;
+  letter-spacing: 0.08em;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+body[data-theme="dark"] .mpcword__year {
+  font-size: 1.4em;
+  font-weight: 900;
+  color: #e60012;
+  letter-spacing: 0.02em;
+}
+body[data-theme="dark"] .mpcword__label {
+  font-size: 0.55em;
+  color: #888;
+  letter-spacing: 0.2em;
 }
 
-/* ---- Pads: dark glass with a cyan idle rim, hotter lit states ------------- */
+/* Concrete pad bay */
 body[data-theme="dark"] .padwell {
-  background: linear-gradient(180deg, #0b0714, #050308);
-  box-shadow: inset 0 0 1.4em rgba(41, 192, 255, 0.08), inset 0 0 0 1px rgba(120, 60, 160, 0.25);
+  background: linear-gradient(180deg, #1a1a1a, #0d0d0d);
+  box-shadow: inset 0 0 0 2px #333, inset 0 0 1em rgba(0, 0, 0, 0.8);
 }
 body[data-theme="dark"] .pad {
-  background: linear-gradient(180deg, #2a2140, #140d20);
+  background: linear-gradient(180deg, #4a4a4a, #2a2a2a);
   box-shadow:
-    inset 0 0 0 1px rgba(41, 192, 255, 0.22),
-    inset 0 0.1em 0 rgba(255, 255, 255, 0.06),
-    0 0 0.5em rgba(41, 192, 255, 0.08);
-  transition: box-shadow 0.12s ease, filter 0.12s ease;
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 -0.15em 0.3em rgba(0, 0, 0, 0.5),
+    0 0.1em 0.2em rgba(0, 0, 0, 0.6);
 }
 body[data-theme="dark"] .pad.empty {
-  background: linear-gradient(180deg, #1a1428, #0c0814);
-  box-shadow: inset 0 0 0 1px rgba(90, 70, 120, 0.4);
+  background: linear-gradient(180deg, #333, #222);
+  opacity: 0.75;
 }
-/* Live hit = bright red neon (Akira) instead of the gold */
+/* Pad hit = Kaneda bike red headlight burst */
 body[data-theme="dark"] .pad.hit {
-  background: linear-gradient(180deg, #ff8a90, #ff2a33 42%, #b01018);
-  box-shadow: 0 0 0.2em #ff2a33, 0 0 1.1em rgba(255, 42, 51, 0.85), 0 0 2em rgba(255, 42, 51, 0.5);
+  background: radial-gradient(circle at 50% 30%, #ff5060, #e60012 45%, #8a0010);
+  box-shadow:
+    0 0 0.3em #fff,
+    0 0 1.2em rgba(230, 0, 18, 0.95),
+    0 0 2.5em rgba(230, 0, 18, 0.6);
 }
-body[data-theme="dark"] .pad.selected { outline-color: var(--orange); }
+body[data-theme="dark"] .pad.selected { outline-color: #f5d000; }
 
-/* ---- Panel buttons: dark caps, neon edge, glowing when lit ---------------- */
+/* Industrial panel buttons */
 body[data-theme="dark"] .pb .cap {
-  background: linear-gradient(180deg, #2c2340, #171024);
-  color: var(--ink);
-  border: 1px solid rgba(140, 90, 200, 0.3);
-  box-shadow: inset 0 0.1em 0 rgba(255, 255, 255, 0.05), 0 0.14em 0 #0a0712;
+  background: linear-gradient(180deg, #525252, #3a3a3a 50%, #2a2a2a);
+  color: #f0ece8;
+  border: 1px solid #666;
+  box-shadow: inset 0 0.08em 0 rgba(255, 255, 255, 0.12), 0 0.14em 0 #111;
 }
 body[data-theme="dark"] .pb.lit .cap {
-  filter: none;
-  border-color: rgba(255, 42, 51, 0.6);
-  box-shadow: 0 0 0.8em rgba(255, 42, 51, 0.6), inset 0 0 0.6em rgba(255, 42, 51, 0.25);
+  border-color: #e60012;
+  box-shadow: 0 0 1em rgba(230, 0, 18, 0.7), inset 0 0 0.5em rgba(230, 0, 18, 0.2);
   color: #fff;
 }
 body[data-theme="dark"] .pb.orange .cap {
-  box-shadow: 0 0 0.7em rgba(255, 138, 42, 0.45), inset 0 0.1em 0 rgba(255, 255, 255, 0.15);
+  background: linear-gradient(180deg, #ffe040, #f5d000 45%, #a89000);
+  color: #1a1a1a;
+  border-color: #c4a800;
 }
 body[data-theme="dark"] .pb.blue .cap {
-  box-shadow: 0 0 0.7em rgba(41, 192, 255, 0.5), inset 0 0.1em 0 rgba(255, 255, 255, 0.15);
+  background: linear-gradient(180deg, #7a9aaa, #5a7480 45%, #3a5058);
+  color: #fff;
 }
 
-/* ---- LCD: cyan neon frame ------------------------------------------------- */
+/* Military LCD bezel */
 body[data-theme="dark"] .lcd {
-  box-shadow: inset 0 0 0 1px rgba(41, 192, 255, 0.25), inset 0 0 2em rgba(41, 192, 255, 0.06);
+  border: 2px solid #444;
+  box-shadow: inset 0 0 0 1px #222, inset 0 0 2em rgba(0, 0, 0, 0.8);
+  background: #0a0a0a;
 }
 
-/* Function/bank buttons + jog get a subtle neon ring */
-body[data-theme="dark"] .fnbtn { box-shadow: 0 0 0.4em rgba(41, 192, 255, 0.4); }
-body[data-theme="dark"] .screw { filter: brightness(0.7) hue-rotate(220deg); }
+body[data-theme="dark"] .fnbtn {
+  background: radial-gradient(circle at 40% 35%, #555, #333);
+  box-shadow: 0 0 0.5em rgba(230, 0, 18, 0.4), inset 0 0 0.3em rgba(0, 0, 0, 0.5);
+}
+body[data-theme="dark"] .screw { filter: brightness(0.85); }
 
-/* Boot card: darker glass so the wallpaper reads behind it */
+/* Boot = movie poster card */
 body[data-theme="dark"] .bootcard {
-  background: rgba(20, 10, 30, 0.55);
-  border-color: rgba(255, 42, 51, 0.3);
-  box-shadow: 0 0 3em rgba(255, 42, 51, 0.2), inset 0 0 2em rgba(41, 192, 255, 0.05);
+  background: rgba(10, 10, 10, 0.72);
+  border: 2px solid #e60012;
+  box-shadow: 0 0 4em rgba(230, 0, 18, 0.35), inset 0 0 3em rgba(0, 0, 0, 0.5);
 }
 body[data-theme="dark"] .bootbtn {
-  background: linear-gradient(180deg, #ff2a33, #b0161d);
-  box-shadow: 0 0 1.2em rgba(255, 42, 51, 0.6);
-  color: #fff; border: 0;
+  background: linear-gradient(180deg, #ff2040, #e60012 50%, #9a0010);
+  box-shadow: 0 0 1.5em rgba(230, 0, 18, 0.7);
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
+body[data-theme="dark"] .boot-title {
+  font-size: 28px;
+  letter-spacing: 0.2em;
+  color: #e60012;
+  text-shadow: 3px 3px 0 #1a1a1a, 0 0 30px rgba(230, 0, 18, 0.8);
+}
+body[data-theme="dark"] .bootcard p,
+body[data-theme="dark"] .bootnote { color: #aaa; }
+body[data-theme="dark"] .bootver { color: #f5d000; }
 
 @media (prefers-reduced-motion: reduce) {
-  body[data-theme="dark"] .akaibrand__main { text-shadow: 0 0 0.4em rgba(255, 42, 51, 0.6); }
+  body[data-theme="dark"] .akaibrand__main { text-shadow: 2px 2px 0 #1a1a1a; }
 }
 
-/* ---- Boot splash ---------------------------------------------------------- */
-body[data-theme="dark"] .bootcard h1,
-body[data-theme="dark"] .boot-title { color: #fff; }
-body[data-theme="dark"] .bootcard p,
-body[data-theme="dark"] .bootnote { color: #c8b8e8; opacity: 0.85; }
-body[data-theme="dark"] .bootver { color: #29c0ff; opacity: 0.7; }
-
-/* ---- DAW sub-screens (piano roll, playlist, channel rack) ----------------- */
+/* DAW screens — concrete + red */
 body[data-theme="dark"] .pianoroll,
 body[data-theme="dark"] .playlist,
 body[data-theme="dark"] .channelrack {
-  background: linear-gradient(180deg, #120a1a, #08050d);
-  color: #ece1ff;
-}
-body[data-theme="dark"] .pianoroll__toolbar,
-body[data-theme="dark"] .playlist__toolbar,
-body[data-theme="dark"] .channelrack__toolbar {
-  background: #0f0818;
-  border-bottom-color: rgba(255, 42, 51, 0.25);
-}
-body[data-theme="dark"] .pianoroll__btn,
-body[data-theme="dark"] .playlist__btn,
-body[data-theme="dark"] .channelrack__btn {
-  background: linear-gradient(180deg, #2a2140, #140d20);
-  border-color: rgba(41, 192, 255, 0.25);
-  color: #ece1ff;
-}
-body[data-theme="dark"] .pianoroll__btn--on,
-body[data-theme="dark"] .playlist__btn--on {
-  background: linear-gradient(180deg, #ff8a90, #ff2a33);
-  border-color: rgba(255, 42, 51, 0.6);
-  box-shadow: 0 0 0.8em rgba(255, 42, 51, 0.5);
+  background: #1a1a1a;
+  color: #e8e4e0;
 }
 body[data-theme="dark"] .pianoroll__note--on {
-  background: linear-gradient(180deg, #ff6a70, #ff2a33);
-  box-shadow: 0 0 6px rgba(255, 42, 51, 0.7);
+  background: #e60012;
+  box-shadow: 0 0 6px rgba(230, 0, 18, 0.8);
 }
-
-/* ---- Piano overlay harmonization ------------------------------------------ */
 body[data-theme="dark"] .piano-fs {
-  background: linear-gradient(180deg, rgba(10, 6, 20, 0.97), rgba(6, 3, 9, 0.98));
+  background: rgba(10, 10, 10, 0.96);
 }
-body[data-theme="dark"] .piano-fs__title { color: #ff2a33; text-shadow: 0 0 1em rgba(255, 42, 51, 0.5); }
-body[data-theme="dark"] .piano-pattern__cell--on {
-  background: linear-gradient(180deg, #ff6b9d, #ff2a33);
-  border-color: #ff8ab0;
-}
-
-/* ---- Guide bubble neon frame ---------------------------------------------- */
 body[data-theme="dark"] .guide-pop {
-  border-color: rgba(255, 42, 51, 0.45);
-  box-shadow: 0 0 1.5em rgba(255, 42, 51, 0.25), 0 0 2em rgba(41, 192, 255, 0.12);
+  border-color: #e60012;
+  background: rgba(20, 20, 20, 0.95);
 }
-

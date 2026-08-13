@@ -86,18 +86,26 @@ button{font:inherit}
 .bootcard h1{font-size:22px;letter-spacing:.12em;margin-bottom:10px;color:#fff;font-weight:800}
 .akailogo{width:5.5em;height:auto;color:#fff}
 .bootlogo{line-height:1;margin-bottom:12px}
-.akaibrand{line-height:1;color:var(--red)}
+.akaibrand{line-height:1;color:var(--red);position:relative}
+.akaibrand__kanji{
+  display:block;font-size:.55em;line-height:1;color:var(--red);opacity:.9;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:900}
 .akaibrand__main{
-  display:block;font-size:2.05em;font-weight:800;letter-spacing:.05em;
+  display:block;font-size:2.05em;font-weight:900;letter-spacing:.06em;
   font-family:Georgia,"Times New Roman",serif;color:var(--red)}
 .akaibrand__sub{
-  display:block;font-size:.88em;font-style:italic;letter-spacing:.02em;margin-top:-.12em;
-  font-family:Georgia,"Times New Roman",serif;color:var(--red)}
+  display:block;font-size:.42em;letter-spacing:.35em;margin-top:.08em;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#888;
+  text-transform:uppercase;font-style:normal}
 .deck .akaibrand__main{font-size:2.05em}
-.deck .akaibrand__sub{font-size:.85em}
+.deck .akaibrand__sub{font-size:.38em}
 .mpcword{
-  font-size:1.5em;font-weight:800;letter-spacing:.04em;color:var(--red);
+  display:flex;flex-direction:column;align-items:flex-end;line-height:1.1;
   padding-top:.2em;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+.mpcword__year{
+  font-size:1.4em;font-weight:900;letter-spacing:.02em;color:var(--red)}
+.mpcword__label{
+  font-size:.55em;letter-spacing:.2em;color:#888;font-weight:700}
 .bootlogo b{display:block;font-size:28px;font-weight:800;letter-spacing:.08em;color:var(--red);font-family:Georgia,serif}
 .bootlogo i{display:block;font-size:14px;font-style:italic;color:var(--red);font-family:Georgia,serif}
 .bootcard p{font-size:14px;line-height:1.6;opacity:.8;margin-bottom:18px}

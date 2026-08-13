@@ -43,13 +43,11 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline();
       tl.from(el, { duration: 0.5, opacity: 0, scale: 1.15, filter: 'blur(12px)', ease: 'power3.out' })
-        // rapid RGB-split glitch flicker
-        .to(el, { duration: 0.06, x: -4, textShadow: '3px 0 #22A6E0, -3px 0 #E4322B', repeat: 5, yoyo: true }, '-=0.15')
-        .to(el, { duration: 0.2, x: 0, textShadow: '0 0 14px rgba(228,50,43,0.7)', ease: 'power1.out' });
-      // subtle sustained neon pulse — starts after the intro so it doesn't
-      // fight the glitch's text-shadow flicker.
+        // film-poster RGB split: blood red + warning yellow
+        .to(el, { duration: 0.06, x: -4, textShadow: '3px 0 #F5D000, -3px 0 #E60012', repeat: 5, yoyo: true }, '-=0.15')
+        .to(el, { duration: 0.2, x: 0, textShadow: '3px 3px 0 #1a1a1a, 0 0 24px rgba(230,0,18,0.85)', ease: 'power1.out' });
       gsap.to(el, { delay: 1.1, duration: 1.6, repeat: -1, yoyo: true, ease: 'sine.inOut',
-        textShadow: '0 0 22px rgba(228,50,43,0.95), 0 0 40px rgba(34,166,224,0.35)' });
+        textShadow: '3px 3px 0 #1a1a1a, 0 0 28px rgba(230,0,18,0.95), 0 0 48px rgba(245,208,0,0.25)' });
     }, el);
     return () => ctx.revert();
   }, []);
@@ -63,7 +61,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           <AkiraLogo className="akailogo" />
         </div>
         <h1 className="boot-title" ref={titleRef}>AKIRA PRO MCP</h1>
-        <p className="boot-anime-tag">ネオ東京 · LIVE WALLPAPER</p>
+        <p className="boot-anime-tag">ネオ東京 · 2019 · AKIRA PRO MPC</p>
         <p>16-pad sampler, sequencer &amp; DAW. Everything runs on your device.</p>
         <button
           type="button"
