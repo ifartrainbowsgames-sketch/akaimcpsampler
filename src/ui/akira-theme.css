@@ -1,0 +1,127 @@
+/* ============================================================================
+   AKIRA PRO MCP — Neo-Tokyo neon skin.
+   Applied to the default (dark) theme by remapping the existing design tokens,
+   so the whole token-driven device reskins at once. The `light` theme is left
+   untouched as a clean alternate. High-specificity `body[data-theme="dark"]`
+   selectors so this layer wins regardless of import order.
+   ========================================================================== */
+
+body[data-theme="dark"] {
+  /* Chassis: dark brushed metal with a violet cast instead of cream */
+  --body-hi: #241a30; --body: #150e1f; --body-lo: #0a0713; --body-edge: #46295f;
+  --deck: #08050d;
+
+  /* Panel buttons */
+  --btn: #2a2038; --btn-hi: #3c2d52; --btn-lo: #17102400; --btn-txt: #efe4ff;
+
+  /* Pads */
+  --pad: #241d36; --pad-hi: #362a4e; --pad-lo: #150e20;
+  --rest: #271f3a; --rest-hi: #3a2f52;
+
+  /* Silkscreen text must go light now that the chassis is dark */
+  --ink: #ece1ff; --ink2: #b8a6d8;
+
+  /* Neon accents (kept, slightly hotter) */
+  --orange: #ff8a2a; --orange-lo: #c25e10;
+  --blue: #29c0ff; --blue-lo: #1580b0;
+  --red: #ff2f45;
+  --mpc-red: #ff2a33; --mpc-red-lo: #b0261f;
+  --rgb: #29c0ff;
+
+  color-scheme: dark;
+}
+
+/* Page backdrop goes black so the animated wallpaper (canvas) reads clean */
+body[data-theme="dark"] { background: #060309; }
+
+/* ---- The device: dark metal + red/cyan neon rim glow ---------------------- */
+body[data-theme="dark"] .unit {
+  box-shadow:
+    inset 0 0.12em 0 rgba(120, 90, 160, 0.35),
+    inset 0 0 3em rgba(41, 192, 255, 0.05),
+    0 0 0 1px rgba(255, 42, 51, 0.35),
+    0 0 2.2em rgba(255, 42, 51, 0.28),
+    0 0 4em rgba(41, 192, 255, 0.12),
+    0 1.2em 3em rgba(0, 0, 0, 0.7);
+}
+body[data-theme="dark"] .unit::after { opacity: 0.25; }
+
+/* Brand wordmarks: neon red glow */
+body[data-theme="dark"] .akaibrand { color: var(--mpc-red); }
+body[data-theme="dark"] .akaibrand__main {
+  text-shadow: 0 0 0.5em rgba(255, 42, 51, 0.75), 0 0 1em rgba(255, 42, 51, 0.4);
+}
+body[data-theme="dark"] .mpcword {
+  color: #d8e8ff;
+  text-shadow: 0 0 0.5em rgba(41, 192, 255, 0.6);
+  letter-spacing: 0.14em;
+}
+
+/* ---- Pads: dark glass with a cyan idle rim, hotter lit states ------------- */
+body[data-theme="dark"] .padwell {
+  background: linear-gradient(180deg, #0b0714, #050308);
+  box-shadow: inset 0 0 1.4em rgba(41, 192, 255, 0.08), inset 0 0 0 1px rgba(120, 60, 160, 0.25);
+}
+body[data-theme="dark"] .pad {
+  background: linear-gradient(180deg, #2a2140, #140d20);
+  box-shadow:
+    inset 0 0 0 1px rgba(41, 192, 255, 0.22),
+    inset 0 0.1em 0 rgba(255, 255, 255, 0.06),
+    0 0 0.5em rgba(41, 192, 255, 0.08);
+  transition: box-shadow 0.12s ease, filter 0.12s ease;
+}
+body[data-theme="dark"] .pad.empty {
+  background: linear-gradient(180deg, #1a1428, #0c0814);
+  box-shadow: inset 0 0 0 1px rgba(90, 70, 120, 0.4);
+}
+/* Live hit = bright red neon (Akira) instead of the gold */
+body[data-theme="dark"] .pad.hit {
+  background: linear-gradient(180deg, #ff8a90, #ff2a33 42%, #b01018);
+  box-shadow: 0 0 0.2em #ff2a33, 0 0 1.1em rgba(255, 42, 51, 0.85), 0 0 2em rgba(255, 42, 51, 0.5);
+}
+body[data-theme="dark"] .pad.selected { outline-color: var(--orange); }
+
+/* ---- Panel buttons: dark caps, neon edge, glowing when lit ---------------- */
+body[data-theme="dark"] .pb .cap {
+  background: linear-gradient(180deg, #2c2340, #171024);
+  color: var(--ink);
+  border: 1px solid rgba(140, 90, 200, 0.3);
+  box-shadow: inset 0 0.1em 0 rgba(255, 255, 255, 0.05), 0 0.14em 0 #0a0712;
+}
+body[data-theme="dark"] .pb.lit .cap {
+  filter: none;
+  border-color: rgba(255, 42, 51, 0.6);
+  box-shadow: 0 0 0.8em rgba(255, 42, 51, 0.6), inset 0 0 0.6em rgba(255, 42, 51, 0.25);
+  color: #fff;
+}
+body[data-theme="dark"] .pb.orange .cap {
+  box-shadow: 0 0 0.7em rgba(255, 138, 42, 0.45), inset 0 0.1em 0 rgba(255, 255, 255, 0.15);
+}
+body[data-theme="dark"] .pb.blue .cap {
+  box-shadow: 0 0 0.7em rgba(41, 192, 255, 0.5), inset 0 0.1em 0 rgba(255, 255, 255, 0.15);
+}
+
+/* ---- LCD: cyan neon frame ------------------------------------------------- */
+body[data-theme="dark"] .lcd {
+  box-shadow: inset 0 0 0 1px rgba(41, 192, 255, 0.25), inset 0 0 2em rgba(41, 192, 255, 0.06);
+}
+
+/* Function/bank buttons + jog get a subtle neon ring */
+body[data-theme="dark"] .fnbtn { box-shadow: 0 0 0.4em rgba(41, 192, 255, 0.4); }
+body[data-theme="dark"] .screw { filter: brightness(0.7) hue-rotate(220deg); }
+
+/* Boot card: darker glass so the wallpaper reads behind it */
+body[data-theme="dark"] .bootcard {
+  background: rgba(20, 10, 30, 0.55);
+  border-color: rgba(255, 42, 51, 0.3);
+  box-shadow: 0 0 3em rgba(255, 42, 51, 0.2), inset 0 0 2em rgba(41, 192, 255, 0.05);
+}
+body[data-theme="dark"] .bootbtn {
+  background: linear-gradient(180deg, #ff2a33, #b0161d);
+  box-shadow: 0 0 1.2em rgba(255, 42, 51, 0.6);
+  color: #fff; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-theme="dark"] .akaibrand__main { text-shadow: 0 0 0.4em rgba(255, 42, 51, 0.6); }
+}
