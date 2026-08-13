@@ -146,6 +146,43 @@ export interface Sequence {
   automation?: AutoEvent[];
 }
 
+/**
+ * A pattern clip placed on the free-form arrangement/playlist timeline.
+ * References a stored Sequence by (bank, slot) — the clip is a *placement*,
+ * never a copy, so editing the pattern updates every clip that uses it
+ * (FL Studio's pattern-clip model).
+ */
+export interface PlaylistClip {
+  id: string;
+  /** Playlist track (row) index. */
+  track: number;
+  /** Referenced pattern location. */
+  bank: number;
+  slot: number;
+  /** Absolute tick on the song timeline where the clip begins. */
+  startTick: number;
+  /**
+   * Clip length in ticks. Usually the pattern's natural length; if longer,
+   * the pattern loops to fill; if shorter, the pattern is truncated.
+   */
+  lengthTicks: number;
+  muted?: boolean;
+}
+
+/**
+ * Free-form arrangement: pattern clips painted on parallel tracks over a
+ * global song timeline. Distinct from `Project.song`, which is the older
+ * linear one-pattern-at-a-time chain (kept for backward compatibility and
+ * used to seed a fresh arrangement).
+ */
+export interface Arrangement {
+  /** Number of visible tracks (rows). */
+  tracks: number;
+  /** Total timeline length in bars (the loop extent). */
+  lengthBars: number;
+  clips: PlaylistClip[];
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -165,6 +202,11 @@ export interface Project {
   banks: Pad[][];        // [bank][pad]
   sequences: Sequence[][]; // [bank][slot]
   song: { bank: number; slot: number }[];
+  /**
+   * Free-form playlist. Optional so projects saved before this feature load
+   * cleanly; `normalizeProject` backfills it on load.
+   */
+  arrangement?: Arrangement;
 }
 
 export function makeEnvelope(overrides: Partial<Envelope> = {}): Envelope {
@@ -215,6 +257,13 @@ export function makeSequence(name: string): Sequence {
   return { name, bars: 4, events: [], bpm: 93, automation: [] };
 }
 
+/** Default number of playlist tracks (rows) in a fresh arrangement. */
+export const DEFAULT_PLAYLIST_TRACKS = 8;
+
+export function makeArrangement(): Arrangement {
+  return { tracks: DEFAULT_PLAYLIST_TRACKS, lengthBars: 16, clips: [] };
+}
+
 export function makeProject(name = 'New Project'): Project {
   return {
     id: crypto.randomUUID(),
@@ -237,7 +286,18 @@ export function makeProject(name = 'New Project'): Project {
       )
     ),
     song: [],
+    arrangement: makeArrangement(),
   };
+}
+
+/**
+ * Fill in fields added after a project may have been saved. Called on load so
+ * older projects gain an empty arrangement instead of `undefined`. Mutates and
+ * returns the same object.
+ */
+export function normalizeProject(p: Project): Project {
+  if (!p.arrangement) p.arrangement = makeArrangement();
+  return p;
 }
 
 /** One-shot pads used to default to poly — stacked hits ducked the compressor. */

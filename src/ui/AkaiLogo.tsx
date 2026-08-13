@@ -1,17 +1,17 @@
-/** AKAI professional — matches hardware deck silkscreen. */
-export function AkaiLogo({ className }: { className?: string }) {
+/** AKIRA — original neon wordmark (Akira-inspired, not a trademarked mark). */
+export function AkiraLogo({ className }: { className?: string }) {
   return (
-    <div className={`akaibrand ${className ?? ''}`} aria-label="AKAI professional">
-      <span className="akaibrand__main">AKAI</span>
-      <span className="akaibrand__sub">professional</span>
+    <div className={`akaibrand ${className ?? ''}`} aria-label="AKIRA">
+      <span className="akaibrand__main">AKIRA</span>
+      <span className="akaibrand__sub">pro</span>
     </div>
   );
 }
 
-export function MpcWordmark({ className }: { className?: string }) {
+export function ProMcpWordmark({ className }: { className?: string }) {
   return (
-    <div className={`mpcword ${className ?? ''}`} aria-label="MPC SAMPLE">
-      MPC SAMPLE
+    <div className={`mpcword ${className ?? ''}`} aria-label="AKIRA PRO MCP">
+      AKIRA PRO MCP
     </div>
   );
 }

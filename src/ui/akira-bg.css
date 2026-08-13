@@ -1,0 +1,45 @@
+.akira-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+  background: #05060b;
+}
+
+/* CSS scanline + vignette overlay on top of the canvas (cheap, GPU-composited) */
+.akira-scan {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.14) 3px,
+      rgba(0, 0, 0, 0) 4px
+    ),
+    radial-gradient(120% 90% at 50% 45%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.6) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.8;
+}
+
+/* Keep the device chrome above the wallpaper; let the wallpaper show through
+   the stage (including the <=900px breakpoint, which otherwise paints it). */
+.stage { position: relative; z-index: 1; background: transparent !important; }
+.boot { position: relative; z-index: 0; }
+.bootcard { position: relative; z-index: 1; }
+
+.boot-title {
+  color: #fff;
+  text-shadow: 0 0 14px rgba(228, 50, 43, 0.7);
+  will-change: transform, filter, text-shadow;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .akira-scan { opacity: 0.4; }
+}

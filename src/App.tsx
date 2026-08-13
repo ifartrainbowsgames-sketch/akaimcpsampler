@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { gsap } from 'gsap';
 import { useStore } from './state/store';
 import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
@@ -15,7 +16,8 @@ import { guideClick } from './guide/guideClick';
 import { useTransportMeter } from './ui/useTransportMeter';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
-import { AkaiLogo, MpcWordmark } from './ui/AkaiLogo';
+import { AkiraLogo, ProMcpWordmark } from './ui/AkaiLogo';
+import { AkiraBackground } from './ui/AkiraBackground';
 import type { ChopLoadMode } from './storage/preferences';
 
 export default function App() {
@@ -28,14 +30,37 @@ export default function App() {
 
 function BootScreen({ onStart }: { onStart(): Promise<void> }) {
   const [busy, setBusy] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // GSAP glitch/neon reveal of the AKIRA PRO MCP wordmark on load.
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline();
+      tl.from(el, { duration: 0.5, opacity: 0, scale: 1.15, filter: 'blur(12px)', ease: 'power3.out' })
+        // rapid RGB-split glitch flicker
+        .to(el, { duration: 0.06, x: -4, textShadow: '3px 0 #22A6E0, -3px 0 #E4322B', repeat: 5, yoyo: true }, '-=0.15')
+        .to(el, { duration: 0.2, x: 0, textShadow: '0 0 14px rgba(228,50,43,0.7)', ease: 'power1.out' });
+      // subtle sustained neon pulse — starts after the intro so it doesn't
+      // fight the glitch's text-shadow flicker.
+      gsap.to(el, { delay: 1.1, duration: 1.6, repeat: -1, yoyo: true, ease: 'sine.inOut',
+        textShadow: '0 0 22px rgba(228,50,43,0.95), 0 0 40px rgba(34,166,224,0.35)' });
+    }, el);
+    return () => ctx.revert();
+  }, []);
+
   return (
     <div className="boot">
+      <AkiraBackground />
       <div className="bootcard">
         <div className="bootlogo">
-          <AkaiLogo className="akailogo" />
+          <AkiraLogo className="akailogo" />
         </div>
-        <h1>MPC SAMPLE</h1>
-        <p>16-pad sampler and sequencer. Everything runs on your device.</p>
+        <h1 className="boot-title" ref={titleRef}>AKIRA PRO MCP</h1>
+        <p>16-pad sampler, sequencer &amp; DAW. Everything runs on your device.</p>
         <button
           type="button"
           className="bootbtn"
@@ -177,6 +202,7 @@ function Panel() {
 
   return (
     <>
+      <AkiraBackground />
       <div className={`stage ${shift ? 'shifted' : ''}`}>
       <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
@@ -189,13 +215,13 @@ function Panel() {
 
         <div className="deck">
           <div className="deckrow1">
-            <div className="logo"><AkaiLogo className="akailogo akailogo--deck" /></div>
+            <div className="logo"><AkiraLogo className="akailogo akailogo--deck" /></div>
             <div className="fnrow">
               <button type="button" className="fnbtn" aria-label="B1" onClick={() => cycleB(1)} />
               <button type="button" className="fnbtn" aria-label="B2" onClick={() => cycleB(2)} />
               <button type="button" className="fnbtn" aria-label="B3" onClick={() => cycleB(3)} />
             </div>
-            <div className="wordmark"><MpcWordmark /></div>
+            <div className="wordmark"><ProMcpWordmark /></div>
           </div>
 
           <div className="deckrow2">

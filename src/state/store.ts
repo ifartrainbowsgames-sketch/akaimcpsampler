@@ -11,13 +11,15 @@ import { createChopSlice } from './slices/chopSlice';
 import { createFxSlice } from './slices/fxSlice';
 import { createLibrarySlice } from './slices/librarySlice';
 import { createMiscSlice } from './slices/miscSlice';
+import { createArrangementSlice } from './slices/arrangementSlice';
+import { createChannelRackSlice } from './slices/channelRackSlice';
 
 export type ScreenId =
   | 'sample' | 'seq' | 'stepedit' | 'song'
   | 'browser' | 'beats' | 'kits' | 'library' | 'smprec'
   | 'padfx' | 'flexbeat' | 'knobfx' | 'knobfx-select'
   | 'comp' | 'inputcfg' | 'fadermenu' | 'timecorr' | 'midi' | 'project' | 'loadproj'
-  | 'pianoroll' | 'padmixer' | 'keygroup';
+  | 'pianoroll' | 'padmixer' | 'keygroup' | 'playlist' | 'channelrack';
 
 export type FlexBeatMode = 'oneshot' | 'loop';
 export type InputRecLength = 'FREE' | 'SEQ';
@@ -115,6 +117,18 @@ export interface UIState {
   stop(hardReset?: boolean): void;
   toggleRecord(): void;
   playSong(): void;
+  // ---- Playlist / arrangement ----
+  playArrangement(): void;
+  addClip(track: number, bank: number, slot: number, startTick: number): void;
+  moveClip(id: string, track: number, startTick: number): void;
+  deleteClip(id: string): void;
+  toggleClipMute(id: string): void;
+  setArrangementLength(bars: number): void;
+  seedArrangementFromSong(): void;
+  // ---- Channel rack (FL-style step grid over the active pattern) ----
+  toggleStep(pad: number, step: number, velocity?: number): void;
+  setStepVelocity(pad: number, step: number, velocity: number): void;
+  clearChannel(pad: number): void;
   tapTempo(): void;
   toggleMetronome(): void;
   toggleNoteRepeat(): void;
@@ -301,4 +315,6 @@ export const useStore = create<UIState>()((...a) => ({
   ...createFxSlice(...a),
   ...createLibrarySlice(...a),
   ...createMiscSlice(...a),
+  ...createArrangementSlice(...a),
+  ...createChannelRackSlice(...a),
 }));

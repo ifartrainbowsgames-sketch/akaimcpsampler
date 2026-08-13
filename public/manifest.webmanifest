@@ -1,7 +1,7 @@
 {
-  "name": "MPC SAMPLE",
-  "short_name": "MPC SAMPLE",
-  "description": "A browser-based MPC-style sampler and sequencer.",
+  "name": "AKIRA PRO MCP",
+  "short_name": "AKIRA PRO",
+  "description": "A browser-based MPC-style sampler, sequencer and DAW.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

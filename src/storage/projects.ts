@@ -1,4 +1,5 @@
 import type { Project } from '../audio/types';
+import { normalizeProject } from '../audio/types';
 
 const INDEX_KEY = 'sampler.projects';
 const CURRENT_KEY = 'sampler.current';
@@ -36,7 +37,7 @@ export function loadProject(id: string): Project | null {
     const raw = localStorage.getItem(`sampler.project.${id}`);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidProject(parsed) ? parsed : null;
+    return isValidProject(parsed) ? normalizeProject(parsed) : null;
   } catch {
     return null;
   }
@@ -72,7 +73,7 @@ export function loadAutosave(): Project | null {
     const raw = localStorage.getItem(CURRENT_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidProject(parsed) ? parsed : null;
+    return isValidProject(parsed) ? normalizeProject(parsed) : null;
   } catch {
     return null;
   }

@@ -65,6 +65,8 @@ export class Engine {
   pausedAt = 0;
   songMode = false;
   songIndex = 0;
+  /** When true, transport plays the free-form arrangement instead of a pattern. */
+  arrangementMode = false;
   onRecordHit: ((ev: SeqEvent) => void) | null = null;
   onSongStepChange: ((bank: number, slot: number) => void) | null = null;
   /** Fired at each sequence loop boundary (not during song chain). */
@@ -256,6 +258,10 @@ export class Engine {
     this.scheduler = new Scheduler({
       ctx,
       getSequence: () => this.activeSequence(),
+      arrangementMode: () => this.arrangementMode,
+      getArrangement: () => this.project?.arrangement ?? null,
+      getSequenceAt: (bank, slot) =>
+        this.project?.sequences[bank]?.[slot] ?? null,
       getBpm: () => {
         const p = this.project;
         if (!p) return 120;
@@ -823,6 +829,7 @@ export class Engine {
     if (this.project) this.syncSendLevels(this.project);
     this.songMode = false;
     this.songIndex = 0;
+    this.arrangementMode = false;
     midi.stop();
   }
 
@@ -840,6 +847,17 @@ export class Engine {
     this.currentBank = step.bank;
     this.currentSeqSlot = step.slot;
     this.onSongStepChange?.(step.bank, step.slot);
+    this.play(false);
+  }
+
+  /**
+   * Play the free-form arrangement/playlist from the top. Concurrent pattern
+   * clips are scheduled on a global song clock (see Scheduler.tickArrangement).
+   */
+  startArrangement() {
+    if (!this.project?.arrangement) return;
+    this.arrangementMode = true;
+    this.pausedAt = 0;
     this.play(false);
   }
 

@@ -16,6 +16,8 @@ import { resolveScreenParams } from './screenParams';
 import { FLEX_BEAT_EFFECTS } from '../audio/fx/flexbeat';
 import { guideClick } from '../guide/guideClick';
 import { PianoRoll } from '../ui/PianoRoll';
+import { Playlist } from '../ui/Playlist';
+import { ChannelRack } from '../ui/ChannelRack';
 import { StatusBar } from './StatusBar';
 import { QLinkStrip } from './QLinkDial';
 
@@ -113,6 +115,22 @@ export function LCD() {
     return (
       <div className="lcd" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <PianoRoll />
+      </div>
+    );
+  }
+
+  if (screen === 'playlist') {
+    return (
+      <div className="lcd" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Playlist />
+      </div>
+    );
+  }
+
+  if (screen === 'channelrack') {
+    return (
+      <div className="lcd" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <ChannelRack />
       </div>
     );
   }
@@ -297,6 +315,7 @@ const SCREEN_TITLES: Record<string, string> = {
   comp: 'COMPRESSOR', inputcfg: 'INPUT CONFIG', fadermenu: 'FADER',
   timecorr: 'TIME CORRECT', midi: 'MIDI CONFIG', project: 'PROJECT',
   pianoroll: 'PIANO ROLL', padmixer: 'PAD MIXER', keygroup: 'KEYGROUP',
+  playlist: 'PLAYLIST', channelrack: 'CHANNEL RACK',
 };
 
 const TAB_INDICES = [0, 1, 2];
@@ -320,6 +339,9 @@ function ScreenBody({ screen }: { screen: string }) {
           <div className="lcdrow"><span>Events</span><b>{seq.events.length}</b></div>
           <div className="lcdrow"><span>Length</span><b>{seq.bars} bars</b></div>
           <div className="lcdbtns">
+            <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('channelrack')}>
+              CHANNEL RACK
+            </button>
             <button type="button" className="lcd-btn lcd-btn--action" onClick={() => setScreen('pianoroll')}>
               PIANO ROLL
             </button>
@@ -541,6 +563,7 @@ function SongScreen() {
   const exportSong = useStore((s) => s.exportSong);
   const playSong = useStore((s) => s.playSong);
   const seqSlot = useStore((s) => s.seqSlot);
+  const setScreen = useStore((s) => s.setScreen);
 
   return (
     <div className="lcdpanel">
@@ -556,8 +579,9 @@ function SongScreen() {
         <button type="button" onClick={() => addSongStep(bank, seqSlot)}>INSERT</button>
         <button type="button" onClick={() => playSong()} disabled={!project.song.length}>PLAY</button>
         <button type="button" onClick={() => void exportSong()}>EXPORT</button>
+        <button type="button" className="lcd-btn--action" onClick={() => setScreen('playlist')}>PLAYLIST ▶</button>
       </div>
-      <div className="hintline">PLAY chains sequences. Tap a step to remove.</div>
+      <div className="hintline">PLAY chains sequences linearly · PLAYLIST is the free-form timeline.</div>
     </div>
   );
 }

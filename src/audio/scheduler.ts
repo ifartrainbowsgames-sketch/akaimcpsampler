@@ -1,5 +1,5 @@
 import { PPQN, TICKS_PER_8TH, TICKS_PER_16TH } from './types';
-import type { Sequence, SeqEvent, Project, AutoEvent } from './types';
+import type { Sequence, SeqEvent, Project, AutoEvent, Arrangement } from './types';
 
 /**
  * Lookahead scheduling, per "A Tale of Two Clocks".
@@ -37,6 +37,10 @@ export interface TransportState {
 export interface SchedulerHost {
   ctx: AudioContext;
   getSequence(): Sequence | null;
+  /** Arrangement/playlist playback (optional; pattern mode when absent). */
+  arrangementMode?(): boolean;
+  getArrangement?(): Arrangement | null;
+  getSequenceAt?(bank: number, slot: number): Sequence | null;
   getBpm(): number;
   getSwing(): number;
   getTimeSignature(): [number, number];
@@ -110,11 +114,21 @@ export class Scheduler {
     return 60 / this.host.getBpm() / PPQN;
   }
 
+  private isArrangement(): boolean {
+    return !!(this.host.arrangementMode?.() && this.host.getArrangement?.());
+  }
+
   start(fromTick = 0, countInBars = 0) {
-    const seq = this.host.getSequence();
-    if (!seq) return;
+    const bar = ticksPerBar(this.host.getTimeSignature());
+    if (this.isArrangement()) {
+      const arr = this.host.getArrangement!()!;
+      this.loopLengthTicks = Math.max(1, arr.lengthBars * bar);
+    } else {
+      const seq = this.host.getSequence();
+      if (!seq) return;
+      this.loopLengthTicks = seq.bars * bar;
+    }
     const ctx = this.host.ctx;
-    this.loopLengthTicks = seq.bars * ticksPerBar(this.host.getTimeSignature());
     this.nextTick = fromTick;
     this.lastClickTick = -1;
     this.lastLoopIndex = Math.floor(fromTick / this.loopLengthTicks);
@@ -181,6 +195,10 @@ export class Scheduler {
 
   private tick() {
     if (!this.state.playing) return;
+    if (this.isArrangement()) {
+      this.tickArrangement();
+      return;
+    }
     const seq = this.host.getSequence();
     if (!seq) return;
 
@@ -215,29 +233,7 @@ export class Scheduler {
       }
 
       if (!inCountIn) {
-        const humanize = this.host.getHumanize();
-        const secPerTick = this.secPerTick();
-        for (const e of seq.events) {
-          const swung = applySwing(e.tick, swing);
-          if (Math.round(swung) === tickInLoop) {
-            // Probability gate: skip event if random roll exceeds probability
-            const prob = e.probability ?? 100;
-            if (prob < 100 && Math.random() * 100 > prob) continue;
-
-            let when = this.timeForTick(this.nextTick);
-            let velOverride: number | undefined;
-
-            if (humanize.timing > 0) {
-              when += (Math.random() - 0.5) * (humanize.timing / 100) * secPerTick * TICKS_PER_16TH;
-            }
-            if (humanize.velocity > 0) {
-              const scatter = Math.round((Math.random() - 0.5) * humanize.velocity * 0.5);
-              velOverride = Math.max(1, Math.min(127, e.velocity + scatter));
-            }
-
-            this.host.playEvent(e, when, velOverride);
-          }
-        }
+        this.fireSequenceEvents(seq, tickInLoop, this.timeForTick(this.nextTick), swing);
 
         // Note repeat — scheduler-driven, transport-synced.
         for (const slot of this.noteRepeats.values()) {
@@ -253,14 +249,6 @@ export class Scheduler {
             slot.nextTick = (tickInLoop + slot.interval) % this.loopLengthTicks;
           }
         }
-
-        // Mixer automation — replay recorded volume/pan points at their tick.
-        if (seq.automation && this.host.applyAutomation) {
-          const when = this.timeForTick(this.nextTick);
-          for (const a of seq.automation) {
-            if (a.tick === tickInLoop) this.host.applyAutomation(a, when);
-          }
-        }
       }
 
       if (!inCountIn && tickInLoop % (PPQN / 24) === 0) {
@@ -273,6 +261,105 @@ export class Scheduler {
     const pos = inCountIn
       ? rawPos % Math.max(1, this.countInTicks)
       : (rawPos - this.countInTicks) % this.loopLengthTicks;
+    this.state.positionTicks = Math.max(0, pos);
+    this.state.currentStep = Math.floor(pos / TICKS_PER_16TH);
+    this.host.onPosition({ ...this.state });
+  }
+
+  /**
+   * Fire every event in `seq` that lands on `localTick` (after swing), at audio
+   * time `baseWhen`, applying probability gating and humanize. Also replays any
+   * automation points at that tick. Shared by pattern-loop and arrangement
+   * playback so the two paths never drift.
+   */
+  private fireSequenceEvents(
+    seq: Sequence,
+    localTick: number,
+    baseWhen: number,
+    swing: number
+  ) {
+    const humanize = this.host.getHumanize();
+    const secPerTick = this.secPerTick();
+    for (const e of seq.events) {
+      const swung = applySwing(e.tick, swing);
+      if (Math.round(swung) !== localTick) continue;
+
+      // Probability gate: skip event if random roll exceeds probability
+      const prob = e.probability ?? 100;
+      if (prob < 100 && Math.random() * 100 > prob) continue;
+
+      let when = baseWhen;
+      let velOverride: number | undefined;
+
+      if (humanize.timing > 0) {
+        when += (Math.random() - 0.5) * (humanize.timing / 100) * secPerTick * TICKS_PER_16TH;
+      }
+      if (humanize.velocity > 0) {
+        const scatter = Math.round((Math.random() - 0.5) * humanize.velocity * 0.5);
+        velOverride = Math.max(1, Math.min(127, e.velocity + scatter));
+      }
+
+      this.host.playEvent(e, when, velOverride);
+    }
+
+    // Mixer automation — replay recorded volume/pan points at their tick.
+    if (seq.automation && this.host.applyAutomation) {
+      for (const a of seq.automation) {
+        if (a.tick === localTick) this.host.applyAutomation(a, baseWhen);
+      }
+    }
+  }
+
+  /**
+   * Arrangement/playlist playback: a global song clock over which many pattern
+   * clips play concurrently. Each active clip maps the song tick into its
+   * referenced pattern's local tick (looping the pattern if the clip is longer)
+   * and fires through the same event path as pattern mode.
+   */
+  private tickArrangement() {
+    const arr = this.host.getArrangement?.();
+    if (!arr) return;
+
+    const ctx = this.host.ctx;
+    const horizon = ctx.currentTime + LOOKAHEAD;
+    const bar = ticksPerBar(this.host.getTimeSignature());
+    this.loopLengthTicks = Math.max(1, arr.lengthBars * bar);
+    const swing = this.host.getSwing();
+
+    while (this.timeForTick(this.nextTick) < horizon) {
+      const tickInLoop = this.nextTick % this.loopLengthTicks;
+      const loopIndex = Math.floor(this.nextTick / this.loopLengthTicks);
+
+      if (loopIndex > this.lastLoopIndex && tickInLoop === 0 && this.nextTick > 0) {
+        this.host.onLoopComplete?.();
+        this.lastLoopIndex = loopIndex;
+      }
+
+      if (this.host.metronomeEnabled() && tickInLoop % PPQN === 0) {
+        if (this.nextTick !== this.lastClickTick) {
+          this.host.click?.(this.timeForTick(this.nextTick), tickInLoop % bar === 0);
+          this.lastClickTick = this.nextTick;
+        }
+      }
+
+      const baseWhen = this.timeForTick(this.nextTick);
+      for (const clip of arr.clips) {
+        if (clip.muted) continue;
+        if (tickInLoop < clip.startTick) continue;
+        if (tickInLoop >= clip.startTick + clip.lengthTicks) continue;
+        const seq = this.host.getSequenceAt?.(clip.bank, clip.slot);
+        if (!seq) continue;
+        const patLen = Math.max(1, seq.bars * bar);
+        const localTick = (tickInLoop - clip.startTick) % patLen;
+        this.fireSequenceEvents(seq, localTick, baseWhen, swing);
+      }
+
+      if (tickInLoop % (PPQN / 24) === 0) this.host.onMidiClock?.();
+
+      this.nextTick += 1;
+    }
+
+    const pos = this.currentTick() % this.loopLengthTicks;
     this.state.positionTicks = Math.max(0, pos);
     this.state.currentStep = Math.floor(pos / TICKS_PER_16TH);
     this.host.onPosition({ ...this.state });
