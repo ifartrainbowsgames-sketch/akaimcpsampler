@@ -49,18 +49,17 @@ body[data-theme="dark"] .pad:active:not(.hit) {
 /* ---- Poster red orb glow behind unit ------------------------------------- */
 .akira-orb-glow {
   position: fixed;
-  top: 8%;
+  top: 22%;
   left: 50%;
   transform: translateX(-50%);
-  width: min(95vw, 560px);
-  height: min(95vw, 560px);
+  width: min(70vw, 420px);
+  height: min(70vw, 420px);
   border-radius: 50%;
   background: radial-gradient(
     circle at 42% 38%,
-    rgba(255, 70, 50, 0.5) 0%,
-    rgba(230, 0, 18, 0.28) 30%,
-    rgba(180, 0, 10, 0.08) 55%,
-    transparent 70%
+    rgba(230, 0, 18, 0.12) 0%,
+    rgba(230, 0, 18, 0.05) 40%,
+    transparent 65%
   );
   pointer-events: none;
   z-index: 0;

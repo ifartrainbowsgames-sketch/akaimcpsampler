@@ -61,7 +61,7 @@ function BootScreen({ onStart }: { onStart(): Promise<void> }) {
           <AkiraLogo className="akailogo" />
         </div>
         <h1 className="boot-title" ref={titleRef}>AKIRA PRO MCP</h1>
-        <p className="boot-anime-tag">ネオ東京 · 2019 · AKIRA PRO MPC</p>
+        <p className="boot-anime-tag">ネオ東京 · GSAP LIVE WALLPAPER</p>
         <p>16-pad sampler, sequencer &amp; DAW. Everything runs on your device.</p>
         <button
           type="button"
