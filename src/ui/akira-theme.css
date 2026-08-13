@@ -125,3 +125,58 @@ body[data-theme="dark"] .bootbtn {
 @media (prefers-reduced-motion: reduce) {
   body[data-theme="dark"] .akaibrand__main { text-shadow: 0 0 0.4em rgba(255, 42, 51, 0.6); }
 }
+
+/* ---- Boot splash ---------------------------------------------------------- */
+body[data-theme="dark"] .bootcard h1,
+body[data-theme="dark"] .boot-title { color: #fff; }
+body[data-theme="dark"] .bootcard p,
+body[data-theme="dark"] .bootnote { color: #c8b8e8; opacity: 0.85; }
+body[data-theme="dark"] .bootver { color: #29c0ff; opacity: 0.7; }
+
+/* ---- DAW sub-screens (piano roll, playlist, channel rack) ----------------- */
+body[data-theme="dark"] .pianoroll,
+body[data-theme="dark"] .playlist,
+body[data-theme="dark"] .channelrack {
+  background: linear-gradient(180deg, #120a1a, #08050d);
+  color: #ece1ff;
+}
+body[data-theme="dark"] .pianoroll__toolbar,
+body[data-theme="dark"] .playlist__toolbar,
+body[data-theme="dark"] .channelrack__toolbar {
+  background: #0f0818;
+  border-bottom-color: rgba(255, 42, 51, 0.25);
+}
+body[data-theme="dark"] .pianoroll__btn,
+body[data-theme="dark"] .playlist__btn,
+body[data-theme="dark"] .channelrack__btn {
+  background: linear-gradient(180deg, #2a2140, #140d20);
+  border-color: rgba(41, 192, 255, 0.25);
+  color: #ece1ff;
+}
+body[data-theme="dark"] .pianoroll__btn--on,
+body[data-theme="dark"] .playlist__btn--on {
+  background: linear-gradient(180deg, #ff8a90, #ff2a33);
+  border-color: rgba(255, 42, 51, 0.6);
+  box-shadow: 0 0 0.8em rgba(255, 42, 51, 0.5);
+}
+body[data-theme="dark"] .pianoroll__note--on {
+  background: linear-gradient(180deg, #ff6a70, #ff2a33);
+  box-shadow: 0 0 6px rgba(255, 42, 51, 0.7);
+}
+
+/* ---- Piano overlay harmonization ------------------------------------------ */
+body[data-theme="dark"] .piano-fs {
+  background: linear-gradient(180deg, rgba(10, 6, 20, 0.97), rgba(6, 3, 9, 0.98));
+}
+body[data-theme="dark"] .piano-fs__title { color: #ff2a33; text-shadow: 0 0 1em rgba(255, 42, 51, 0.5); }
+body[data-theme="dark"] .piano-pattern__cell--on {
+  background: linear-gradient(180deg, #ff6b9d, #ff2a33);
+  border-color: #ff8ab0;
+}
+
+/* ---- Guide bubble neon frame ---------------------------------------------- */
+body[data-theme="dark"] .guide-pop {
+  border-color: rgba(255, 42, 51, 0.45);
+  box-shadow: 0 0 1.5em rgba(255, 42, 51, 0.25), 0 0 2em rgba(41, 192, 255, 0.12);
+}
+

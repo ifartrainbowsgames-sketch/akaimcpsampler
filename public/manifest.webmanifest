@@ -1,12 +1,12 @@
 {
-  "name": "AKIRA PRO MCP",
+  "name": "AKIRA PRO MPC",
   "short_name": "AKIRA PRO",
-  "description": "A browser-based MPC-style sampler, sequencer and DAW.",
+  "description": "Neo-Tokyo MPC sampler, sequencer and DAW — runs on your device.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#FAFAF8",
-  "theme_color": "#0d0d0e",
+  "background_color": "#060309",
+  "theme_color": "#ff2a33",
   "icons": [
     {
       "src": "/icons/icon.svg",
@@ -15,10 +15,10 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/icon.svg",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

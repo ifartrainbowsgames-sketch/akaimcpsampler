@@ -4,20 +4,20 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; worker-src 'self' blob:; img-src 'self' data: blob:;" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#0d0d0e" />
+    <meta name="theme-color" content="#060309" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-512.png" />
     <title>AKIRA PRO MCP</title>
   </head>
-  <body>
+  <body data-theme="dark">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js?v=13').then((reg) => {
+          navigator.serviceWorker.register('/sw.js?v=14').then((reg) => {
             reg.update();
             setInterval(() => reg.update(), 60 * 60 * 1000);
           }).catch(() => {});

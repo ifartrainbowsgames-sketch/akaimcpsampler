@@ -82,6 +82,15 @@ export function AkiraBackground() {
       const s = Math.max(W / img.width, H / img.height);
       const dw = img.width * s, dh = img.height * s;
       ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      // Subtle breathing glow on image wallpaper
+      const pulse = 0.92 + Math.sin(Date.now() * 0.0008) * 0.04;
+      ctx.globalAlpha = pulse;
+      const glow = ctx.createRadialGradient(W * 0.65, H * HORIZON, 0, W * 0.65, H * HORIZON, W * 0.5);
+      glow.addColorStop(0, 'rgba(255,42,51,0.12)');
+      glow.addColorStop(1, 'rgba(255,42,51,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
       // darken for legibility + red/cyan grade
       const g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, 'rgba(8,4,14,0.55)');
