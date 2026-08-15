@@ -1,0 +1,245 @@
+/* ==========================================================================
+   AKIRA environment — layout/positioning for IMAGE layers only
+   ========================================================================== */
+
+.akira-env {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: #060608;
+}
+
+.akira-env__bg-wrap,
+.neo-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.neo-bg__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+  will-change: transform;
+}
+
+/* Layer 2 — overlay image */
+.atmo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.atmo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Layer 3 — neon sign image */
+.neon-sign {
+  position: absolute;
+  top: clamp(0.5rem, 2vh, 1.5rem);
+  left: clamp(0.75rem, 3vw, 2rem);
+  z-index: 1;
+  width: min(42vw, 240px);
+}
+
+.neon-sign__img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(230, 0, 18, 0.35));
+}
+
+/* Layer 5 — bike image */
+.bike-fg {
+  position: fixed;
+  right: clamp(-4%, -2vw, 2%);
+  bottom: clamp(2%, 4vh, 8%);
+  width: min(52vw, 640px);
+  z-index: 2;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.bike-fg__img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.65)) drop-shadow(0 0 24px rgba(230, 0, 18, 0.25));
+  object-fit: contain;
+}
+
+/* Layer 6 — grain image tile */
+.film-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.film-grain img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Speed-line hit flash host */
+.akira-env__speedhost,
+.akira-hit-host {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.akira-hit-speedlines {
+  position: absolute;
+  width: min(90vmax, 720px);
+  height: auto;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+/* Branding */
+.akira-brand--header {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: clamp(0.5rem, 2vh, 1.25rem) 1rem 0.25rem;
+  pointer-events: none;
+}
+
+.akira-brand__bg-kanji {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -58%);
+  width: min(70vw, 420px);
+  height: auto;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.akira-brand__title {
+  position: relative;
+  margin: 0;
+  line-height: 1.05;
+}
+
+.akira-brand__en {
+  display: block;
+  font-family: var(--akira-font-display);
+  font-size: clamp(1.35rem, 4.5vw, 2.35rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: #f0ebe4;
+  text-shadow: 2px 2px 0 #1a1a1a;
+}
+
+.akira-brand__jp {
+  display: block;
+  font-family: var(--akira-font-jp);
+  font-size: clamp(0.65rem, 2vw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: rgba(245, 208, 0, 0.85);
+  margin-top: 0.25rem;
+}
+
+.akira-brand__tag {
+  margin: 0.35rem 0 0;
+  font-family: var(--akira-font-display);
+  font-size: clamp(0.5rem, 1.4vw, 0.65rem);
+  letter-spacing: 0.42em;
+  color: rgba(180, 180, 180, 0.65);
+}
+
+.akira-brand--boot { margin-bottom: 0.75rem; }
+.akira-brand--boot .akira-brand__en { font-size: clamp(1.5rem, 5vw, 2rem); }
+
+.akira-brand--deck { line-height: 1; color: var(--red); }
+.akira-brand--deck .akira-brand__en {
+  display: inline;
+  font-size: 1.65em;
+  letter-spacing: 0.06em;
+  color: var(--red);
+}
+.akira-brand--deck .akira-brand__en--sample { font-size: 1.05em; margin-left: 0.12em; }
+.akira-brand--deck .akira-brand__jp {
+  display: block;
+  font-size: 0.42em;
+  letter-spacing: 0.2em;
+  margin-top: 0.15em;
+  color: rgba(200, 200, 200, 0.7);
+}
+
+.mpc-stamp {
+  font-family: var(--akira-font-display);
+  font-size: 1.35em;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--red);
+}
+
+.akira-intro-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #000;
+  pointer-events: none;
+}
+
+.akira-intro-sys {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 51;
+  font-family: var(--akira-font-jp);
+  font-size: clamp(0.75rem, 2.5vw, 0.95rem);
+  letter-spacing: 0.35em;
+  color: rgba(245, 208, 0, 0.9);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.stage { position: relative; z-index: 10; background: transparent !important; }
+.boot { position: relative; z-index: 5; min-height: 100%; }
+.bootcard { position: relative; z-index: 6; }
+
+@media (max-width: 768px) {
+  .neo-bg__img { object-position: center 28%; }
+  .bike-fg { width: min(72vw, 420px); right: -8%; bottom: 1%; opacity: 0.88; }
+  .neon-sign { width: min(52vw, 200px); }
+  .akira-brand--header { padding-top: 0.35rem; }
+  .akira-brand__bg-kanji { width: min(85vw, 320px); }
+}
+
+@media (max-width: 430px) {
+  .bike-fg { width: 85vw; right: -18%; bottom: -2%; }
+}
+
+@media (min-width: 1024px) {
+  .neo-bg__img { object-position: center 32%; }
+  .bike-fg { width: min(44vw, 680px); }
+}
+
+@media (min-width: 1440px) {
+  .bike-fg { right: 2%; bottom: 6%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo-bg__img { transform: none !important; }
+}

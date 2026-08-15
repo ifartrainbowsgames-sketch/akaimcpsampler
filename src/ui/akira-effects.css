@@ -46,60 +46,7 @@ body[data-theme="dark"] .pad:active:not(.hit) {
   box-shadow: 0 0 0.9em rgba(245, 208, 0, 0.55), inset 0 0 0.6em rgba(230, 0, 18, 0.15);
 }
 
-/* ---- Poster red orb glow behind unit ------------------------------------- */
-.akira-orb-glow {
-  position: fixed;
-  top: 22%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(70vw, 420px);
-  height: min(70vw, 420px);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 42% 38%,
-    rgba(230, 0, 18, 0.12) 0%,
-    rgba(230, 0, 18, 0.05) 40%,
-    transparent 65%
-  );
-  pointer-events: none;
-  z-index: 0;
-  animation: akiraOrbPulse 5s ease-in-out infinite;
-}
-
-@keyframes akiraOrbPulse {
-  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-  50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
-}
-
-/* ---- Anime speed-line burst (full screen, brief) ------------------------- */
-.akira-speedflash {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  background:
-    repeating-conic-gradient(from 0deg at 50% 55%,
-      rgba(255, 255, 255, 0) 0deg 8deg,
-      rgba(230, 0, 18, 0.16) 8deg 9deg,
-      rgba(255, 255, 255, 0) 9deg 18deg);
-  mix-blend-mode: screen;
-}
-.akira-speedflash--on { animation: akira-speed-burst 0.38s ease-out forwards; }
-.akira-speedflash--cyan {
-  background:
-    repeating-conic-gradient(from 0deg at 50% 55%,
-      rgba(255, 255, 255, 0) 0deg 8deg,
-      rgba(245, 208, 0, 0.18) 8deg 9deg,
-      rgba(255, 255, 255, 0) 9deg 18deg);
-}
-@keyframes akira-speed-burst {
-  0% { opacity: 0; transform: scale(0.92); }
-  25% { opacity: 0.85; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.06); }
-}
-
-/* ---- Chassis pulse while sequencer plays -------------------------------- */
+/* Chassis pulse while sequencer plays (MPC hardware effect only) */
 @keyframes akira-chassis-pulse {
   0%, 100% {
     box-shadow:
@@ -120,105 +67,8 @@ body[data-theme="dark"] .unit.unit--playing {
   animation: akira-chassis-pulse 1.6s ease-in-out infinite;
 }
 
-/* ---- Deck decorations (capsule pill + hazard + stamp) -------------------- */
-.deck { position: relative; }
-
-.akira-deck-deco {
-  position: absolute;
-  pointer-events: none;
-  z-index: 3;
-}
-
-/* Capsule pill — film poster shape */
-.akira-capsule {
-  top: 0.35em;
-  right: 0.5em;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15em;
-  transform: rotate(-6deg);
-}
-
-.akira-capsule__pill {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 3.4em;
-  padding: 0.35em 0.55em 0.4em;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #fff 0%, #e8e8e8 45%, #ccc 100%);
-  border: 2px solid #111;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.akira-capsule__top,
-.akira-capsule__bot {
-  font-family: 'Arial Black', 'Helvetica Neue', sans-serif;
-  font-size: 0.42em;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  line-height: 1.15;
-  color: #111;
-  text-align: center;
-}
-
-.akira-capsule__mid {
-  width: 80%;
-  height: 2px;
-  margin: 0.12em 0;
-  background: #111;
-  border-radius: 1px;
-}
-
-.akira-capsule__stamp {
-  font-family: 'Arial Black', sans-serif;
-  font-size: 0.38em;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  color: #e60012;
-  text-shadow: 0 0 8px rgba(230, 0, 18, 0.5);
-}
-
-/* Hazard chevrons */
-.akira-hazard {
-  bottom: 0.35em;
-  left: 0.5em;
-  display: flex;
-  gap: 0.2em;
-}
-
-.akira-hazard__chev {
-  font-size: 0.55em;
-  font-weight: 900;
-  color: #f5d000;
-  text-shadow: 0 0 6px rgba(245, 208, 0, 0.5);
-  animation: akiraChevBlink 1.2s ease-in-out infinite;
-}
-.akira-hazard__chev:nth-child(2) { animation-delay: 0.2s; }
-.akira-hazard__chev:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes akiraChevBlink {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
-/* Boot screen anime tagline */
-.boot-anime-tag {
-  font-size: 11px;
-  letter-spacing: 0.28em;
-  color: rgba(245, 208, 0, 0.85);
-  margin-bottom: 8px;
-  text-shadow: 0 0 8px rgba(230, 0, 18, 0.35);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .neon-flash, .unit--playing, .akira-speedflash--on, .akira-orb-glow, .akira-hazard__chev {
-    animation: none !important;
-  }
+  .neon-flash, .unit--playing { animation: none !important; }
   body[data-theme="dark"] .pb:active .cap,
   body[data-theme="dark"] .pad:active:not(.hit) { box-shadow: 0 0 0.5em rgba(230, 0, 18, 0.5); }
 }
