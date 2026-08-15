@@ -1,53 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
-import type { AkiraHitVariant } from './akiraHitBus';
+import { useEffect, useRef } from 'react';
+import { flashSpeedLinesImage } from './akira/akiraHitImages';
 
-/** Speed-line burst + ambient orb pulse — Akira film aesthetic. */
+/** Hit feedback — image-based speed lines only (no CSS conic gradients / orb glow). */
 export function AkiraHitFX() {
-  const [burst, setBurst] = useState<{ id: number; variant: AkiraHitVariant } | null>(null);
-  const idRef = useRef(0);
+  const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onHit = (e: Event) => {
-      const variant = (e as CustomEvent<{ variant: AkiraHitVariant }>).detail?.variant ?? 'red';
-      idRef.current += 1;
-      setBurst({ id: idRef.current, variant });
-      window.setTimeout(() => setBurst(null), 450);
-    };
+    const host = hostRef.current;
+    if (!host) return;
+    const onHit = () => flashSpeedLinesImage(host, 1.1);
     window.addEventListener('akira-hit', onHit);
     return () => window.removeEventListener('akira-hit', onHit);
   }, []);
 
-  return (
-    <>
-      {burst && (
-        <div
-          key={burst.id}
-          className={`akira-speedflash akira-speedflash--on${burst.variant === 'cyan' ? ' akira-speedflash--cyan' : ''}`}
-          aria-hidden
-        />
-      )}
-      <div className="akira-orb-glow" aria-hidden />
-    </>
-  );
-}
-
-/** Capsule gang pill + Neo-Tokyo stamp + hazard stripes (original homage). */
-export function AkiraDeckDecor() {
-  return (
-    <>
-      <div className="akira-deck-deco akira-capsule" aria-hidden title="Capsule emblem">
-        <div className="akira-capsule__pill">
-          <span className="akira-capsule__top">GOOD FOR BEATS</span>
-          <span className="akira-capsule__mid" />
-          <span className="akira-capsule__bot">BAD FOR SILENCE</span>
-        </div>
-        <span className="akira-capsule__stamp">NEO-TOKYO · 2019</span>
-      </div>
-      <div className="akira-deck-deco akira-hazard" aria-hidden>
-        <span className="akira-hazard__chev">›</span>
-        <span className="akira-hazard__chev">›</span>
-        <span className="akira-hazard__chev">›</span>
-      </div>
-    </>
-  );
+  return <div ref={hostRef} className="akira-hit-host" aria-hidden />;
 }

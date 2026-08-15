@@ -1,15 +1,21 @@
 import { forwardRef } from 'react';
+import { AKIRA_ASSETS } from './akiraAssets';
 
-/** Layer 3 — restrained Japanese neon signage (occasional GSAP flicker). */
+/** Layer 3 — neon signage as image artwork (not CSS text). */
 export const NeonSign = forwardRef<HTMLElement, { className?: string }>(function NeonSign(
   { className },
   ref,
 ) {
   return (
     <aside ref={ref} className={`neon-sign ${className ?? ''}`} aria-hidden>
-      <span className="neon-sign__line neon-sign__line--jp">ネオ東京</span>
-      <span className="neon-sign__line neon-sign__line--en">NEO-TOKYO</span>
-      <span className="neon-sign__line neon-sign__line--warn">警告</span>
+      <img
+        className="neon-sign__img"
+        src={AKIRA_ASSETS.neonSign}
+        alt=""
+        decoding="async"
+        loading="lazy"
+        draggable={false}
+      />
     </aside>
   );
 });

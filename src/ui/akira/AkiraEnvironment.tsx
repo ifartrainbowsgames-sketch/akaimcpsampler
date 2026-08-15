@@ -5,7 +5,7 @@ import { NeonSign } from './NeonSign';
 import { BikeForeground } from './BikeForeground';
 import { FilmGrain } from './FilmGrain';
 import { mountAkiraEnvironmentAnim } from './akiraEnvironmentAnim';
-import { burstSpeedLines } from '../akiraWallpaperAnim';
+import { flashSpeedLinesImage } from './akiraHitImages';
 import '../akira-environment.css';
 
 interface AkiraEnvironmentProps {
@@ -15,9 +15,8 @@ interface AkiraEnvironmentProps {
 }
 
 /**
- * Full AKIRA (1988) environment stack — image layers + GSAP ambient motion.
- *
- * Layer 1 Neo-Tokyo bg · 2 atmosphere · 3 neon · 4 MPC (in App) · 5 bike · 6 grain
+ * Full AKIRA (1988) environment — image layers only for scenery.
+ * CSS is used for layout/positioning/effects on images, never to draw artwork.
  */
 export function AkiraEnvironment({ brandingRef, showBike = true, className }: AkiraEnvironmentProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -52,7 +51,7 @@ export function AkiraEnvironment({ brandingRef, showBike = true, className }: Ak
 
   useEffect(() => {
     const onHit = () => {
-      if (speedHostRef.current) burstSpeedLines(speedHostRef.current, 8, 0.7);
+      if (speedHostRef.current) flashSpeedLinesImage(speedHostRef.current, 0.85);
     };
     window.addEventListener('akira-hit', onHit);
     return () => window.removeEventListener('akira-hit', onHit);
@@ -76,5 +75,4 @@ export function AkiraEnvironment({ brandingRef, showBike = true, className }: Ak
   );
 }
 
-/** Back-compat alias — replaces old canvas/SVG wallpaper. */
 export { AkiraEnvironment as AkiraBackground };

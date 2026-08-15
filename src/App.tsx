@@ -18,7 +18,7 @@ import { APP_VERSION } from './version';
 import { AkiraBackground } from './ui/AkiraBackground';
 import { AkiraBranding } from './ui/akira/AkiraBranding';
 import { runAkiraIntro, runMpcEntrance } from './ui/akira/akiraEnvironmentAnim';
-import { AkiraDeckDecor, AkiraHitFX } from './ui/AkiraHitFX';
+import { AkiraHitFX } from './ui/AkiraHitFX';
 import { emitAkiraHit, flashElement } from './ui/akiraHitBus';
 import type { ChopLoadMode } from './storage/preferences';
 
@@ -227,7 +227,6 @@ function Panel() {
         <div className="screw bl" /><div className="screw br" />
 
         <div className="deck">
-          <AkiraDeckDecor />
           <div className="deckrow1">
             <div className="logo"><AkiraBranding variant="deck" /></div>
             <div className="fnrow">

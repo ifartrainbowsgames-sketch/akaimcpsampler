@@ -7,4 +7,7 @@ export const AKIRA_ASSETS = {
   bikeFallback: '/images/akira/kaneda-bike.png',
   grain: '/images/akira/grain.webp',
   cityOverlay: '/images/akira/city-overlay.webp',
+  neonSign: '/images/akira/neon-sign.webp',
+  speedLines: '/images/akira/speed-lines.webp',
+  titleKanji: '/images/akira/title-kanji.webp',
 } as const;

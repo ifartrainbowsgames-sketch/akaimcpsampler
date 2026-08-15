@@ -1,5 +1,5 @@
 import { gsap } from 'gsap';
-import { burstSpeedLines } from '../akiraWallpaperAnim';
+import { flashSpeedLinesImage } from './akiraHitImages';
 
 export interface AkiraEnvRefs {
   root: HTMLElement;
@@ -72,7 +72,7 @@ export function mountAkiraEnvironmentAnim(refs: AkiraEnvRefs): () => void {
     };
 
     const onHit = () => {
-      burstSpeedLines(refs.speedHost, 14, 1);
+      flashSpeedLinesImage(refs.speedHost, 1);
       gsap.fromTo(refs.bike, { filter: 'brightness(1.35)' }, { filter: 'brightness(1)', duration: 0.5 });
     };
 

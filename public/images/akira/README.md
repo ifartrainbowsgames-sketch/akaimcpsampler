@@ -1,27 +1,16 @@
-# AKIRA (1988) environment assets
+# AKIRA environment assets
 
-Original homage artwork — not copyrighted movie frames.
+All scenery is **image files** — the app never draws city, bike, neon, or speed lines with CSS/SVG.
 
-## Required files (auto-loaded when present)
+| File | Role |
+|------|------|
+| neo-tokyo-bg.webp | Desktop background |
+| neo-tokyo-mobile.webp | Mobile background |
+| kaneda-bike.webp | Foreground motorcycle (transparent) |
+| city-overlay.webp | Vignette / haze / red wash overlay |
+| neon-sign.webp | Japanese neon signage artwork |
+| speed-lines.webp | Hit-flash speed lines |
+| title-kanji.webp | Background 東京 graphic |
+| grain.webp | Film grain tile |
 
-| File | Purpose |
-|------|---------|
-| `neo-tokyo-bg.webp` | Desktop cinematic Neo-Tokyo night background |
-| `neo-tokyo-mobile.webp` | Mobile/tablet crop (≤768px) |
-| `kaneda-bike.webp` | Transparent foreground motorcycle |
-| `grain.webp` | Film grain tile (256×256, repeats) |
-
-## Optional
-
-| File | Purpose |
-|------|---------|
-| `city-overlay.webp` | Extra atmospheric light layer |
-| `neo-tokyo-bg.avif` | AVIF variant (future) |
-
-## Replacing artwork
-
-Drop higher-resolution files with the **same filenames**. The app uses `<picture>` with WebP + PNG fallbacks.
-
-To swap the bike only: replace `kaneda-bike.webp` (and optionally `kaneda-bike.png`).
-
-Legacy path `public/akira/wallpaper.png` is still copied as `neo-tokyo-bg-fallback.png` for offline fallback.
+Replace any file with the same filename to customize. Run `npm run akira-assets` to regenerate baked overlays.

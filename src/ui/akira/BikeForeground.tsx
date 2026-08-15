@@ -16,7 +16,6 @@ export const BikeForeground = forwardRef<HTMLDivElement>(function BikeForeground
           draggable={false}
         />
       </picture>
-      <div className="bike-fg__glow" />
     </div>
   );
 });
