@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { gsap } from 'gsap';
 import { useStore } from './state/store';
 import { engine } from './audio/engine';
 import { LCD } from './lcd/LCD';
@@ -16,8 +15,9 @@ import { guideClick } from './guide/guideClick';
 import { useTransportMeter } from './ui/useTransportMeter';
 import { SAMPLE_FILE_INPUT_ID } from './sampleInput';
 import { APP_VERSION } from './version';
-import { AkiraLogo, ProMcpWordmark } from './ui/AkaiLogo';
 import { AkiraBackground } from './ui/AkiraBackground';
+import { AkiraBranding } from './ui/akira/AkiraBranding';
+import { runAkiraIntro, runMpcEntrance } from './ui/akira/akiraEnvironmentAnim';
 import { AkiraDeckDecor, AkiraHitFX } from './ui/AkiraHitFX';
 import { emitAkiraHit, flashElement } from './ui/akiraHitBus';
 import type { ChopLoadMode } from './storage/preferences';
@@ -32,36 +32,36 @@ export default function App() {
 
 function BootScreen({ onStart }: { onStart(): Promise<void> }) {
   const [busy, setBusy] = useState(false);
-  const titleRef = useRef<HTMLHeadingElement>(null);
+  const bootcardRef = useRef<HTMLDivElement>(null);
+  const curtainRef = useRef<HTMLDivElement>(null);
+  const syslineRef = useRef<HTMLDivElement>(null);
 
-  // GSAP glitch/neon reveal of the AKIRA PRO MCP wordmark on load.
   useEffect(() => {
-    const el = titleRef.current;
-    if (!el) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline();
-      tl.from(el, { duration: 0.5, opacity: 0, scale: 1.15, filter: 'blur(12px)', ease: 'power3.out' })
-        // film-poster RGB split: blood red + warning yellow
-        .to(el, { duration: 0.06, x: -4, textShadow: '3px 0 #F5D000, -3px 0 #E60012', repeat: 5, yoyo: true }, '-=0.15')
-        .to(el, { duration: 0.2, x: 0, textShadow: '3px 3px 0 #1a1a1a, 0 0 24px rgba(230,0,18,0.85)', ease: 'power1.out' });
-      gsap.to(el, { delay: 1.1, duration: 1.6, repeat: -1, yoyo: true, ease: 'sine.inOut',
-        textShadow: '3px 3px 0 #1a1a1a, 0 0 28px rgba(230,0,18,0.95), 0 0 48px rgba(245,208,0,0.25)' });
-    }, el);
-    return () => ctx.revert();
+    const curtain = curtainRef.current;
+    const sysline = syslineRef.current;
+    const content = bootcardRef.current;
+    const env = document.querySelector('.akira-env');
+    const neon = document.querySelector('.neon-sign');
+    const bike = document.querySelector('.bike-fg');
+    if (!curtain || !sysline || !content || !env || !neon || !bike) return;
+    runAkiraIntro({
+      curtain,
+      sysline,
+      env: env as HTMLElement,
+      neon: neon as HTMLElement,
+      content,
+      bike: bike as HTMLElement,
+    });
   }, []);
 
   return (
     <div className="boot">
+      <div ref={curtainRef} className="akira-intro-curtain" aria-hidden />
+      <div ref={syslineRef} className="akira-intro-sys" aria-hidden>システム起動… NEO-TOKYO</div>
       <AkiraBackground />
       <AkiraHitFX />
-      <div className="bootcard">
-        <div className="bootlogo">
-          <AkiraLogo className="akailogo" />
-        </div>
-        <h1 className="boot-title" ref={titleRef}>AKIRA PRO MCP</h1>
-        <p className="boot-anime-tag">ネオ東京 · GSAP LIVE WALLPAPER</p>
+      <div ref={bootcardRef} className="bootcard">
+        <AkiraBranding variant="boot" />
         <p>16-pad sampler, sequencer &amp; DAW. Everything runs on your device.</p>
         <button
           type="button"
@@ -202,25 +202,34 @@ function Panel() {
   }, [setShift, play, stop]);
 
   const onChopChoice = (mode: ChopLoadMode) => resolveChopChoice(mode);
+  const brandingRef = useRef<HTMLDivElement>(null);
+  const unitRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const unit = unitRef.current;
+    if (!unit) return;
+    runMpcEntrance(unit, unit.querySelector('.lcd') as HTMLElement | null);
+  }, []);
 
   return (
     <>
-      <AkiraBackground />
+      <AkiraBackground brandingRef={brandingRef} />
       <AkiraHitFX />
       <div className={`stage ${shift ? 'shifted' : ''}`}>
+      <AkiraBranding ref={brandingRef} variant="header" />
       <UpdateBanner />
       {pendingChopPad !== null && <ChopModeModal onChoose={onChopChoice} />}
       <GuideBubble />
       <GuideBanner />
 
-      <div className={`unit${transport.playing ? ' unit--playing' : ''}`}>
+      <div ref={unitRef} className={`unit${transport.playing ? ' unit--playing' : ''}`}>
         <div className="screw tl" /><div className="screw tr" />
         <div className="screw bl" /><div className="screw br" />
 
         <div className="deck">
           <AkiraDeckDecor />
           <div className="deckrow1">
-            <div className="logo"><AkiraLogo className="akailogo akailogo--deck" /></div>
+            <div className="logo"><AkiraBranding variant="deck" /></div>
             <div className="fnrow">
               <button type="button" className="fnbtn" aria-label="B1" onClick={() => cycleB(1)}
                 onPointerDown={(e) => { flashElement(e.currentTarget, 'cyan'); emitAkiraHit('cyan'); }} />
@@ -229,7 +238,7 @@ function Panel() {
               <button type="button" className="fnbtn" aria-label="B3" onClick={() => cycleB(3)}
                 onPointerDown={(e) => { flashElement(e.currentTarget, 'cyan'); emitAkiraHit('cyan'); }} />
             </div>
-            <div className="wordmark"><ProMcpWordmark /></div>
+            <div className="wordmark"><span className="mpc-stamp">1988</span></div>
           </div>
 
           <div className="deckrow2">
