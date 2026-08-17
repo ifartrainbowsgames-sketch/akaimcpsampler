@@ -2,11 +2,20 @@
 
 ## Mission
 
-Build a **self-hosted AI coding platform** that people can run on a server — comparable in *capability* to **Claude Code** and **Cursor** — powered by **50+ autonomous agents** that plan, code, verify, and correct their own work.
+Build a **self-learning, self-hosted AI coding platform** — comparable in *capability* to **Claude Code** and **Cursor** — powered by **50+ autonomous agents** that plan, code, verify, **and get smarter over time without you hand-feeding every answer**.
 
-Target quality bar: **frontier-class coding** (aspiration: Opus-class reasoning and reliability). The system must deploy and coordinate agents at scale, use **Graphify** for deep codebase intelligence, use **Deep Agents + LangGraph** for orchestration and coding harnesses, and use **AgentReach** so agents can learn from the public internet — especially **GitHub**, **YouTube**, and the open web.
+**Self-learning is the whole point.** The system must:
 
-**This project is NOT about the MPC sampler UI or AKIRA visuals.** It is about **reading, reasoning, teaching, and creating software with AI.**
+1. **Learn from the world** — public GitHub, YouTube, docs, search (via **AgentReach**)
+2. **Learn from every job** — successes, failures, test output, reviewer feedback → memory + datasets
+3. **Apply what it learned** — next task starts with prior patterns, not from zero
+4. **Improve itself** — prompt optimization, skill library growth, optional model fine-tuning on verified trajectories
+
+Target quality bar: **frontier-class coding** (aspiration: Opus-class reasoning and reliability), achieved through **orchestration + verification + accumulated knowledge** — not a one-shot prompt per task.
+
+Supporting pillars: **Graphify** (codebase intelligence), **Deep Agents + LangGraph** (orchestration), **AgentReach** (web/GitHub/YouTube access).
+
+**This project is NOT about the MPC sampler UI or AKIRA visuals.** It is about **reading, reasoning, learning, and creating software with AI that teaches itself.**
 
 ---
 
@@ -14,27 +23,138 @@ Target quality bar: **frontier-class coding** (aspiration: Opus-class reasoning 
 
 | Capability | Description |
 |------------|-------------|
-| **Multi-agent orchestration** | 50+ agents with roles: planner, coder, reviewer, tester, debugger, deployer |
+| **Self-learning (core)** | Continuous loop: discover → try → verify → remember → reuse; platform gets better every week |
+| **Multi-agent orchestration** | 50+ agents with roles: planner, coder, reviewer, tester, learner, debugger, deployer |
 | **Self-control & self-check** | Agents critique each other; loops until tests/lint pass or budget exhausted |
+| **Persistent memory** | Episodic (past jobs), semantic (patterns/skills), procedural (how-to for stacks/tools) |
 | **Server-hosted service** | API + dashboard; users submit tasks; agents run on server infrastructure |
 | **Agent deployment** | Spin up/isolate agent workers (containers/sandboxes); queue jobs; monitor lifecycle |
-| **Graphify integration** | Knowledge graph over repos: god nodes, communities, `query` / `path` / `explain` — reduce tokens, improve cross-file reasoning |
-| **AgentReach integration** | Web/GitHub/YouTube/social access without paid APIs — agents learn from public code, docs, and tutorials |
+| **Graphify integration** | Knowledge graph over repos — local + ingested public repos; grows with every clone |
+| **AgentReach integration** | Web/GitHub/YouTube access — agents fetch new knowledge when they hit unknown territory |
 | **Claude Code–like UX** | Terminal/agent mode: read repo, edit files, run commands, git, iterative fixes |
 | **Cursor-like UX** | IDE integration or web UI: inline edits, project rules, background agents on branches |
-| **Teach / improve over time** | Ingest public repos + successful trajectories → eval datasets → optional fine-tuning |
 
 ---
 
 ## Non-negotiables
 
-1. **Safety & isolation** — each agent run in sandbox (container/VM); no arbitrary host access; secrets in vault/env.
-2. **Verifiability** — no “done” without automated checks where possible: build, test, lint, typecheck, optional human gate.
-3. **Observability** — every agent step logged (LangSmith or equivalent): prompts, tool calls, diffs, cost, latency.
-4. **Graph-first codebase context** — use Graphify before large grep/read sweeps when `graphify-out/` exists.
-5. **Web learning is first-class** — agents must reach GitHub, YouTube, and the open web via AgentReach (not only user-supplied code).
-6. **Model-agnostic core** — orchestration layer must swap models (Claude, GPT, open weights) without rewriting agents.
-7. **Honest quality bar** — Opus-class *behavior* is achieved via **strong base models + multi-agent verification + graph context + web research**, not by pretending a small local model equals frontier reasoning on day one.
+1. **Self-learning is mandatory** — every completed job writes back to memory; unknown tasks trigger web/GitHub research before asking the user; the platform must measurably improve on repeated task types.
+2. **Safety & isolation** — each agent run in sandbox (container/VM); no arbitrary host access; secrets in vault/env.
+3. **Verifiability** — no “done” without automated checks where possible: build, test, lint, typecheck, optional human gate.
+4. **Observability** — every agent step logged (LangSmith or equivalent): prompts, tool calls, diffs, cost, latency — **feeds the learning pipeline**.
+5. **Graph-first codebase context** — use Graphify before large grep/read sweeps when `graphify-out/` exists.
+6. **Web learning is first-class** — agents must reach GitHub, YouTube, and the open web via AgentReach (not only user-supplied code).
+7. **Model-agnostic core** — orchestration layer must swap models (Claude, GPT, open weights) without rewriting agents.
+8. **Honest quality bar** — Opus-class *behavior* is achieved via **strong base models + multi-agent verification + accumulated knowledge**, not by pretending a small local model equals frontier reasoning on day one.
+
+---
+
+## Self-learning architecture (the core loop)
+
+This is not a “nice to have later” feature. **Self-learning runs on every job from day one.**
+
+```
+                    ┌──────────────────────────────────────┐
+                    │         USER TASK ARRIVES            │
+                    └──────────────────┬───────────────────┘
+                                       │
+                    ┌──────────────────▼───────────────────┐
+                    │  RECALL — search memory + skill lib   │
+                    │  Have we done this stack/pattern?     │
+                    └──────────────────┬───────────────────┘
+                                       │
+                         gap found? ───┼─── yes, enough context
+                                       │              │
+                    ┌──────────────────▼───┐          │
+                    │  DISCOVER (AgentReach)│          │
+                    │  GitHub · YouTube ·   │          │
+                    │  web · Exa search     │          │
+                    └──────────────────┬───┘          │
+                                       │              │
+                    ┌──────────────────▼──────────────▼──┐
+                    │  INGEST — clone repo, graphify,    │
+                    │  extract patterns, store subgraph  │
+                    └──────────────────┬─────────────────┘
+                                       │
+                    ┌──────────────────▼─────────────────┐
+                    │  ACT — plan → code → review → test   │
+                    └──────────────────┬─────────────────┘
+                                       │
+                    ┌──────────────────▼─────────────────┐
+                    │  REFLECT — what worked? what failed? │
+                    │  critic output · test logs · diffs   │
+                    └──────────────────┬─────────────────┘
+                                       │
+                    ┌──────────────────▼─────────────────┐
+                    │  REMEMBER — write to memory layers   │
+                    │  trajectories · skills · eval set    │
+                    └──────────────────┬─────────────────┘
+                                       │
+                    ┌──────────────────▼─────────────────┐
+                    │  IMPROVE — nightly/weekly jobs       │
+                    │  DSPy · regressions · fine-tune opt  │
+                    └──────────────────────────────────────┘
+```
+
+### Three learning sources
+
+| Source | What the system learns | How |
+|--------|------------------------|-----|
+| **External (world)** | New libraries, patterns, idioms, tutorials | AgentReach → GitHub clone → Graphify ingest → skill cards |
+| **Internal (experience)** | What fixes worked, common failure modes, project conventions | Trajectory logging after every job; replay on similar tasks |
+| **Social (multi-agent)** | Reviewer critiques, cross-agent corrections | Critic/fixer loops produce labeled `{bad diff → good diff}` pairs |
+
+### Memory layers (persistent, queryable)
+
+| Layer | Stores | Used when |
+|-------|--------|-----------|
+| **Episodic** | Full job traces: prompt, tools, diffs, test results, outcome | “Last time we migrated X, we did Y” |
+| **Semantic** | Distilled facts: “React 19 uses …”, “this repo uses Zustand for state” | Planner + researcher context injection |
+| **Procedural (skills)** | Reusable playbooks: “add auth with Clerk”, “fix flaky pytest” | Supervisor routes to matching skill before planning from scratch |
+| **Graph (Graphify)** | Code structure of local + ingested public repos | Scoped subgraph per agent; grows with every ingest |
+
+### Skill library (self-built curriculum)
+
+After ingesting GitHub repos or completing jobs, a **Learner agent** distills:
+
+- **Pattern cards** — “how this codebase handles routing / state / tests”
+- **Failure cards** — “when you see error X, check Y” (from failed runs that later succeeded)
+- **Stack profiles** — React+Zustand, FastAPI+SQLAlchemy, etc. — built from public repos + your repos
+
+Next time a similar task arrives, the supervisor **recalls skills first**, then researches only the gap.
+
+### When the AI does NOT know something
+
+**Default behavior (required):**
+
+1. Search memory + skill library + Graphify (local + ingested repos)
+2. If gap remains → **AgentReach**: GitHub search, YouTube tutorial, docs, Exa
+3. Ingest findings → Graphify + skill card
+4. Attempt task → log outcome
+5. **Only then** ask the user — with what was already tried
+
+The user teaches the system once; the system teaches itself afterward.
+
+### Improvement schedule (automatic, not manual)
+
+| Cadence | Job |
+|---------|-----|
+| **Every job** | Log trajectory; update episodic memory; extract failure/success signals |
+| **Daily** | Merge new skill cards; dedupe; index for retrieval |
+| **Weekly** | Run eval suite on benchmark repos; compare to last week; flag regressions |
+| **Monthly** | DSPy prompt optimization on top failure categories; optional LoRA fine-tune on verified trajectories |
+
+### What “self-learning” is NOT
+
+- **Not** training a frontier model from scratch on day one
+- **Not** blindly copying GitHub code without tests and review
+- **Not** replacing the user — it reduces how often you must explain the same stack twice
+
+### What “self-learning” IS
+
+- Agents that **get faster and more accurate on your stack** over weeks
+- A **growing knowledge base** of public + private code patterns
+- **Measurable improvement**: same benchmark tasks pass more often with fewer tokens and fewer web fetches (because memory already has the answer)
 
 ---
 
@@ -52,7 +172,8 @@ Target quality bar: **frontier-class coding** (aspiration: Opus-class reasoning 
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Deep Agents Supervisor (LangGraph runtime)                   │
 │    ├─ Planner agent                                         │
-│    ├─ Research agent (Graphify + AgentReach web/GitHub)     │
+│    ├─ Research agent (Graphify + AgentReach)                │
+│    ├─ Learner agent (distill skills, ingest repos)          │
 │    ├─ Coder agents (N parallel, file-scoped)                │
 │    ├─ Critic / reviewer agents                              │
 │    ├─ Test runner agent                                     │
@@ -62,13 +183,21 @@ Target quality bar: **frontier-class coding** (aspiration: Opus-class reasoning 
         ┌───────────────────┼───────────────────┐
         ▼                   ▼                   ▼
    Graphify KG          Tool layer         Model router
-   (repo graph)     bash, git, read,     Claude / GPT /
-                    write, grep, PR      open models
+   (local + ingested)  bash, git, read,   Claude / GPT /
+                       write, grep, PR     open models
         │                   │                   │
         └───────────────────┴───────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│  AgentReach — web, GitHub, YouTube, search, RSS, social       │
+│  LEARNING LAYER (persistent — grows every job)                │
+│    ├─ Episodic memory (trajectories)                          │
+│    ├─ Skill library (pattern + failure cards)                 │
+│    ├─ Eval datasets + regression suite                        │
+│    └─ Optional: fine-tuned adapters on verified runs          │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│  AgentReach — web, GitHub, YouTube, search, RSS               │
 │  (gh, yt-dlp, Jina Reader, Exa MCP — zero API fees)           │
 └───────────────────────────┬─────────────────────────────────┘
                             │
@@ -130,11 +259,16 @@ Expose AgentReach as **first-class tools** in the orchestrator:
 
 ### Learning pipeline (public code → platform knowledge)
 
-1. **Discover** — AgentReach finds repos, tutorials, and docs relevant to a task or skill gap.
-2. **Ingest** — Clone/index public repos; run `graphify update` on each; store subgraphs + metadata.
-3. **Apply** — Coder agents use Graphify-scoped context from ingested repos as reference (not blind copy-paste).
-4. **Log** — Successful trajectories (prompt, graph context, web sources, diffs, tests passed) → eval dataset.
-5. **Improve** — DSPy prompt optimization and optional fine-tuning on approved trajectories.
+This pipeline runs **automatically** when agents hit unknown territory — not only on manual ingest jobs.
+
+1. **Recall** — check memory + skill library + Graphify (local + previously ingested repos).
+2. **Discover** — if gap: AgentReach finds repos, tutorials, docs for the unknown stack/pattern.
+3. **Ingest** — clone/index public repos; `graphify update`; store subgraphs + metadata.
+4. **Distill** — Learner agent writes pattern cards + stack profiles from ingested material.
+5. **Apply** — Coder agents use recalled skills + Graphify-scoped context (not blind copy-paste).
+6. **Reflect** — log success/failure signals from tests, critic, and diffs.
+7. **Remember** — append to episodic memory + eval dataset; promote repeated patterns to skills.
+8. **Improve** — weekly evals + DSPy/fine-tune on verified trajectories.
 
 ---
 
@@ -186,17 +320,18 @@ Deep Agents (coding harness + subagents)
 | Agent | Job |
 |-------|-----|
 | **Supervisor** | Decompose user goal; assign subtasks; stop when done or over budget |
-| **Graph explorer** | Run Graphify; return scoped subgraph + inferred edges |
-| **Web researcher** | AgentReach: GitHub repos, YouTube tutorials, docs, Exa search |
-| **Implementer** | Write minimal diffs; follow project conventions |
-| **Reviewer** | Diff review; security + logic; request changes |
+| **Learner** | Distill skills from completed jobs + ingested repos; maintain skill library; trigger ingest |
+| **Graph explorer** | Run Graphify; return scoped subgraph + inferred edges (local + ingested repos) |
+| **Web researcher** | AgentReach: GitHub repos, YouTube tutorials, docs, Exa search — **before asking user** |
+| **Implementer** | Write minimal diffs; follow project conventions + recalled skills |
+| **Reviewer** | Diff review; security + logic; request changes; produce labeled correction pairs |
 | **Test runner** | Execute test suite; report failures with logs |
 | **Fixer** | Patch failures from test/lint output |
 | **Doc / rules** | Update CLAUDE.md, AGENTS.md, graphify after structural changes |
 | **Deploy** | CI status, PR creation, optional merge (with policy) |
 
-**Self-check loop:**  
-`plan → (graphify + web research) → implement → review → test → (fail → fix)* → ship`
+**Self-check + self-learn loop:**  
+`recall → (research if gap) → plan → implement → review → test → (fail → fix)* → reflect → remember → ship`
 
 ---
 
@@ -204,12 +339,14 @@ Deep Agents (coding harness + subagents)
 
 | Layer | Technology |
 |-------|------------|
+| **Self-learning** | Trajectory store, skill library (vector + structured cards), nightly eval jobs, DSPy |
 | Coding harness | **Deep Agents** (planning, subagents, filesystem context) |
 | Orchestration runtime | **LangGraph** (stateful graphs, cycles, human-in-the-loop, 50-agent routing) |
 | Reference / baseline | **Open SWE**, **Deep Agents Code (`dcode`)** |
 | Execution sandbox | **OpenHands** SDK patterns or pluggable containers (Modal/Daytona/E2B) |
-| Codebase intelligence | **Graphify** (AST graph, communities, wiki, `graphify update`) |
+| Codebase intelligence | **Graphify** (AST graph, communities, wiki — local + ingested repos) |
 | Web / GitHub / YouTube | **AgentReach** (`pip install agent-reach`; MCP or tool wrapper) |
+| Memory | pgvector / Qdrant + object storage for trajectories; Graphify for structural memory |
 | Eval / debug | **LangSmith** or open telemetry (traces, datasets, regressions) |
 | API | FastAPI or Node + WebSockets for streaming |
 | Workers | Docker + Kubernetes (or Modal/Fly.io for MVP) |
@@ -224,36 +361,40 @@ Deep Agents (coding harness + subagents)
 
 ## How to reach Opus-class *coding* (realistic path)
 
-Frontier models are the **reasoning engine**. Our platform wins on **orchestration + verification + graph context + web research**, not by replacing Opus with a 7B model on day one.
+Frontier models are the **reasoning engine**. Our platform wins on **self-learning + orchestration + verification + accumulated knowledge**, not by replacing Opus with a 7B model on day one.
 
-### Phase 0 — Foundation
+### Phase 0 — Foundation (self-learning from job one)
 - [ ] Repo `ai-agent-platform` (new) with monorepo layout
 - [ ] Evaluate **Open SWE** and **Deep Agents Code** on 3 benchmark tasks
-- [ ] Deep Agents supervisor + 1 coder + 1 critic loop (LangGraph runtime)
+- [ ] Deep Agents supervisor + 1 coder + 1 critic + **1 learner** loop (LangGraph runtime)
 - [ ] Tool SDK: `read_file`, `write_file`, `grep`, `run_terminal`, `graphify_query`
 - [ ] **AgentReach tools:** `web_read`, `github_repo`, `github_search`, `youtube_transcript`, `web_search`
+- [ ] **Memory MVP:** log every trajectory; `recall_skills(query)` before planning; write skill card after success
 - [ ] Graphify embedded: auto-run on repo clone; inject subgraph into agent context
 - [ ] Single sandbox worker; CLI: `agent run "fix the login bug"`
+- [ ] **Prove learning loop:** run same task type twice — second run uses memory, fewer web fetches
 
 ### Phase 1 — Multi-agent MVP (scale to ~10 agents)
 - [ ] Parallel implementers on non-overlapping files (Graphify community detection)
-- [ ] Research agent ingests public GitHub repos + YouTube tutorials for unfamiliar stacks
-- [ ] Mandatory review + test gate before PR
+- [ ] Research agent auto-ingests public GitHub + YouTube when skill gap detected
+- [ ] Skill library with stack profiles (React, FastAPI, etc.) built from ingested repos
+- [ ] Mandatory review + test gate before PR; reviewer corrections → training pairs
 - [ ] Job queue + 10 concurrent sandboxes
-- [ ] Web UI: submit task, watch stream, view diff/PR
+- [ ] Web UI: submit task, watch stream, view diff/PR + “what the agent learned”
 
 ### Phase 2 — Scale to 50+ agents
 - [ ] Kubernetes autoscaling workers
 - [ ] Task partitioner uses Graphify communities/god nodes
 - [ ] Cost budgets per job; model routing (cheap model for grep, frontier for plan/review)
-- [ ] Agent memory: job-scoped + project-scoped (vector + graph)
-- [ ] Public-repo ingestion pipeline (AgentReach discover → clone → graphify → index)
+- [ ] Full memory stack: episodic + semantic + procedural + graph
+- [ ] Public-repo ingestion pipeline on autopilot (AgentReach discover → clone → graphify → skill cards)
+- [ ] Weekly eval suite — track improvement over time
 
-### Phase 3 — Teach the system (continuous improvement)
-- [ ] Log successful runs → dataset (prompt, graph context, web sources, diffs, tests passed)
-- [ ] LangSmith / custom evals on benchmark repos
-- [ ] DSPy or fine-tune router + specialized small agents
-- [ ] Optional: fine-tune open coder on *your* trajectories (not “be Opus” — “be good at our stack”)
+### Phase 3 — Deep self-improvement
+- [ ] LangSmith / custom evals on benchmark repos; regression alerts
+- [ ] DSPy optimization on top failure categories from logged trajectories
+- [ ] Optional LoRA fine-tune on verified trajectories (specialize on your stack, not “be Opus”)
+- [ ] Cross-tenant skill sharing (opt-in): popular patterns promoted platform-wide
 
 ### Phase 4 — Product parity targets
 - [ ] **Claude Code parity:** terminal agent, full repo, git, long tasks, resume sessions
@@ -305,13 +446,14 @@ Graphify is not optional decoration — it is the **technical backbone** for *lo
 
 | Metric | Target |
 |--------|--------|
+| **Repeat-task success rate** | ↑ week over week on same benchmark tasks (proves self-learning) |
+| **Web fetches per repeat task** | ↓ as skill library grows (memory replaces re-research) |
 | SWE-bench-style pass rate | Track vs Open SWE / single-agent baseline |
-| First-try test pass | ↑ with critic loop |
-| Tokens per task | ↓ with Graphify scoped context |
-| Web-augmented task success | ↑ when AgentReach finds reference repos/docs |
+| First-try test pass | ↑ with critic loop + recalled skills |
+| Tokens per task | ↓ with Graphify scoped context + skill recall |
+| Skill library size | Grows with every ingest + successful job |
 | Parallel agents without conflict | ↑ with community partitioning |
 | User task completion | Subjective parity with Claude Code for medium repos |
-| P95 job latency | Acceptable for async (minutes, not hours) |
 
 ---
 
@@ -328,16 +470,16 @@ Graphify is not optional decoration — it is the **technical backbone** for *lo
 
 1. **Create new repository** `ai-agent-platform` (separate from akaimcpsampler).
 2. **Evaluate** Open SWE + Deep Agents Code on 3 tasks; pick baseline harness.
-3. **Scaffold** Deep Agents supervisor + Graphify tools + AgentReach tools + Docker sandbox.
-4. **Prove one loop:** issue → AgentReach (GitHub/docs) → graphify query → edit → pytest → PR.
+3. **Scaffold** Deep Agents supervisor + Graphify + AgentReach + **memory/skill library from day one**.
+4. **Prove self-learning loop:** task A (unknown stack) → research → succeed → log skill → task A′ (similar) → recall, no re-research → succeed faster.
 5. **Document** agent protocol in `AGENTS.md` + this `GOAL.md`.
-6. **Benchmark** against single Claude Code run on same tasks.
+6. **Benchmark** improvement: same tasks weekly; track pass rate and token/web-fetch deltas.
 
 ---
 
 ## One-line goal
 
-> **A self-hosted, Graphify-powered, Deep-Agents-orchestrated army of 50+ self-checking coding agents with AgentReach web/GitHub/YouTube access — delivering Claude Code / Cursor–class results on a server people can actually use.**
+> **A self-learning, self-hosted coding platform: 50+ agents that recall past work, research GitHub/YouTube when they don’t know, verify each other, and get smarter every week — Graphify + AgentReach + Deep Agents + LangGraph.**
 
 ---
 
