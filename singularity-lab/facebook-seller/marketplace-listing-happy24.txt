@@ -1,0 +1,30 @@
+Facebook Marketplace listing fields — Happy 24 Laundry
+========================================================
+
+TITLE (English):
+Laundry Business for Sale - Happy 24 Laundry Si Phum Chiang Mai
+
+TITLE (Thai):
+ขายกิจการร้านซักรีด Happy 24 Laundry ศรีภูมิ เชียงใหม่
+
+PRICE: 239000
+
+CATEGORY: Business equipment / Services (pick closest available)
+
+LOCATION: Si Phum, Chiang Mai
+
+DESCRIPTION — paste post-happy24-full-en.txt or post-happy24-full-th.txt
+
+PHOTOS TO UPLOAD (in order):
+1. Shop front / signage Happy 24 Laundry
+2. Row of LG washing machines
+3. Dryers
+4. SURE ironing station
+5. Steam iron / SHENG TAI equipment
+6. Vending machines (7Days Exchange + 7Days Wash)
+7. Interior wide shot
+8. Receipt printer / POS area
+9. Google Business screenshot (optional)
+10. Street / location context
+
+REPOST: every 3-5 days via FAP or marketplace-bot

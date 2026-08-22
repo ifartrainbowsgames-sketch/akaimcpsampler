@@ -1,0 +1,11 @@
+action,value
+scroll-feed,2
+
+# Posting to groups via fb_tool is limited — use FAP for group posts with photos.
+# This file is for scheduled maintenance actions.
+#
+# Generate fresh post text weekly:
+# python cli.py generate-ai-text --prompt "Rewrite this business for sale post for Chiang Mai: [paste post-template-en.txt]"
+#
+# Optional: like posts in groups to stay visible (use carefully, low limits)
+# like-posts,"keywords:business for sale chiang mai;limit:5;scroll:2"

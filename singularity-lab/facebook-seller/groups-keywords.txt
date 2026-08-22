@@ -1,0 +1,24 @@
+# Facebook group search keywords
+# Use in Facebook search → Groups → filter by your city
+
+business for sale Chiang Mai
+business for sale Thailand
+Chiang Mai business
+restaurant for sale Chiang Mai
+café for sale Chiang Mai
+salon for sale Chiang Mai
+shop for sale Chiang Mai
+business takeover Thailand
+buy business Thailand
+sell business Chiang Mai
+Chiang Mai expats business
+Chiang Mai entrepreneurs
+Chiang Mai buy sell
+businesses for sale and rent Chiang Mai
+businesses for sale and rent Thailand
+Living in Chiang Mai
+Chiang Mai digital nomads
+Thailand small business
+invest Thailand business
+
+# After joining, paste each group URL below into groups-to-join.txt
