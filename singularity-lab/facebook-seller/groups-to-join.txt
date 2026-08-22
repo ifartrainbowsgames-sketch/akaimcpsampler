@@ -1,0 +1,9 @@
+# Facebook group URLs — one per line
+# Find groups using groups-keywords.txt, join manually, paste URL here
+#
+# Example:
+# https://www.facebook.com/groups/1234567890/
+#
+# Add your groups below:
+
+

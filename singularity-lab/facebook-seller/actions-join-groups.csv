@@ -1,0 +1,12 @@
+action,value
+join-group,https://www.facebook.com/groups/REPLACE_GROUP_ID_1/
+join-group,https://www.facebook.com/groups/REPLACE_GROUP_ID_2/
+join-group,https://www.facebook.com/groups/REPLACE_GROUP_ID_3/
+join-group,https://www.facebook.com/groups/REPLACE_GROUP_ID_4/
+join-group,https://www.facebook.com/groups/REPLACE_GROUP_ID_5/
+
+# INSTRUCTIONS:
+# 1. Replace REPLACE_GROUP_ID_* with real group URLs from groups-to-join.txt
+# 2. Max 5-10 join-group rows per run per day
+# 3. Run: python cli.py bulk-run --csv-path actions-join-groups.csv
+# 4. Wait 24h before next batch
